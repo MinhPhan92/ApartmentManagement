@@ -1,8 +1,134 @@
-﻿@{
-    ViewData["Title"] = "Home Page";
+@{
+    ViewData["Title"] = "Trang Chủ - ApartmentHub";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div class="container py-5">
+    <!-- Hero Section -->
+    <div class="row align-items-center mb-5 pb-4">
+        <div class="col-lg-7 mb-4 mb-lg-0">
+            <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill fw-semibold mb-3">
+                🚀 Hệ Thống Quản Lý Chung Cư .NET 10
+            </span>
+            <h1 class="display-4 fw-bold text-dark mb-3">
+                Giải Pháp Quản Lý Chung Cư Hiện Đại & Thông Minh
+            </h1>
+            <p class="lead text-muted mb-4">
+                Nền tảng quản lý toàn diện từ danh mục Tòa nhà, Căn hộ, Cư dân, Hợp đồng lưu trú cho tới Dịch vụ, Hóa đơn và Phản ánh cư dân với bảo mật phân quyền RBAC đa cấp độ.
+            </p>
+            <div class="d-flex flex-wrap gap-3">
+                @if (User.Identity?.IsAuthenticated == true)
+                {
+                    @if (User.IsInRole("SystemAdmin") || User.IsInRole("Manager"))
+                    {
+                        <a asp-controller="Dashboard" asp-action="Index" class="btn btn-primary btn-lg rounded-3 px-4 shadow-sm">
+                            Vào Dashboard Quản Trị →
+                        </a>
+                    }
+                    @if (User.IsInRole("Resident"))
+                    {
+                        <a asp-controller="Dashboard" asp-action="Resident" class="btn btn-success btn-lg rounded-3 px-4 shadow-sm">
+                            Vào Cổng Cư Dân →
+                        </a>
+                    }
+                }
+                else
+                {
+                    <a asp-area="Identity" asp-page="/Account/Login" class="btn btn-primary btn-lg rounded-3 px-4 shadow-sm">
+                        Đăng Nhập Ngay →
+                    </a>
+                    <a asp-area="Identity" asp-page="/Account/Register" class="btn btn-outline-secondary btn-lg rounded-3 px-4">
+                        Đăng Ký Tài Khoản
+                    </a>
+                }
+            </div>
+        </div>
+        <div class="col-lg-5">
+            <div class="card border-0 shadow-lg rounded-4 p-4" style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);">
+                <div class="card-body text-white">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="fs-1">🏢</span>
+                        <span class="badge bg-success">Hệ thống sẵn sàng</span>
+                    </div>
+                    <h4 class="fw-bold mb-2">Tài Khoản Trải Nghiệm Demo</h4>
+                    <p class="text-white-50 small mb-4">Đã tích hợp sẵn dữ liệu phân quyền trong CSDL SQL Server:</p>
+                    
+                    <div class="d-flex flex-column gap-2">
+                        <div class="bg-white bg-opacity-10 p-3 rounded-3 d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="fw-semibold">🛡️ SystemAdmin</div>
+                                <small class="text-white-50">admin / Admin@123</small>
+                            </div>
+                            <span class="badge bg-light text-dark">Toàn quyền</span>
+                        </div>
+                        <div class="bg-white bg-opacity-10 p-3 rounded-3 d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="fw-semibold">🏢 Manager</div>
+                                <small class="text-white-50">manager / Manager@123</small>
+                            </div>
+                            <span class="badge bg-light text-dark">Ban quản lý</span>
+                        </div>
+                        <div class="bg-white bg-opacity-10 p-3 rounded-3 d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="fw-semibold">🏠 Resident</div>
+                                <small class="text-white-50">resident / Resident@123</small>
+                            </div>
+                            <span class="badge bg-light text-dark">Cư dân</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Phase Roadmap Cards -->
+    <div class="row g-4 mt-2">
+        <div class="col-12 text-center mb-2">
+            <h2 class="fw-bold">Tiến Độ Phát Triển Nghiệp Vụ</h2>
+            <p class="text-muted">Kiến trúc cơ sở dữ liệu và các module theo kế hoạch</p>
+        </div>
+
+        <div class="col-md-6 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100 p-3">
+                <div class="card-body">
+                    <div class="fs-2 mb-2">🏛️</div>
+                    <h5 class="fw-bold mb-2">Tòa Nhà (Building)</h5>
+                    <p class="text-muted small mb-3">Quản lý mã tòa, tên tòa, số tầng, địa chỉ và thông số hạ tầng.</p>
+                    <span class="badge bg-success bg-opacity-10 text-success fw-semibold">Phase 1 Complete</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100 p-3">
+                <div class="card-body">
+                    <div class="fs-2 mb-2">🚪</div>
+                    <h5 class="fw-bold mb-2">Căn Hộ (Apartment)</h5>
+                    <p class="text-muted small mb-3">Mã phòng, số tầng, diện tích, trạng thái trống/đang ở trực thuộc từng tòa.</p>
+                    <span class="badge bg-success bg-opacity-10 text-success fw-semibold">Phase 1 Complete</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100 p-3">
+                <div class="card-body">
+                    <div class="fs-2 mb-2">👥</div>
+                    <h5 class="fw-bold mb-2">Cư Dân (Resident)</h5>
+                    <p class="text-muted small mb-3">Hồ sơ công dân CCCD, ngày sinh, số điện thoại khẩn cấp, tài khoản Identity.</p>
+                    <span class="badge bg-success bg-opacity-10 text-success fw-semibold">Phase 1 Complete</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100 p-3">
+                <div class="card-body">
+                    <div class="fs-2 mb-2">📑</div>
+                    <h5 class="fw-bold mb-2">Hợp Đồng (ApartmentResident)</h5>
+                    <p class="text-muted small mb-3">Quan hệ chủ hộ / thành viên, ngày chuyển đến, ngày chuyển đi.</p>
+                    <span class="badge bg-success bg-opacity-10 text-success fw-semibold">Phase 1 Complete</span>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>

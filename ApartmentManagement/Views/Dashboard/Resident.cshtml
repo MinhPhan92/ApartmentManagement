@@ -1,0 +1,110 @@
+@model ApartmentManagement.Models.Resident
+
+@{
+    ViewData["Title"] = "Không Gian Cư Dân";
+}
+
+<div class="container py-4">
+    <div class="row g-4">
+        <!-- Resident profile header -->
+        <div class="col-12">
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden" style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);">
+                <div class="card-body p-4 text-white">
+                    <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="bg-white bg-opacity-25 rounded-circle p-3 fs-2">
+                                🏠
+                            </div>
+                            <div>
+                                <h3 class="fw-bold mb-1">Xin chào, @ViewBag.UserFullName!</h3>
+                                <p class="mb-0 text-white-50">Cổng thông tin cư dân căn hộ · Email: @ViewBag.UserEmail</p>
+                            </div>
+                        </div>
+                        <div>
+                            <span class="badge bg-success bg-opacity-75 px-3 py-2 fs-6">Đã Kích Hoạt Cư Dân</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Details -->
+        <div class="col-12 col-md-5">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-header bg-white py-3 border-0">
+                    <h5 class="fw-bold mb-0">Thông Tin Cá Nhân</h5>
+                </div>
+                <div class="card-body">
+                    @if (Model != null)
+                    {
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item px-0 d-flex justify-content-between">
+                                <span class="text-muted">Số CCCD / CMND:</span>
+                                <span class="fw-semibold">@Model.CitizenId</span>
+                            </li>
+                            <li class="list-group-item px-0 d-flex justify-content-between">
+                                <span class="text-muted">Ngày sinh:</span>
+                                <span class="fw-semibold">@(Model.DateOfBirth?.ToString("dd/MM/yyyy") ?? "Chưa rõ")</span>
+                            </li>
+                            <li class="list-group-item px-0 d-flex justify-content-between">
+                                <span class="text-muted">Giới tính:</span>
+                                <span class="fw-semibold">@(Model.Gender ?? "Chưa rõ")</span>
+                            </li>
+                            <li class="list-group-item px-0 d-flex justify-content-between">
+                                <span class="text-muted">Liên hệ khẩn cấp:</span>
+                                <span class="fw-semibold">@(Model.EmergencyContact ?? "Chưa rõ")</span>
+                            </li>
+                            <li class="list-group-item px-0 d-flex justify-content-between">
+                                <span class="text-muted">Địa chỉ thường trú:</span>
+                                <span class="fw-semibold">@(Model.Address ?? "Chưa rõ")</span>
+                            </li>
+                        </ul>
+                    }
+                    else
+                    {
+                        <p class="text-muted mb-0">Hồ sơ cư dân chưa được thiết lập. Vui lòng liên hệ ban quản lý.</p>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-7">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-header bg-white py-3 border-0">
+                    <h5 class="fw-bold mb-0">Căn Hộ Đang Cư Trú</h5>
+                </div>
+                <div class="card-body">
+                    @if (Model?.ApartmentResidents != null && Model.ApartmentResidents.Any())
+                    {
+                        <div class="list-group">
+                            @foreach (var ar in Model.ApartmentResidents)
+                            {
+                                <div class="list-group-item list-group-item-action rounded-3 mb-2 border p-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h6 class="fw-bold mb-0 text-primary">Căn hộ @ar.Apartment?.ApartmentCode - Tòa @ar.Apartment?.Building?.BuildingName</h6>
+                                        <span class="badge @(ar.IsOwner ? "bg-primary" : "bg-info text-dark")">
+                                            @(ar.IsOwner ? "Chủ hộ" : "Thành viên")
+                                        </span>
+                                    </div>
+                                    <div class="row g-2 text-muted small">
+                                        <div class="col-6">Tầng: <strong class="text-dark">@ar.Apartment?.Floor</strong></div>
+                                        <div class="col-6">Diện tích: <strong class="text-dark">@ar.Apartment?.Area m²</strong></div>
+                                        <div class="col-6">Ngày vào ở: <strong class="text-dark">@ar.MoveInDate.ToString("dd/MM/yyyy")</strong></div>
+                                        <div class="col-6">Quan hệ: <strong class="text-dark">@ar.Relationship</strong></div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center py-4 text-muted">
+                            <span class="fs-1 d-block mb-2">🔑</span>
+                            <p class="mb-0">Bạn hiện chưa được gán vào căn hộ nào. Vui lòng gửi yêu cầu tới Ban Quản Lý tòa nhà.</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
