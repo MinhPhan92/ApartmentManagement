@@ -1,5 +1,6 @@
 using ApartmentManagement.Data;
 using ApartmentManagement.Models;
+using ApartmentManagement.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -26,6 +27,9 @@ builder.Services
     })
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>();
+
+// Register Application Services
+builder.Services.AddScoped<IBuildingService, BuildingService>();
 
 builder.Services.AddControllersWithViews();
 

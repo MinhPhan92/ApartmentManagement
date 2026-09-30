@@ -1,0 +1,84 @@
+@model ApartmentManagement.Models.Building
+
+@{
+    ViewData["Title"] = "Chỉnh Sửa Tòa Nhà";
+}
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-8">
+            <!-- Breadcrumb -->
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb small mb-3">
+                    <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index" class="text-decoration-none">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a asp-action="Index" class="text-decoration-none">Tòa Nhà</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Chỉnh sửa</li>
+                </ol>
+            </nav>
+
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <div class="card-header bg-warning text-dark py-3 px-4 d-flex justify-content-between align-items-center">
+                    <div>
+                        <h4 class="fw-bold mb-1">✏️ Chỉnh Sửa Tòa Nhà</h4>
+                        <p class="mb-0 text-muted small">Cập nhật thông tin tòa nhà: <strong>@Model.BuildingName</strong> (@Model.BuildingCode)</p>
+                    </div>
+                    <span class="badge bg-dark text-white">ID: #@Model.BuildingId</span>
+                </div>
+
+                <div class="card-body p-4">
+                    <form asp-action="Edit" method="post">
+                        <input type="hidden" asp-for="BuildingId" />
+                        <input type="hidden" asp-for="CreatedAt" />
+
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small" role="alert"></div>
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label asp-for="BuildingCode" class="form-label fw-semibold text-secondary small">Mã Tòa Nhà <span class="text-danger">*</span></label>
+                                <input asp-for="BuildingCode" class="form-control" style="text-transform: uppercase;" />
+                                <span asp-validation-for="BuildingCode" class="text-danger small"></span>
+                                <div class="form-text small">Mã định danh duy nhất (không trùng lặp).</div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label asp-for="BuildingName" class="form-label fw-semibold text-secondary small">Tên Tòa Nhà <span class="text-danger">*</span></label>
+                                <input asp-for="BuildingName" class="form-control" />
+                                <span asp-validation-for="BuildingName" class="text-danger small"></span>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label asp-for="NumberOfFloors" class="form-label fw-semibold text-secondary small">Số Tầng <span class="text-danger">*</span></label>
+                                <input asp-for="NumberOfFloors" type="number" min="1" max="200" class="form-control" />
+                                <span asp-validation-for="NumberOfFloors" class="text-danger small"></span>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label asp-for="Address" class="form-label fw-semibold text-secondary small">Địa Chỉ / Vị Trí Khuôn Viên</label>
+                                <input asp-for="Address" class="form-control" />
+                                <span asp-validation-for="Address" class="text-danger small"></span>
+                            </div>
+                        </div>
+
+                        <hr class="my-4" />
+
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted small">Ngày tạo: @Model.CreatedAt.ToString("dd/MM/yyyy HH:mm")</span>
+                            <div class="d-flex gap-2">
+                                <a asp-action="Index" class="btn btn-outline-secondary px-4">
+                                    Hủy bỏ
+                                </a>
+                                <button type="submit" class="btn btn-warning px-4 fw-semibold shadow-sm">
+                                    💾 Cập Nhật
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

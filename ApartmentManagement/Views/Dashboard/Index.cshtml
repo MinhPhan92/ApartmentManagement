@@ -12,11 +12,11 @@
             <p class="text-muted mb-0">Xin chào, <span class="fw-semibold text-primary">@ViewBag.UserFullName</span> | Vai trò: <span class="badge bg-primary">@ViewBag.UserRole</span></p>
         </div>
         <div class="d-flex gap-2">
-            <a asp-controller="Buildings" asp-action="GetBuildings" class="btn btn-outline-primary btn-sm">
-                📋 Danh Sách Tòa Nhà (API)
+            <a asp-controller="Buildings" asp-action="Index" class="btn btn-outline-primary btn-sm">
+                🏢 Quản Lý Tòa Nhà
             </a>
-            <a asp-controller="Apartments" asp-action="GetApartments" class="btn btn-outline-secondary btn-sm">
-                🚪 Danh Sách Căn Hộ (API)
+            <a asp-controller="Buildings" asp-action="Create" class="btn btn-primary btn-sm shadow-sm">
+                ➕ Thêm Tòa Nhà
             </a>
         </div>
     </div>
@@ -31,7 +31,7 @@
                         <span class="fs-4">🏢</span>
                     </div>
                     <h3 class="fw-bold mb-0 text-dark">@ViewBag.TotalBuildings</h3>
-                    <small class="text-muted">Đang quản lý</small>
+                    <small class="text-muted">Đang quản lý trong hệ thống</small>
                 </div>
             </div>
         </div>
@@ -57,7 +57,7 @@
                         <span class="fs-4">👥</span>
                     </div>
                     <h3 class="fw-bold mb-0 text-dark">@ViewBag.TotalResidents</h3>
-                    <small class="text-muted">Đã đăng ký hồ sơ</small>
+                    <small class="text-muted">Đã đăng ký hồ sơ cư dân</small>
                 </div>
             </div>
         </div>
@@ -91,7 +91,9 @@
             <div class="card border-0 shadow-sm rounded-4">
                 <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
                     <h5 class="fw-bold mb-0">Danh Sách Tòa Nhà Trực Thuộc</h5>
-                    <span class="badge bg-light text-dark border">Top mới nhất</span>
+                    <a asp-controller="Buildings" asp-action="Index" class="btn btn-sm btn-outline-primary">
+                        Xem tất cả →
+                    </a>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
@@ -103,6 +105,7 @@
                                     <th>Số Tầng</th>
                                     <th>Số Căn Hộ</th>
                                     <th>Địa Chỉ</th>
+                                    <th class="text-end pe-3">Thao Tác</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -116,13 +119,17 @@
                                             <td>@building.NumberOfFloors tầng</td>
                                             <td>@building.Apartments.Count căn</td>
                                             <td class="text-muted small">@(building.Address ?? "Chưa cập nhật")</td>
+                                            <td class="text-end pe-3">
+                                                <a asp-controller="Buildings" asp-action="Details" asp-route-id="@building.BuildingId" class="btn btn-sm btn-outline-info">Chi tiết</a>
+                                                <a asp-controller="Buildings" asp-action="Edit" asp-route-id="@building.BuildingId" class="btn btn-sm btn-outline-warning">Sửa</a>
+                                            </td>
                                         </tr>
                                     }
                                 }
                                 else
                                 {
                                     <tr>
-                                        <td colspan="5" class="text-center py-4 text-muted">
+                                        <td colspan="6" class="text-center py-4 text-muted">
                                             Chưa có dữ liệu tòa nhà. Hãy thêm tòa nhà đầu tiên ở module Building.
                                         </td>
                                     </tr>
@@ -143,19 +150,19 @@
                     <ul class="list-group list-group-flush small">
                         <li class="list-group-item d-flex justify-content-between align-items-center px-0">
                             <span>1. Tòa Nhà (Building)</span>
-                            <span class="badge bg-success">Đã hoàn thành DB</span>
+                            <span class="badge bg-success">Đang hoạt động (CRUD)</span>
                         </li>
                         <li class="list-group-item d-flex justify-content-between align-items-center px-0">
                             <span>2. Căn Hộ (Apartment)</span>
-                            <span class="badge bg-success">Đã hoàn thành DB</span>
+                            <span class="badge bg-primary">Kế tiếp</span>
                         </li>
                         <li class="list-group-item d-flex justify-content-between align-items-center px-0">
                             <span>3. Cư Dân (Resident)</span>
-                            <span class="badge bg-success">Đã hoàn thành DB</span>
+                            <span class="badge bg-light text-muted">Chờ</span>
                         </li>
                         <li class="list-group-item d-flex justify-content-between align-items-center px-0">
                             <span>4. Phân Bổ (ApartmentResident)</span>
-                            <span class="badge bg-success">Đã hoàn thành DB</span>
+                            <span class="badge bg-light text-muted">Chờ</span>
                         </li>
                         <li class="list-group-item d-flex justify-content-between align-items-center px-0 text-muted">
                             <span>5. Phương Tiện & Dịch Vụ</span>

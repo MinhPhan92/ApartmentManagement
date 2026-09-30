@@ -1,0 +1,115 @@
+@model ApartmentManagement.Models.Building
+
+@{
+    ViewData["Title"] = "Chi Tiết Tòa Nhà: " + Model.BuildingName;
+}
+
+<div class="container py-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb small mb-3">
+            <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index" class="text-decoration-none">Dashboard</a></li>
+            <li class="breadcrumb-item"><a asp-action="Index" class="text-decoration-none">Tòa Nhà</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Chi tiết: @Model.BuildingCode</li>
+        </ol>
+    </nav>
+
+    <div class="row g-4">
+        <!-- Building Overview Card -->
+        <div class="col-12 col-lg-5">
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden h-100">
+                <div class="card-header bg-primary text-white py-3 px-4 bg-gradient" style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="fs-1">🏢</span>
+                        <span class="badge bg-white text-primary fw-bold px-3 py-2">@Model.BuildingCode</span>
+                    </div>
+                    <h4 class="fw-bold mt-2 mb-0">@Model.BuildingName</h4>
+                </div>
+
+                <div class="card-body p-4">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                            <span class="text-muted">Mã tòa nhà:</span>
+                            <span class="fw-bold text-primary">@Model.BuildingCode</span>
+                        </li>
+                        <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                            <span class="text-muted">Số tầng:</span>
+                            <span class="fw-semibold">@Model.NumberOfFloors tầng</span>
+                        </li>
+                        <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                            <span class="text-muted">Số lượng căn hộ:</span>
+                            <span class="badge bg-info text-dark fs-6">@Model.Apartments.Count căn</span>
+                        </li>
+                        <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                            <span class="text-muted">Địa chỉ / Vị trí:</span>
+                            <span class="fw-semibold">@(Model.Address ?? "Chưa thiết lập")</span>
+                        </li>
+                        <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                            <span class="text-muted">Thời điểm khởi tạo:</span>
+                            <span class="text-muted small">@Model.CreatedAt.ToString("dd/MM/yyyy HH:mm")</span>
+                        </li>
+                    </ul>
+
+                    <div class="mt-4 pt-3 border-top d-flex gap-2">
+                        <a asp-action="Edit" asp-route-id="@Model.BuildingId" class="btn btn-warning flex-grow-1 fw-semibold">
+                            ✏️ Chỉnh Sửa
+                        </a>
+                        <a asp-action="Index" class="btn btn-outline-secondary px-3">
+                            ← Danh sách
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Apartments in this building -->
+        <div class="col-12 col-lg-7">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-header bg-white py-3 px-4 border-0 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold mb-0">🚪 Danh Sách Căn Hộ Trực Thuộc</h5>
+                    <span class="badge bg-light text-muted border">@Model.Apartments.Count căn</span>
+                </div>
+                <div class="card-body p-0">
+                    @if (Model.Apartments != null && Model.Apartments.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="ps-4">Mã Căn Hộ</th>
+                                        <th>Tầng</th>
+                                        <th>Diện Tích</th>
+                                        <th>Trạng Thái</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var apt in Model.Apartments)
+                                    {
+                                        <tr>
+                                            <td class="ps-4 fw-bold">@apt.ApartmentCode</td>
+                                            <td>Tầng @apt.Floor</td>
+                                            <td>@apt.Area m²</td>
+                                            <td>
+                                                <span class="badge @(apt.Status == "Đang sử dụng" ? "bg-success" : "bg-warning text-dark")">
+                                                    @apt.Status
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center py-5 text-muted">
+                            <span class="fs-1 d-block mb-2">🚪</span>
+                            <p class="mb-1 fw-semibold">Chưa có căn hộ nào trong tòa nhà này.</p>
+                            <small class="text-muted">Căn hộ sẽ được tạo và liên kết trong module Apartment (bước kế tiếp).</small>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

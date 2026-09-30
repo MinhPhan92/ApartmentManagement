@@ -1,0 +1,107 @@
+@model ApartmentManagement.Models.Building
+
+@{
+    ViewData["Title"] = "Xác Nhận Xóa Tòa Nhà";
+    var apartmentCount = (int)(ViewBag.ApartmentCount ?? 0);
+    var canDelete = apartmentCount == 0;
+}
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-8 col-lg-6">
+            <!-- Breadcrumb -->
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb small mb-3">
+                    <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index" class="text-decoration-none">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a asp-action="Index" class="text-decoration-none">Tòa Nhà</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Xác nhận xóa</li>
+                </ol>
+            </nav>
+
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <div class="card-header bg-danger text-white py-3 px-4 d-flex align-items-center gap-2">
+                    <span class="fs-4">🗑️</span>
+                    <div>
+                        <h5 class="fw-bold mb-0">Xác Nhận Xóa Tòa Nhà</h5>
+                        <small class="text-white-50">Hành động này sẽ loại bỏ tòa nhà khỏi hệ thống</small>
+                    </div>
+                </div>
+
+                <div class="card-body p-4">
+                    @if (!canDelete)
+                    {
+                        <div class="alert alert-warning border-0 shadow-sm rounded-3 p-3 mb-4">
+                            <div class="d-flex gap-2">
+                                <span class="fs-4">⛔</span>
+                                <div>
+                                    <h6 class="fw-bold mb-1">Không thể xóa tòa nhà này!</h6>
+                                    <p class="mb-0 small text-dark">
+                                        Tòa nhà <strong>@Model.BuildingName</strong> (@Model.BuildingCode) hiện đang có <strong>@apartmentCount căn hộ</strong> trực thuộc.
+                                        Theo ràng buộc toàn vẹn dữ liệu, bạn cần chuyển hoặc xóa tất cả các căn hộ này trước khi có thể xóa tòa nhà.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-danger border-0 shadow-sm rounded-3 p-3 mb-4">
+                            <div class="d-flex gap-2">
+                                <span class="fs-4">⚠️</span>
+                                <div>
+                                    <h6 class="fw-bold mb-1">Cảnh báo hành động xóa</h6>
+                                    <p class="mb-0 small text-danger">
+                                        Bạn có chắc chắn muốn xóa tòa nhà này? Thao tác này không thể hoàn tác.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    <div class="bg-light rounded-3 p-3 mb-4">
+                        <dl class="row mb-0 small">
+                            <dt class="col-sm-4 text-muted">Mã tòa nhà:</dt>
+                            <dd class="col-sm-8 fw-bold text-primary">@Model.BuildingCode</dd>
+
+                            <dt class="col-sm-4 text-muted">Tên tòa nhà:</dt>
+                            <dd class="col-sm-8 fw-semibold">@Model.BuildingName</dd>
+
+                            <dt class="col-sm-4 text-muted">Số tầng:</dt>
+                            <dd class="col-sm-8">@Model.NumberOfFloors tầng</dd>
+
+                            <dt class="col-sm-4 text-muted">Số căn hộ:</dt>
+                            <dd class="col-sm-8"><span class="badge bg-secondary">@apartmentCount căn</span></dd>
+
+                            <dt class="col-sm-4 text-muted">Địa chỉ:</dt>
+                            <dd class="col-sm-8">@(Model.Address ?? "Chưa thiết lập")</dd>
+
+                            <dt class="col-sm-4 text-muted">Ngày khởi tạo:</dt>
+                            <dd class="col-sm-8">@Model.CreatedAt.ToString("dd/MM/yyyy HH:mm")</dd>
+                        </dl>
+                    </div>
+
+                    <form asp-action="Delete" method="post">
+                        <input type="hidden" asp-for="BuildingId" />
+                        <div class="d-flex justify-content-end gap-2">
+                            <a asp-action="Index" class="btn btn-outline-secondary px-4">
+                                Quay lại
+                            </a>
+                            @if (canDelete)
+                            {
+                                <button type="submit" class="btn btn-danger px-4 fw-semibold shadow-sm">
+                                    🗑️ Xác Nhận Xóa
+                                </button>
+                            }
+                            else
+                            {
+                                <button type="button" class="btn btn-danger px-4 fw-semibold" disabled title="Tòa nhà đang chứa căn hộ, không thể xóa.">
+                                    Không Thể Xóa
+                                </button>
+                            }
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
