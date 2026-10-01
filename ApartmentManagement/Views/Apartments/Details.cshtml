@@ -1,0 +1,149 @@
+@model ApartmentManagement.Models.Apartment
+
+@{
+    ViewData["Title"] = "Chi Tiết Căn Hộ: " + Model.ApartmentCode;
+}
+
+<div class="container py-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb small mb-3">
+            <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index" class="text-decoration-none">Dashboard</a></li>
+            <li class="breadcrumb-item"><a asp-action="Index" class="text-decoration-none">Căn Hộ</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Chi tiết: @Model.ApartmentCode</li>
+        </ol>
+    </nav>
+
+    <div class="row g-4">
+        <!-- Apartment Overview Card -->
+        <div class="col-12 col-lg-5">
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden h-100">
+                <div class="card-header bg-primary text-white py-3 px-4 bg-gradient" style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="fs-1">🚪</span>
+                        <span class="badge bg-white text-primary fw-bold px-3 py-2">@Model.ApartmentCode</span>
+                    </div>
+                    <h4 class="fw-bold mt-2 mb-0">Căn Hộ @Model.ApartmentCode</h4>
+                    <small class="text-white-50">Tòa nhà @(Model.Building?.BuildingName ?? "Chưa rõ")</small>
+                </div>
+
+                <div class="card-body p-4">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                            <span class="text-muted">Mã căn hộ:</span>
+                            <span class="fw-bold text-primary fs-5">@Model.ApartmentCode</span>
+                        </li>
+                        <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                            <span class="text-muted">Trực thuộc Tòa Nhà:</span>
+                            <span class="fw-semibold">
+                                <a asp-controller="Buildings" asp-action="Details" asp-route-id="@Model.BuildingId" class="text-decoration-none">
+                                    🏢 @(Model.Building?.BuildingCode) - @(Model.Building?.BuildingName)
+                                </a>
+                            </span>
+                        </li>
+                        <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                            <span class="text-muted">Vị trí tầng:</span>
+                            <span class="fw-semibold">Tầng @Model.Floor / @(Model.Building?.NumberOfFloors ?? 0)</span>
+                        </li>
+                        <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                            <span class="text-muted">Diện tích:</span>
+                            <span class="fw-bold">@Model.Area.ToString("N1") m²</span>
+                        </li>
+                        <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                            <span class="text-muted">Trạng thái hiện tại:</span>
+                            @if (Model.Status == "Đang sử dụng")
+                            {
+                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                                    ● @Model.Status
+                                </span>
+                            }
+                            else if (Model.Status == "Đang trống")
+                            {
+                                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1">
+                                    ○ @Model.Status
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1">
+                                    🛠️ @Model.Status
+                                </span>
+                            }
+                        </li>
+                    </ul>
+
+                    <div class="mt-4 pt-3 border-top d-flex gap-2">
+                        <a asp-action="Edit" asp-route-id="@Model.ApartmentId" class="btn btn-warning flex-grow-1 fw-semibold shadow-sm">
+                            ✏️ Chỉnh Sửa
+                        </a>
+                        <a asp-action="Delete" asp-route-id="@Model.ApartmentId" class="btn btn-outline-danger px-3" title="Xóa căn hộ">
+                            🗑️ Xóa
+                        </a>
+                        <a asp-action="Index" class="btn btn-outline-secondary px-3">
+                            ← Danh sách
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Residents in this apartment -->
+        <div class="col-12 col-lg-7">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-header bg-white py-3 px-4 border-0 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold mb-0">👥 Danh Sách Cư Dân Lưu Trú</h5>
+                    <span class="badge bg-light text-muted border">@Model.ApartmentResidents.Count người</span>
+                </div>
+                <div class="card-body p-0">
+                    @if (Model.ApartmentResidents != null && Model.ApartmentResidents.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="ps-4">Họ và Tên</th>
+                                        <th>Quan Hệ</th>
+                                        <th>CCCD / CMND</th>
+                                        <th>Ngày Vào Ở</th>
+                                        <th>Vai Trò</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var ar in Model.ApartmentResidents)
+                                    {
+                                        <tr>
+                                            <td class="ps-4 fw-semibold text-primary">
+                                                @(ar.Resident?.User?.FullName ?? "N/A")
+                                            </td>
+                                            <td>@ar.Relationship</td>
+                                            <td>@(ar.Resident?.CitizenId ?? "N/A")</td>
+                                            <td>@ar.MoveInDate.ToString("dd/MM/yyyy")</td>
+                                            <td>
+                                                @if (ar.IsOwner)
+                                                {
+                                                    <span class="badge bg-primary">Chủ Hộ</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-light text-dark border">Thành viên</span>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center py-5 text-muted">
+                            <span class="fs-1 d-block mb-2">👤</span>
+                            <p class="mb-1 fw-semibold">Căn hộ hiện chưa có cư dân nào đăng ký lưu trú.</p>
+                            <small class="text-muted">Bạn có thể thêm và gán cư dân vào căn hộ này trong module <strong>Resident Management</strong> (bước kế tiếp).</small>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

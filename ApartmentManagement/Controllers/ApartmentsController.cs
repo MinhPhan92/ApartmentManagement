@@ -1,88 +1,204 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using ApartmentManagement.Data;
 using ApartmentManagement.Models;
+using ApartmentManagement.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace ApartmentManagement.Controllers
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    public class ApartmentsController : ControllerBase
+    [Authorize(Roles = "SystemAdmin,Manager")]
+    public class ApartmentsController : Controller
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IApartmentService _apartmentService;
+        private readonly IBuildingService _buildingService;
 
-        public ApartmentsController(ApplicationDbContext context)
+        public ApartmentsController(
+            IApartmentService apartmentService,
+            IBuildingService buildingService)
         {
-            _context = context;
+            _apartmentService = apartmentService;
+            _buildingService = buildingService;
         }
 
-        // GET: api/apartments
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<Apartment>>> GetApartments()
+        public async Task<IActionResult> Index(
+            int? buildingId,
+            string? searchTerm)
         {
-            return await _context.Apartments
-                .Include(a => a.ApartmentResidents)
-                .ToListAsync();
+            var apartments =
+                await _apartmentService.GetAllApartmentsAsync(
+                    buildingId,
+                    searchTerm);
+
+            ViewBag.Buildings =
+                await _buildingService.GetAllBuildingsAsync();
+
+            ViewBag.SelectedBuildingId = buildingId;
+            ViewBag.SearchTerm = searchTerm;
+
+            return View(apartments);
         }
 
-        // GET: api/apartments/5
-        [HttpGet("{id}")]
-        public async Task<ActionResult<Apartment>> GetApartment(int id)
+        public async Task<IActionResult> Details(int id)
         {
-            var apartment = await _context.Apartments
-                .Include(a => a.ApartmentResidents)
-                .FirstOrDefaultAsync(a => a.ApartmentId == id);
+            var apartment =
+                await _apartmentService.GetApartmentByIdAsync(
+                    id,
+                    includeResidents: true);
 
             if (apartment == null)
             {
                 return NotFound();
             }
 
-            return apartment;
+            return View(apartment);
         }
 
-        // POST: api/apartments
-        [HttpPost]
-        public async Task<ActionResult<Apartment>> CreateApartment(Apartment apartment)
+        [HttpGet]
+        public async Task<IActionResult> Create()
         {
-            // Kiểm tra tòa nhà có tồn tại không trước khi gán
-            var buildingExists = await _context.Buildings.AnyAsync(b => b.BuildingId == apartment.BuildingId);
-            if (!buildingExists)
+            ViewBag.Buildings =
+                await _buildingService.GetAllBuildingsAsync();
+
+            return View();
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Create(
+    Apartment apartment)
+        {
+            if (!ModelState.IsValid)
             {
-                return BadRequest("BuildingId không tồn tại trong hệ thống.");
+                foreach (var error in ModelState)
+                {
+                    foreach (var message in error.Value.Errors)
+                    {
+                        Console.WriteLine(
+                            $"ModelState Error - {error.Key}: {message.ErrorMessage}");
+                    }
+                }
+
+                ViewBag.Buildings =
+                    await _buildingService.GetAllBuildingsAsync();
+
+                return View(apartment);
             }
 
-            _context.Apartments.Add(apartment);
-            await _context.SaveChangesAsync();
+            var result =
+                await _apartmentService.CreateApartmentAsync(
+                    apartment);
 
-            return CreatedAtAction(nameof(GetApartment), new { id = apartment.ApartmentId }, apartment);
+            if (!result.Success)
+            {
+                ModelState.AddModelError(
+                    string.Empty,
+                    result.ErrorMessage!);
+
+                ViewBag.Buildings =
+                    await _buildingService.GetAllBuildingsAsync();
+
+                return View(apartment);
+            }
+
+            TempData["SuccessMessage"] =
+                "Thêm căn hộ thành công.";
+
+            return RedirectToAction(nameof(Index));
         }
 
-        // PUT: api/apartments/5
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateApartment(int id, Apartment apartment)
+        [HttpGet]
+        public async Task<IActionResult> Edit(int id)
+        {
+            var apartment =
+                await _apartmentService.GetApartmentByIdAsync(id);
+
+            if (apartment == null)
+            {
+                return NotFound();
+            }
+
+            ViewBag.Buildings =
+                await _buildingService.GetAllBuildingsAsync();
+
+            return View(apartment);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Edit(
+            int id,
+            Apartment apartment)
         {
             if (id != apartment.ApartmentId)
             {
-                return BadRequest("ID không khớp.");
+                return BadRequest();
             }
 
-            _context.Entry(apartment).State = EntityState.Modified;
-
-            try
+            if (!ModelState.IsValid)
             {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!await _context.Apartments.AnyAsync(e => e.ApartmentId == id))
-                {
-                    return NotFound();
-                }
-                throw;
+                ViewBag.Buildings =
+                    await _buildingService.GetAllBuildingsAsync();
+
+                return View(apartment);
             }
 
-            return NoContent();
+            var result =
+                await _apartmentService.UpdateApartmentAsync(
+                    apartment);
+
+            if (!result.Success)
+            {
+                ModelState.AddModelError(
+                    string.Empty,
+                    result.ErrorMessage!);
+
+                ViewBag.Buildings =
+                    await _buildingService.GetAllBuildingsAsync();
+
+                return View(apartment);
+            }
+
+            TempData["SuccessMessage"] =
+                "Cập nhật căn hộ thành công.";
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var apartment =
+                await _apartmentService.GetApartmentByIdAsync(
+                    id,
+                    includeResidents: true);
+
+            if (apartment == null)
+            {
+                return NotFound();
+            }
+
+            return View(apartment);
+        }
+
+        [HttpPost, ActionName("Delete")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteConfirmed(
+            int id)
+        {
+            var result =
+                await _apartmentService.DeleteApartmentAsync(id);
+
+            if (!result.Success)
+            {
+                TempData["ErrorMessage"] =
+                    result.ErrorMessage;
+
+                return RedirectToAction(nameof(Delete), new { id });
+            }
+
+            TempData["SuccessMessage"] =
+                "Xóa căn hộ thành công.";
+
+            return RedirectToAction(nameof(Index));
         }
     }
 }

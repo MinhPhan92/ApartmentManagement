@@ -30,6 +30,7 @@ builder.Services
 
 // Register Application Services
 builder.Services.AddScoped<IBuildingService, BuildingService>();
+builder.Services.AddScoped<IApartmentService, ApartmentService>();
 
 builder.Services.AddControllersWithViews();
 

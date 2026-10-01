@@ -1,0 +1,105 @@
+@model ApartmentManagement.Models.Apartment
+
+@{
+    ViewData["Title"] = "Thêm Căn Hộ Mới";
+    var buildings = ViewBag.Buildings as IEnumerable<ApartmentManagement.Models.Building> ?? Enumerable.Empty<ApartmentManagement.Models.Building>();
+}
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-8">
+            <!-- Breadcrumb -->
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb small mb-3">
+                    <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index" class="text-decoration-none">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a asp-action="Index" class="text-decoration-none">Căn Hộ</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Thêm mới</li>
+                </ol>
+            </nav>
+
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <div class="card-header bg-primary text-white py-3 px-4 bg-gradient" style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);">
+                    <h4 class="fw-bold mb-1">🚪 Thêm Căn Hộ Mới</h4>
+                    <p class="mb-0 text-white-50 small">Khởi tạo căn hộ và gán vào tòa nhà tương ứng</p>
+                </div>
+
+                <div class="card-body p-4">
+                    <form asp-action="Create" method="post">
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small" role="alert"></div>
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label asp-for="BuildingId" class="form-label fw-semibold text-secondary small">
+                                    Tòa Nhà <span class="text-danger">*</span>
+                                </label>
+                                <select asp-for="BuildingId" class="form-select">
+                                    <option value="">-- Chọn tòa nhà --</option>
+                                    @foreach (var building in buildings)
+                                    {
+                                        <option value="@building.BuildingId">
+                                            @building.BuildingCode - @building.BuildingName (@building.NumberOfFloors tầng)
+                                        </option>
+                                    }
+                                </select>
+                                <span asp-validation-for="BuildingId" class="text-danger small"></span>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label asp-for="ApartmentCode" class="form-label fw-semibold text-secondary small">
+                                    Mã Căn Hộ <span class="text-danger">*</span>
+                                </label>
+                                <input asp-for="ApartmentCode" class="form-control" placeholder="VD: A101, B205" style="text-transform: uppercase;" />
+                                <span asp-validation-for="ApartmentCode" class="text-danger small"></span>
+                                <div class="form-text small">Mã căn hộ duy nhất trong cùng một tòa nhà.</div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label asp-for="Floor" class="form-label fw-semibold text-secondary small">
+                                    Số Tầng <span class="text-danger">*</span>
+                                </label>
+                                <input asp-for="Floor" class="form-control" type="number" min="1" max="200" placeholder="VD: 1, 2, 10" />
+                                <span asp-validation-for="Floor" class="text-danger small"></span>
+                                <div class="form-text small">Không được vượt quá tổng số tầng của tòa nhà.</div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label asp-for="Area" class="form-label fw-semibold text-secondary small">
+                                    Diện Tích (m²) <span class="text-danger">*</span>
+                                </label>
+                                <input asp-for="Area" class="form-control" type="number" step="0.01" min="1" placeholder="VD: 68.5" />
+                                <span asp-validation-for="Area" class="text-danger small"></span>
+                            </div>
+
+                            <div class="col-md-12">
+                                <label asp-for="Status" class="form-label fw-semibold text-secondary small">
+                                    Trạng Thái Căn Hộ <span class="text-danger">*</span>
+                                </label>
+                                <select asp-for="Status" class="form-select">
+                                    <option value="Đang sử dụng">Đang sử dụng</option>
+                                    <option value="Đang trống">Đang trống</option>
+                                    <option value="Đang bảo trì">Đang bảo trì</option>
+                                </select>
+                                <span asp-validation-for="Status" class="text-danger small"></span>
+                            </div>
+                        </div>
+
+                        <hr class="my-4" />
+
+                        <div class="d-flex justify-content-end gap-2">
+                            <a asp-action="Index" class="btn btn-outline-secondary px-4">
+                                Hủy bỏ
+                            </a>
+                            <button type="submit" class="btn btn-primary px-4 shadow-sm" style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); border: none;">
+                                💾 Lưu Căn Hộ
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
