@@ -1,0 +1,26 @@
+@model FeeTariffEditViewModel
+@{
+    ViewData["Title"] = "Thêm biểu phí";
+}
+<div class="container py-4">
+    <div class="card border-0 shadow-sm rounded-4 mx-auto" style="max-width: 760px">
+        <div class="card-body p-4 p-md-5">
+            <h1 class="h3 fw-bold">Thêm biểu phí</h1>
+            <p class="text-muted">Biểu phí đã lưu chỉ áp dụng theo thời hạn; nhập đơn giá bậc theo VND/kWh hoặc VND/m³.</p>
+            <form asp-action="CreateTariff" method="post">
+                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+                <div class="mb-3"><label asp-for="BuildingId" class="form-label">Tòa nhà</label><select asp-for="BuildingId" asp-items="Model.BuildingOptions" class="form-select"><option value="">-- Chọn tòa nhà --</option></select><span asp-validation-for="BuildingId" class="text-danger"></span></div>
+                <div class="mb-3"><label asp-for="ChargeType" class="form-label">Loại phí</label><select asp-for="ChargeType" asp-items="Html.GetEnumSelectList<FeeChargeType>()" class="form-select"></select></div>
+                <div class="row">
+                    <div class="col-md-6 mb-3"><label asp-for="EffectiveFrom" class="form-label">Hiệu lực từ</label><input asp-for="EffectiveFrom" class="form-control" /><span asp-validation-for="EffectiveFrom" class="text-danger"></span></div>
+                    <div class="col-md-6 mb-3"><label asp-for="EffectiveTo" class="form-label">Hiệu lực đến (tùy chọn)</label><input asp-for="EffectiveTo" class="form-control" /><span asp-validation-for="EffectiveTo" class="text-danger"></span></div>
+                </div>
+                <div class="mb-3"><label asp-for="MonthlyRatePerSquareMeter" class="form-label">Phí quản lý (VND/m²/tháng)</label><input asp-for="MonthlyRatePerSquareMeter" class="form-control" /><span asp-validation-for="MonthlyRatePerSquareMeter" class="text-danger"></span><div class="form-text">Chỉ nhập cho loại Phí quản lý; phí quản lý tính đủ tháng.</div></div>
+                <div class="mb-4"><label asp-for="TierDefinitions" class="form-label">Bậc giá điện/nước</label><textarea asp-for="TierDefinitions" class="form-control font-monospace" rows="5" placeholder="50|2000&#10;100|2500&#10;*|3000"></textarea><span asp-validation-for="TierDefinitions" class="text-danger"></span><div class="form-text">Mỗi dòng: ngưỡng tiêu thụ tích lũy|đơn giá. Ví dụ trên: 0–50, 50–100, trên 100; dấu * chỉ dùng ở bậc cuối. Với Phí quản lý để trống.</div></div>
+                <button type="submit" class="btn btn-primary">Lưu biểu phí</button>
+                <a asp-action="Index" class="btn btn-outline-secondary ms-2">Hủy</a>
+            </form>
+        </div>
+    </div>
+</div>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

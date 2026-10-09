@@ -1,0 +1,26 @@
+@model MeterReadingEditViewModel
+@{
+    ViewData["Title"] = "Ghi chỉ số công tơ";
+}
+<div class="container py-4">
+    <div class="card border-0 shadow-sm rounded-4 mx-auto" style="max-width: 700px">
+        <div class="card-body p-4 p-md-5">
+            <h1 class="h3 fw-bold">Ghi chỉ số công tơ</h1>
+            <p class="text-muted">Mỗi căn hộ, loại công tơ và kỳ chỉ được ghi một lần; chỉ số hiện tại không được nhỏ hơn chỉ số trước.</p>
+            <form asp-action="RecordReading" method="post">
+                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+                <div class="mb-3"><label asp-for="ApartmentId" class="form-label">Căn hộ</label><select asp-for="ApartmentId" asp-items="Model.ApartmentOptions" class="form-select"><option value="">-- Chọn căn hộ --</option></select><span asp-validation-for="ApartmentId" class="text-danger"></span></div>
+                <div class="mb-3"><label asp-for="UtilityType" class="form-label">Loại công tơ</label><select asp-for="UtilityType" class="form-select"><option value="@FeeChargeType.Electricity">Điện</option><option value="@FeeChargeType.Water">Nước</option></select></div>
+                <div class="row">
+                    <div class="col-md-6 mb-3"><label asp-for="BillingMonth" class="form-label">Tháng</label><input asp-for="BillingMonth" class="form-control" /></div>
+                    <div class="col-md-6 mb-3"><label asp-for="BillingYear" class="form-label">Năm</label><input asp-for="BillingYear" class="form-control" /></div>
+                    <div class="col-md-6 mb-3"><label asp-for="PreviousReading" class="form-label">Chỉ số đầu kỳ</label><input asp-for="PreviousReading" class="form-control" /><span asp-validation-for="PreviousReading" class="text-danger"></span></div>
+                    <div class="col-md-6 mb-3"><label asp-for="CurrentReading" class="form-label">Chỉ số cuối kỳ</label><input asp-for="CurrentReading" class="form-control" /><span asp-validation-for="CurrentReading" class="text-danger"></span></div>
+                </div>
+                <button type="submit" class="btn btn-primary">Lưu chỉ số</button>
+                <a asp-action="Index" class="btn btn-outline-secondary ms-2">Hủy</a>
+            </form>
+        </div>
+    </div>
+</div>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

@@ -1,0 +1,13 @@
+@model ApartmentManagement.Models.AccountDetailsViewModel
+@using ApartmentManagement.Common.Security
+@{ ViewData["Title"] = "Chi tiết tài khoản"; var roles = (IReadOnlyList<string>)ViewBag.AllRoles; }
+<div class="container py-4">
+    @if (TempData["SuccessMessage"] != null) { <div class="alert alert-success">@TempData["SuccessMessage"]</div> }
+    @if (TempData["ErrorMessage"] != null) { <div class="alert alert-danger">@TempData["ErrorMessage"]</div> }
+    <div class="row g-4"><div class="col-lg-6"><div class="card border-0 shadow-sm rounded-4"><div class="card-header bg-primary text-white p-4"><h4>@Model.FullName</h4><div>@Model.Email</div></div><div class="card-body"><dl class="row"><dt class="col-4">Username</dt><dd class="col-8">@Model.UserName</dd><dt class="col-4">Role</dt><dd class="col-8">@string.Join(", ", Model.Roles)</dd><dt class="col-4">Trạng thái</dt><dd class="col-8">@(Model.IsActive ? "Đang hoạt động" : "Đã vô hiệu hóa")</dd><dt class="col-4">Ngày tạo</dt><dd class="col-8">@Model.CreatedAt.ToString("dd/MM/yyyy HH:mm")</dd></dl><a asp-action="Index" class="btn btn-outline-secondary">Danh sách</a></div></div></div>
+    <div class="col-lg-6"><div class="card border-0 shadow-sm rounded-4"><div class="card-header bg-white"><h5>Thao tác quản trị</h5></div><div class="card-body">
+        <form asp-action="SetActive" method="post" class="mb-3"><input type="hidden" name="id" value="@Model.UserId" /><input type="hidden" name="isActive" value="@(!Model.IsActive)" /><button class="btn @(Model.IsActive ? "btn-danger" : "btn-success")">@(Model.IsActive ? "Vô hiệu hóa tài khoản" : "Kích hoạt tài khoản")</button></form>
+        <form asp-action="ChangeRole" method="post" class="mb-3"><input type="hidden" name="UserId" value="@Model.UserId" /><label class="form-label">Thay đổi role</label><div class="input-group"><select name="Role" class="form-select">@foreach (var role in roles) { <option value="@role" selected="@(Model.Roles.Contains(role))">@role</option> }</select><button class="btn btn-warning">Cập nhật role</button></div></form>
+        <a asp-action="ResetPassword" asp-route-id="@Model.UserId" class="btn btn-outline-danger">Đặt lại mật khẩu</a>
+    </div></div></div></div>
+</div>

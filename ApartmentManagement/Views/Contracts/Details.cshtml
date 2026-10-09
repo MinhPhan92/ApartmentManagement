@@ -1,0 +1,139 @@
+@model ApartmentManagement.Models.ContractDetailsViewModel
+@{
+    ViewData["Title"] = "Chi tiết hợp đồng";
+    var actionModel = ViewData["ActionModel"] as ApartmentManagement.Models.ContractActionViewModel
+        ?? new ApartmentManagement.Models.ContractActionViewModel { RowVersionToken = Model.RowVersionToken };
+    var actionErrors = ViewData["ActionErrors"] as string[] ?? [];
+}
+<div class="container py-4">
+    @if (TempData["SuccessMessage"] != null) { <div class="alert alert-success" role="status">@TempData["SuccessMessage"]</div> }
+    @if (TempData["ErrorMessage"] != null) { <div class="alert alert-danger" role="alert">@TempData["ErrorMessage"]</div> }
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <a asp-action="Index" class="small text-decoration-none">← Danh sách hợp đồng</a>
+            <h1 class="h3 fw-bold mt-2 mb-1">@Model.ContractCode</h1>
+            <span class="badge @(Model.Status == ApartmentContractStatus.Active ? "bg-success" : Model.Status == ApartmentContractStatus.Draft ? "bg-secondary" : "bg-dark")">@StatusText(Model.Status)</span>
+        </div>
+        @if (Model.Status == ApartmentContractStatus.Draft)
+        {
+            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-primary">Chỉnh sửa nháp</a>
+        }
+    </div>
+    @if (actionErrors.Length > 0)
+    {
+        <div class="alert alert-danger" role="alert"><ul class="mb-0">@foreach (var error in actionErrors) { <li>@error</li> }</ul></div>
+    }
+
+    <div class="row g-4">
+        <div class="col-12 col-xl-7">
+            <section class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-white border-0 p-4 pb-0"><h2 class="h5 fw-bold">Thông tin hợp đồng</h2></div>
+                <div class="card-body p-4">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-5 text-muted">Căn hộ</dt><dd class="col-sm-7">@Model.Apartment</dd>
+                        <dt class="col-sm-5 text-muted">Thời hạn</dt><dd class="col-sm-7">@Model.StartDate.ToString("dd/MM/yyyy") – @(Model.EndDate?.ToString("dd/MM/yyyy") ?? "Không xác định")</dd>
+                        <dt class="col-sm-5 text-muted">Tiền thuê hàng tháng</dt><dd class="col-sm-7">@Model.MonthlyRent.ToString("N0") đ</dd>
+                        <dt class="col-sm-5 text-muted">Tiền đặt cọc</dt><dd class="col-sm-7">@Model.DepositAmount.ToString("N0") đ</dd>
+                        <dt class="col-sm-5 text-muted">Người tạo</dt><dd class="col-sm-7">@Model.CreatedBy (@Model.CreatedAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm"))</dd>
+                        @if (Model.UpdatedBy != null)
+                        {
+                            <dt class="col-sm-5 text-muted">Cập nhật gần nhất</dt><dd class="col-sm-7">@Model.UpdatedBy (@Model.UpdatedAtUtc?.ToLocalTime().ToString("dd/MM/yyyy HH:mm"))</dd>
+                        }
+                    </dl>
+                </div>
+            </section>
+            <section class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-white border-0 p-4 pb-0"><h2 class="h5 fw-bold">Các bên tham gia</h2></div>
+                <div class="card-body p-4">
+                    @if (Model.Parties.Count == 0) { <p class="text-muted mb-0">Chưa có thông tin bên tham gia.</p> }
+                    else
+                    {
+                        <ul class="list-group list-group-flush">
+                            @foreach (var party in Model.Parties)
+                            {
+                                <li class="list-group-item px-0 d-flex justify-content-between gap-3">
+                                    <span>@party.ResidentName</span><span class="badge bg-light text-dark border">@RoleText(party.Role)</span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </section>
+        </div>
+        <div class="col-12 col-xl-5">
+            @if (Model.Status is ApartmentContractStatus.Draft or ApartmentContractStatus.Active)
+            {
+                <section class="card border-0 shadow-sm rounded-4 mb-4">
+                    <div class="card-header bg-white border-0 p-4 pb-0"><h2 class="h5 fw-bold">Thao tác hợp đồng</h2></div>
+                    <div class="card-body p-4">
+                        @if (Model.Status == ApartmentContractStatus.Draft)
+                        {
+                            <form asp-action="Activate" asp-route-id="@Model.Id" method="post" class="mb-3">
+                                <input type="hidden" name="RowVersionToken" value="@Model.RowVersionToken" />
+                                <button type="submit" class="btn btn-success w-100">Kích hoạt hợp đồng</button>
+                            </form>
+                            <form asp-action="Cancel" asp-route-id="@Model.Id" method="post">
+                                <input type="hidden" name="RowVersionToken" value="@Model.RowVersionToken" />
+                                <label for="cancelReason" class="form-label">Lý do hủy <span class="text-danger">*</span></label>
+                                <textarea id="cancelReason" name="Reason" class="form-control mb-2" maxlength="1000" required>@(actionModel.Reason)</textarea>
+                                <button type="submit" class="btn btn-outline-danger w-100">Hủy hợp đồng</button>
+                            </form>
+                        }
+                        else
+                        {
+                            <form asp-action="Complete" asp-route-id="@Model.Id" method="post" class="mb-3">
+                                <input type="hidden" name="RowVersionToken" value="@Model.RowVersionToken" />
+                                <label for="completeReason" class="form-label">Lý do hoàn tất sớm (nếu có)</label>
+                                <textarea id="completeReason" name="Reason" class="form-control mb-2" maxlength="1000"></textarea>
+                                <button type="submit" class="btn btn-success w-100">Đánh dấu hoàn tất</button>
+                            </form>
+                            <form asp-action="Terminate" asp-route-id="@Model.Id" method="post">
+                                <input type="hidden" name="RowVersionToken" value="@Model.RowVersionToken" />
+                                <label for="terminateReason" class="form-label">Lý do chấm dứt <span class="text-danger">*</span></label>
+                                <textarea id="terminateReason" name="Reason" class="form-control mb-2" maxlength="1000" required>@(actionModel.Reason)</textarea>
+                                <button type="submit" class="btn btn-outline-danger w-100">Chấm dứt hợp đồng</button>
+                            </form>
+                        }
+                    </div>
+                </section>
+            }
+            <section class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-white border-0 p-4 pb-0"><h2 class="h5 fw-bold">Lịch sử trạng thái</h2></div>
+                <div class="card-body p-4">
+                    @if (Model.History.Count == 0) { <p class="text-muted mb-0">Chưa có lịch sử.</p> }
+                    else
+                    {
+                        <ol class="list-group list-group-numbered list-group-flush">
+                            @foreach (var history in Model.History)
+                            {
+                                <li class="list-group-item px-0">
+                                    <div class="fw-semibold">@StatusText(history.NewStatus)</div>
+                                    <div class="small text-muted">@history.ChangedAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm") — @history.ChangedBy</div>
+                                    @if (!string.IsNullOrWhiteSpace(history.Reason)) { <div class="small mt-1">Lý do: @history.Reason</div> }
+                                </li>
+                            }
+                        </ol>
+                    }
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
+@functions {
+    private static string StatusText(ApartmentContractStatus status) => status switch
+    {
+        ApartmentContractStatus.Draft => "Nháp",
+        ApartmentContractStatus.Active => "Đang hiệu lực",
+        ApartmentContractStatus.Completed => "Đã hoàn tất",
+        ApartmentContractStatus.Terminated => "Đã chấm dứt",
+        ApartmentContractStatus.Cancelled => "Đã hủy",
+        _ => "Không xác định"
+    };
+
+    private static string RoleText(ContractPartyRole role) => role switch
+    {
+        ContractPartyRole.Lessor => "Bên cho thuê",
+        ContractPartyRole.Lessee => "Bên thuê",
+        _ => "Khác"
+    };
+}

@@ -1,0 +1,78 @@
+@model ApartmentManagement.Models.ContractEditViewModel
+@{
+    var isEdit = !string.IsNullOrEmpty(Model.RowVersionToken);
+    ViewData["Title"] = isEdit ? "Chỉnh sửa hợp đồng nháp" : "Tạo hợp đồng nháp";
+}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-12 col-xl-9">
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <div class="card-header bg-primary text-white p-4">
+                    <h1 class="h4 mb-1">@(isEdit ? "Chỉnh sửa hợp đồng nháp" : "Tạo hợp đồng thuê")</h1>
+                    <p class="mb-0 small opacity-75">Hợp đồng sẽ được lưu ở trạng thái Nháp. Việc tạo hợp đồng không làm thay đổi hồ sơ cư trú.</p>
+                </div>
+                <div class="card-body p-4">
+                    <form asp-action="@(isEdit ? "Edit" : "Create")"
+                          asp-route-id="@(isEdit ? (int?)ViewContext.RouteData.Values["id"] : null)" method="post">
+                        @if (isEdit) { <input asp-for="RowVersionToken" type="hidden" /> }
+                        <div asp-validation-summary="All" class="alert alert-danger" role="alert"></div>
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6">
+                                <label asp-for="ContractCode" class="form-label"></label>
+                                <input asp-for="ContractCode" class="form-control" autocomplete="off" />
+                                <span asp-validation-for="ContractCode" class="text-danger small"></span>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label asp-for="ApartmentId" class="form-label"></label>
+                                <select asp-for="ApartmentId" asp-items="Model.ApartmentOptions" class="form-select">
+                                    <option value="0">-- Chọn căn hộ --</option>
+                                </select>
+                                <span asp-validation-for="ApartmentId" class="text-danger small"></span>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label asp-for="LessorResidentId" class="form-label"></label>
+                                <select asp-for="LessorResidentId" asp-items="Model.ResidentOptions" class="form-select">
+                                    <option value="0">-- Chọn cư dân --</option>
+                                </select>
+                                <span asp-validation-for="LessorResidentId" class="text-danger small"></span>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label asp-for="LesseeResidentId" class="form-label"></label>
+                                <select asp-for="LesseeResidentId" asp-items="Model.ResidentOptions" class="form-select">
+                                    <option value="0">-- Chọn cư dân --</option>
+                                </select>
+                                <span asp-validation-for="LesseeResidentId" class="text-danger small"></span>
+                            </div>
+                            <div class="col-12 col-sm-6 col-lg-3">
+                                <label asp-for="StartDate" class="form-label"></label>
+                                <input asp-for="StartDate" class="form-control" />
+                                <span asp-validation-for="StartDate" class="text-danger small"></span>
+                            </div>
+                            <div class="col-12 col-sm-6 col-lg-3">
+                                <label asp-for="EndDate" class="form-label"></label>
+                                <input asp-for="EndDate" class="form-control" />
+                                <span asp-validation-for="EndDate" class="text-danger small"></span>
+                            </div>
+                            <div class="col-12 col-sm-6 col-lg-3">
+                                <label asp-for="MonthlyRent" class="form-label"></label>
+                                <div class="input-group"><input asp-for="MonthlyRent" class="form-control" type="number" min="0.01" step="0.01" /><span class="input-group-text">đ</span></div>
+                                <span asp-validation-for="MonthlyRent" class="text-danger small"></span>
+                            </div>
+                            <div class="col-12 col-sm-6 col-lg-3">
+                                <label asp-for="DepositAmount" class="form-label"></label>
+                                <div class="input-group"><input asp-for="DepositAmount" class="form-control" type="number" min="0" step="0.01" /><span class="input-group-text">đ</span></div>
+                                <span asp-validation-for="DepositAmount" class="text-danger small"></span>
+                            </div>
+                        </div>
+                        <hr class="my-4" />
+                        <div class="d-flex flex-column flex-sm-row justify-content-end gap-2">
+                            <a asp-action="Index" class="btn btn-outline-secondary">Hủy</a>
+                            <button type="submit" class="btn btn-primary">@(isEdit ? "Lưu thay đổi" : "Tạo hợp đồng nháp")</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

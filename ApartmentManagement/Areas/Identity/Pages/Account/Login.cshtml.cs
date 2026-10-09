@@ -1,12 +1,15 @@
 using System.ComponentModel.DataAnnotations;
 using ApartmentManagement.Models;
+using ApartmentManagement.Common.Security;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace ApartmentManagement.Areas.Identity.Pages.Account;
 
+[AllowAnonymous]
 public class LoginModel : PageModel
 {
     private readonly SignInManager<ApplicationUser> _signInManager;
@@ -91,7 +94,7 @@ public class LoginModel : PageModel
                 user.UserName!,
                 Input.Password,
                 Input.RememberMe,
-                lockoutOnFailure: false);
+                lockoutOnFailure: true);
 
             if (result.Succeeded)
             {
@@ -99,15 +102,15 @@ public class LoginModel : PageModel
 
                 if (string.IsNullOrEmpty(returnUrl) || returnUrl == "/" || returnUrl == Url.Content("~/"))
                 {
-                    if (await _userManager.IsInRoleAsync(user, "SystemAdmin"))
+                    if (await _userManager.IsInRoleAsync(user, AppRoles.SuperAdmin))
                     {
                         return RedirectToAction("Index", "Dashboard");
                     }
-                    if (await _userManager.IsInRoleAsync(user, "Manager"))
+                    if (await _userManager.IsInRoleAsync(user, AppRoles.BuildingManager))
                     {
                         return RedirectToAction("Index", "Dashboard");
                     }
-                    if (await _userManager.IsInRoleAsync(user, "Resident"))
+                    if (await _userManager.IsInRoleAsync(user, AppRoles.Resident))
                     {
                         return RedirectToAction("Resident", "Dashboard");
                     }

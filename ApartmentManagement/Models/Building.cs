@@ -29,5 +29,7 @@ namespace ApartmentManagement.Models
 
         public ICollection<Apartment> Apartments { get; set; }
             = new List<Apartment>();
+
+        public ICollection<FeeTariff> FeeTariffs { get; set; } = new List<FeeTariff>();
     }
 }

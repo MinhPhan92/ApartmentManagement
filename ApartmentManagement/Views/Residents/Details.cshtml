@@ -1,0 +1,13 @@
+@model ApartmentManagement.Models.Resident
+@{ ViewData["Title"] = "Chi tiết cư dân"; }
+<div class="container py-4">
+    @if (TempData["SuccessMessage"] != null) { <div class="alert alert-success">@TempData["SuccessMessage"]</div> }
+    <div class="row g-4"><div class="col-lg-5"><div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+        <div class="card-header bg-primary text-white p-4"><h4>@Model.User.FullName</h4><div>@Model.User.Email</div></div>
+        <div class="card-body"><dl class="row mb-0"><dt class="col-5">CCCD/CMND</dt><dd class="col-7">@Model.CitizenId</dd><dt class="col-5">Ngày sinh</dt><dd class="col-7">@(Model.DateOfBirth?.ToString("dd/MM/yyyy") ?? "Chưa có")</dd><dt class="col-5">Giới tính</dt><dd class="col-7">@(Model.Gender ?? "Chưa có")</dd><dt class="col-5">Liên hệ khẩn cấp</dt><dd class="col-7">@(Model.EmergencyContact ?? "Chưa có")</dd><dt class="col-5">Địa chỉ</dt><dd class="col-7">@(Model.Address ?? "Chưa có")</dd></dl></div>
+        <div class="card-footer bg-white"><a asp-action="Edit" asp-route-id="@Model.ResidentId" class="btn btn-warning">Chỉnh sửa</a> <a asp-action="Index" class="btn btn-outline-secondary">Danh sách</a></div>
+    </div></div><div class="col-lg-7"><div class="card border-0 shadow-sm rounded-4"><div class="card-header bg-white"><h5 class="mb-0">🏠 Lịch sử cư trú</h5></div><div class="card-body">
+        @if (Model.ApartmentResidents.Any()) { @foreach (var item in Model.ApartmentResidents) { <div class="border rounded-3 p-3 mb-2"><strong>@item.Apartment.ApartmentCode — @item.Apartment.Building?.BuildingName</strong><div class="small text-muted">@item.Relationship · @item.MoveInDate.ToString("dd/MM/yyyy") → @(item.MoveOutDate?.ToString("dd/MM/yyyy") ?? "Hiện tại")</div></div> } }
+        else { <p class="text-muted mb-0">Chưa có hồ sơ cư trú.</p> }
+    </div></div></div></div>
+</div>

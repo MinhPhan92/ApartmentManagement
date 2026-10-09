@@ -1,0 +1,64 @@
+@model ResidentInvoiceDetailsViewModel
+@{
+    ViewData["Title"] = "Chi tiết hóa đơn";
+    var invoice = Model.Invoice;
+}
+<div class="container py-4">
+    @if (TempData["SuccessMessage"] != null) { <div class="alert alert-success" role="status">@TempData["SuccessMessage"]</div> }
+    @if (TempData["ErrorMessage"] != null) { <div class="alert alert-danger" role="alert">@TempData["ErrorMessage"]</div> }
+    <article class="card border-0 shadow-sm rounded-4"><div class="card-body p-4 p-md-5">
+        <h1 class="h3 fw-bold">Hóa đơn @invoice.InvoiceCode</h1>
+        <p class="text-muted">Kỳ @invoice.BillingMonth.ToString("D2")/@invoice.BillingYear · @invoice.Apartment.Building?.BuildingName — @invoice.Apartment.ApartmentCode</p>
+        <div class="table-responsive"><table class="table">
+            <thead><tr><th>Khoản phí</th><th class="text-end">Chỉ số</th><th class="text-end">Số lượng</th><th class="text-end">Đơn giá bình quân</th><th class="text-end">Thành tiền</th></tr></thead>
+            <tbody>
+            @foreach (var line in invoice.Lines)
+            {
+                <tr><td>@line.Description@if (line.RateBreakdown != null) { <small class="d-block text-muted">@line.RateBreakdown</small> }</td><td class="text-end">@(line.PreviousReading.HasValue ? $"{line.PreviousReading:N4} → {line.CurrentReading:N4}" : "—")</td><td class="text-end">@line.Quantity.ToString("N4")</td><td class="text-end">@line.UnitRate.ToString("N4") đ</td><td class="text-end">@line.Amount.ToString("N0") đ</td></tr>
+            }
+            </tbody>
+            <tfoot><tr class="fw-bold"><td colspan="4" class="text-end">Tổng phải thu</td><td class="text-end">@invoice.TotalAmount.ToString("N0") đ</td></tr></tfoot>
+        </table></div>
+        <p>Hạn thanh toán: <strong>@invoice.DueDate.ToString("dd/MM/yyyy")</strong></p>
+        @if (Model.Payment?.Status == PaymentTransactionStatus.Confirmed)
+        {
+            <div class="alert alert-success">Đã xác nhận thanh toán mô phỏng cho mã @Model.Payment.Reference. Đây không phải xác nhận từ ngân hàng.</div>
+        }
+        else if (Model.Payment != null)
+        {
+            <div class="alert alert-info">
+                <p class="mb-1">Mã tham chiếu: <strong>@Model.Payment.Reference</strong></p>
+                <p class="mb-2">Số tiền: <strong>@Model.Payment.Amount.ToString("N0") đ</strong></p>
+                @if (Model.VietQrConfigured)
+                {
+                    <img src="@Url.Action("PaymentQr", "MyInvoices", new { id = Model.Payment.PaymentTransactionId })"
+                         alt="Mã VietQR cho thanh toán giả lập" class="img-fluid border rounded p-2" style="max-width: 280px" />
+                }
+                else
+                {
+                    <p class="mb-0">Chưa cấu hình tài khoản nhận để tạo mã VietQR.</p>
+                }
+                <p class="small mt-2 mb-0">Mã QR chỉ chứa hướng dẫn chuyển khoản. Quét hoặc hiển thị mã không xác nhận đã thanh toán; trạng thái chỉ được ghi nhận sau khi nhân viên xác nhận mô phỏng.</p>
+            </div>
+        }
+        else if (Model.VietQrConfigured && Model.VietQrAmountSupported)
+        {
+            <form asp-action="CreateSimulatedPayment" method="post" class="mb-3">
+                <input type="hidden" name="id" value="@invoice.ApartmentInvoiceId" />
+                <button type="submit" class="btn btn-primary">Tạo mã VietQR</button>
+            </form>
+        }
+        else
+        {
+            <div class="alert alert-info mb-3">
+                @(invoice.TotalAmount <= 0
+                    ? "Hóa đơn không có khoản phải thu."
+                    : !Model.VietQrAmountSupported
+                        ? "Số tiền hóa đơn vượt giới hạn của mã VietQR."
+                    : "Chưa cấu hình tài khoản nhận VietQR. Vui lòng liên hệ Ban quản lý.")
+            </div>
+        }
+        <div class="alert alert-warning mb-3">Đây là luồng thanh toán giả lập, không kết nối ngân hàng và không chuyển tiền thật.</div>
+        <a asp-action="Index" class="btn btn-outline-secondary">Quay lại hóa đơn</a>
+    </div></article>
+</div>

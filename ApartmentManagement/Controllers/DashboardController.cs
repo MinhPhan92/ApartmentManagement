@@ -1,5 +1,6 @@
 using ApartmentManagement.Data;
 using ApartmentManagement.Models;
+using ApartmentManagement.Common.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -20,11 +21,11 @@ namespace ApartmentManagement.Controllers
         }
 
         // Admin & Manager Dashboard
-        [Authorize(Roles = "SystemAdmin,Manager")]
+        [Authorize(Policy = AppPolicies.RequireManagement)]
         public async Task<IActionResult> Index()
         {
             var user = await _userManager.GetUserAsync(User);
-            var isSystemAdmin = User.IsInRole("SystemAdmin");
+            var isSystemAdmin = User.IsInRole(AppRoles.SuperAdmin);
 
             var totalBuildings = await _context.Buildings.CountAsync();
             var totalApartments = await _context.Apartments.CountAsync();
@@ -53,7 +54,7 @@ namespace ApartmentManagement.Controllers
         }
 
         // Resident Dashboard
-        [Authorize(Roles = "Resident")]
+        [Authorize(Policy = AppPolicies.RequireResident)]
         public async Task<IActionResult> Resident()
         {
             var user = await _userManager.GetUserAsync(User);

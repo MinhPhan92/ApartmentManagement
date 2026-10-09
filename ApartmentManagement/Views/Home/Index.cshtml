@@ -18,7 +18,7 @@
             <div class="d-flex flex-wrap gap-3">
                 @if (User.Identity?.IsAuthenticated == true)
                 {
-                    @if (User.IsInRole("SystemAdmin") || User.IsInRole("Manager"))
+                    @if (User.IsInRole("SuperAdmin") || User.IsInRole("BuildingManager"))
                     {
                         <a asp-controller="Dashboard" asp-action="Index" class="btn btn-primary btn-lg rounded-3 px-4 shadow-sm">
                             Vào Dashboard Quản Trị →
@@ -36,45 +36,15 @@
                     <a asp-area="Identity" asp-page="/Account/Login" class="btn btn-primary btn-lg rounded-3 px-4 shadow-sm">
                         Đăng Nhập Ngay →
                     </a>
-                    <a asp-area="Identity" asp-page="/Account/Register" class="btn btn-outline-secondary btn-lg rounded-3 px-4">
-                        Đăng Ký Tài Khoản
-                    </a>
                 }
             </div>
         </div>
         <div class="col-lg-5">
             <div class="card border-0 shadow-lg rounded-4 p-4" style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);">
                 <div class="card-body text-white">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <span class="fs-1">🏢</span>
-                        <span class="badge bg-success">Hệ thống sẵn sàng</span>
-                    </div>
-                    <h4 class="fw-bold mb-2">Tài Khoản Trải Nghiệm Demo</h4>
-                    <p class="text-white-50 small mb-4">Đã tích hợp sẵn dữ liệu phân quyền trong CSDL SQL Server:</p>
-                    
-                    <div class="d-flex flex-column gap-2">
-                        <div class="bg-white bg-opacity-10 p-3 rounded-3 d-flex justify-content-between align-items-center">
-                            <div>
-                                <div class="fw-semibold">🛡️ SystemAdmin</div>
-                                <small class="text-white-50">admin / Admin@123</small>
-                            </div>
-                            <span class="badge bg-light text-dark">Toàn quyền</span>
-                        </div>
-                        <div class="bg-white bg-opacity-10 p-3 rounded-3 d-flex justify-content-between align-items-center">
-                            <div>
-                                <div class="fw-semibold">🏢 Manager</div>
-                                <small class="text-white-50">manager / Manager@123</small>
-                            </div>
-                            <span class="badge bg-light text-dark">Ban quản lý</span>
-                        </div>
-                        <div class="bg-white bg-opacity-10 p-3 rounded-3 d-flex justify-content-between align-items-center">
-                            <div>
-                                <div class="fw-semibold">🏠 Resident</div>
-                                <small class="text-white-50">resident / Resident@123</small>
-                            </div>
-                            <span class="badge bg-light text-dark">Cư dân</span>
-                        </div>
-                    </div>
+                    <span class="fs-1">🏢</span>
+                    <h4 class="fw-bold mt-3 mb-2">Cổng thông tin bảo mật</h4>
+                    <p class="text-white-50 mb-0">Tài khoản cư dân được Ban Quản Lý cấp khi hoàn tất thủ tục chuyển vào.</p>
                 </div>
             </div>
         </div>

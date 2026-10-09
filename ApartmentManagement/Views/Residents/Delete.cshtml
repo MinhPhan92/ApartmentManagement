@@ -1,0 +1,11 @@
+@model ApartmentManagement.Models.Resident
+@{ ViewData["Title"] = "Xóa cư dân"; var canDelete = !Model.ApartmentResidents.Any(); }
+<div class="container py-4"><div class="row justify-content-center"><div class="col-lg-7"><div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+    <div class="card-header bg-danger text-white p-4"><h4 class="mb-0">🗑️ Xác Nhận Xóa Cư Dân</h4></div><div class="card-body p-4">
+        @if (TempData["ErrorMessage"] != null) { <div class="alert alert-danger">@TempData["ErrorMessage"]</div> }
+        @if (!canDelete) { <div class="alert alert-warning">Không thể xóa vì cư dân có lịch sử cư trú. Hãy xử lý hồ sơ cư trú trước.</div> }
+        else { <div class="alert alert-danger">Thao tác này xóa cả hồ sơ và tài khoản đăng nhập liên kết.</div> }
+        <dl class="row"><dt class="col-4">Họ tên</dt><dd class="col-8">@Model.User.FullName</dd><dt class="col-4">Email</dt><dd class="col-8">@Model.User.Email</dd><dt class="col-4">CCCD/CMND</dt><dd class="col-8">@Model.CitizenId</dd></dl>
+        <form method="post"><input type="hidden" name="id" value="@Model.ResidentId" /><div class="text-end"><a asp-action="Index" class="btn btn-outline-secondary me-2">Quay lại</a><button class="btn btn-danger" disabled="@(!canDelete)">Xác nhận xóa</button></div></form>
+    </div>
+</div></div></div></div>

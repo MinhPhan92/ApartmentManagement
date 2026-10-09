@@ -1,0 +1,9 @@
+@model IEnumerable<ApartmentManagement.Models.AccountListItemViewModel>
+@{ ViewData["Title"] = "Quản lý tài khoản"; }
+<div class="container-fluid px-4 py-4">
+    <div class="mb-4 border-bottom pb-3"><h2 class="fw-bold">🔐 Quản Lý Tài Khoản</h2><p class="text-muted mb-0">Chỉ SuperAdmin được thay đổi trạng thái, mật khẩu và role.</p></div>
+    <div class="card border-0 shadow-sm rounded-4 mb-4"><div class="card-body"><form method="get" class="row g-2"><div class="col-md-6"><input name="searchTerm" value="@ViewBag.CurrentSearch" class="form-control" placeholder="Tìm theo tên, username hoặc email..." /></div><div class="col-auto"><button class="btn btn-secondary">Tìm kiếm</button><a asp-action="Index" class="btn btn-link">Đặt lại</a></div></form></div></div>
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="table-light"><tr><th class="ps-4">Tài khoản</th><th>Role</th><th>Trạng thái</th><th>Ngày tạo</th><th class="text-end pe-4">Thao tác</th></tr></thead><tbody>
+    @foreach (var item in Model) { <tr><td class="ps-4"><strong>@item.FullName</strong><div class="small text-muted">@item.Email</div></td><td>@foreach (var role in item.Roles) { <span class="badge bg-primary me-1">@role</span> }</td><td><span class="badge @(item.IsActive ? "bg-success" : "bg-secondary")">@(item.IsActive ? "Đang hoạt động" : "Đã vô hiệu hóa")</span></td><td>@item.CreatedAt.ToString("dd/MM/yyyy")</td><td class="text-end pe-4"><a asp-action="Details" asp-route-id="@item.UserId" class="btn btn-sm btn-outline-primary">Quản trị</a></td></tr> }
+    </tbody></table></div></div>
+</div>

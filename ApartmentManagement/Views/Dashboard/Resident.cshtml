@@ -71,7 +71,7 @@
         <div class="col-12 col-md-7">
             <div class="card border-0 shadow-sm rounded-4 h-100">
                 <div class="card-header bg-white py-3 border-0">
-                    <h5 class="fw-bold mb-0">Căn Hộ Đang Cư Trú</h5>
+                    <h5 class="fw-bold mb-0">Lịch Sử Cư Trú</h5>
                 </div>
                 <div class="card-body">
                     @if (Model?.ApartmentResidents != null && Model.ApartmentResidents.Any())
@@ -82,8 +82,8 @@
                                 <div class="list-group-item list-group-item-action rounded-3 mb-2 border p-3">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
                                         <h6 class="fw-bold mb-0 text-primary">Căn hộ @ar.Apartment?.ApartmentCode - Tòa @ar.Apartment?.Building?.BuildingName</h6>
-                                        <span class="badge @(ar.IsOwner ? "bg-primary" : "bg-info text-dark")">
-                                            @(ar.IsOwner ? "Chủ hộ" : "Thành viên")
+                                        <span class="badge @(ar.MoveOutDate == null ? "bg-success" : "bg-secondary")">
+                                            @(ar.MoveOutDate == null ? "Đang cư trú" : "Đã chuyển đi")
                                         </span>
                                     </div>
                                     <div class="row g-2 text-muted small">
@@ -91,6 +91,8 @@
                                         <div class="col-6">Diện tích: <strong class="text-dark">@ar.Apartment?.Area m²</strong></div>
                                         <div class="col-6">Ngày vào ở: <strong class="text-dark">@ar.MoveInDate.ToString("dd/MM/yyyy")</strong></div>
                                         <div class="col-6">Quan hệ: <strong class="text-dark">@ar.Relationship</strong></div>
+                                        <div class="col-6">Ngày chuyển đi: <strong class="text-dark">@(ar.MoveOutDate?.ToString("dd/MM/yyyy") ?? "Hiện tại")</strong></div>
+                                        <div class="col-6">Vai trò: <strong class="text-dark">@(ar.IsOwner ? "Chủ hộ" : "Thành viên")</strong></div>
                                     </div>
                                 </div>
                             }

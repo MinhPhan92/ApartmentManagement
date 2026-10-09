@@ -1,0 +1,43 @@
+@model IncidentTicketListViewModel
+@{
+    ViewData["Title"] = "Hàng đợi sự cố";
+}
+<div class="container py-4">
+    <h1 class="h3 fw-bold mb-1">Hàng đợi sự cố</h1>
+    <p class="text-muted mb-4">Tiếp nhận phiếu mới hoặc tiếp tục xử lý phiếu được giao cho bạn.</p>
+    @if (TempData["SuccessMessage"] != null) { <div class="alert alert-success" role="status">@TempData["SuccessMessage"]</div> }
+    @if (TempData["ErrorMessage"] != null) { <div class="alert alert-danger" role="alert">@TempData["ErrorMessage"]</div> }
+    @if (Model.Tickets.Count == 0)
+    {
+        <div class="alert alert-info">Hiện không có phiếu sự cố trong hàng đợi của bạn.</div>
+    }
+    else
+    {
+        <div class="table-responsive bg-white rounded-4 shadow-sm">
+            <table class="table align-middle mb-0">
+                <thead><tr><th>Mã phiếu</th><th>Tiêu đề</th><th>Căn hộ</th><th>Cư dân</th><th>Trạng thái</th><th>Ngày gửi</th><th></th></tr></thead>
+                <tbody>
+                @foreach (var ticket in Model.Tickets)
+                {
+                    <tr>
+                        <td>@ticket.TicketCode</td><td>@ticket.Title</td>
+                        <td>@ticket.Apartment.Building?.BuildingName — @ticket.Apartment.ApartmentCode</td>
+                        <td>@ticket.Resident.User.FullName</td><td>@StatusText(ticket.Status)</td>
+                        <td>@ticket.CreatedAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                        <td><a asp-action="Details" asp-route-id="@ticket.IncidentTicketId" class="btn btn-sm btn-outline-primary">Mở</a></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+@functions {
+    private static string StatusText(IncidentTicketStatus status) => status switch
+    {
+        IncidentTicketStatus.Submitted => "Tiếp nhận",
+        IncidentTicketStatus.InProgress => "Đang xử lý",
+        IncidentTicketStatus.Completed => "Hoàn thành",
+        _ => "Không xác định"
+    };
+}

@@ -1,0 +1,104 @@
+@model ApartmentManagement.Models.ContractListViewModel
+@{
+    ViewData["Title"] = "Quản lý hợp đồng";
+    var result = Model.PageResult;
+}
+<div class="container-fluid px-3 px-lg-4 py-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <h1 class="h3 fw-bold mb-1">Quản lý hợp đồng</h1>
+            <p class="text-muted mb-0">Quản lý hợp đồng thuê căn hộ và trạng thái thực hiện.</p>
+        </div>
+        <a asp-action="Create" class="btn btn-primary">➕ Tạo hợp đồng</a>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null) { <div class="alert alert-success" role="status">@TempData["SuccessMessage"]</div> }
+    @if (TempData["ErrorMessage"] != null) { <div class="alert alert-danger" role="alert">@TempData["ErrorMessage"]</div> }
+
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body">
+            <form method="get" asp-action="Index" class="row g-3 align-items-end">
+                <div class="col-12 col-lg-6">
+                    <label for="searchTerm" class="form-label">Tìm kiếm</label>
+                    <input id="searchTerm" name="searchTerm" value="@Model.SearchTerm" class="form-control"
+                           placeholder="Mã hợp đồng, căn hộ hoặc tên cư dân" />
+                </div>
+                <div class="col-12 col-md-6 col-lg-3">
+                    <label for="status" class="form-label">Trạng thái</label>
+                    <select id="status" name="status" asp-items="Model.StatusOptions" class="form-select"></select>
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-secondary">Lọc</button>
+                    <a asp-action="Index" class="btn btn-outline-secondary">Đặt lại</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr><th class="ps-4">Mã hợp đồng</th><th>Căn hộ</th><th>Thời hạn</th><th>Tiền thuê/tháng</th><th>Trạng thái</th><th class="text-end pe-4">Thao tác</th></tr>
+                </thead>
+                <tbody>
+                    @if (result.Contracts.Count == 0)
+                    {
+                        <tr><td colspan="6" class="text-center text-muted py-5">Không tìm thấy hợp đồng phù hợp.</td></tr>
+                    }
+                    else
+                    {
+                        @foreach (var contract in result.Contracts)
+                        {
+                            <tr>
+                                <td class="ps-4 fw-semibold">@contract.ContractCode</td>
+                                <td>@(contract.Apartment.Building?.BuildingName ?? "Không rõ tòa nhà") — @contract.Apartment.ApartmentCode</td>
+                                <td>@contract.StartDate.ToString("dd/MM/yyyy") – @(contract.EndDate?.ToString("dd/MM/yyyy") ?? "Không xác định")</td>
+                                <td>@contract.MonthlyRent.ToString("N0") đ</td>
+                                <td>
+                                    <span class="badge @(contract.Status == ApartmentContractStatus.Active ? "bg-success" : contract.Status == ApartmentContractStatus.Draft ? "bg-secondary" : "bg-dark")">
+                                        @ContractStatusText(contract.Status)
+                                    </span>
+                                </td>
+                                <td class="text-end pe-4">
+                                    <div class="btn-group btn-group-sm">
+                                        <a asp-action="Details" asp-route-id="@contract.ApartmentContractId" class="btn btn-outline-primary">Chi tiết</a>
+                                        @if (contract.Status == ApartmentContractStatus.Draft)
+                                        {
+                                            <a asp-action="Edit" asp-route-id="@contract.ApartmentContractId" class="btn btn-outline-secondary">Sửa</a>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer bg-white d-flex flex-column flex-sm-row justify-content-between align-items-center gap-2">
+            <span class="small text-muted">Trang @result.Page / @result.TotalPages — @result.TotalCount hợp đồng</span>
+            <nav aria-label="Phân trang hợp đồng">
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item @(result.Page <= 1 ? "disabled" : "")">
+                        <a class="page-link" asp-action="Index" asp-route-searchTerm="@Model.SearchTerm" asp-route-status="@Model.Status" asp-route-page="@(result.Page - 1)">Trước</a>
+                    </li>
+                    <li class="page-item @(result.Page >= result.TotalPages ? "disabled" : "")">
+                        <a class="page-link" asp-action="Index" asp-route-searchTerm="@Model.SearchTerm" asp-route-status="@Model.Status" asp-route-page="@(result.Page + 1)">Sau</a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+@functions {
+    private static string ContractStatusText(ApartmentContractStatus status) => status switch
+    {
+        ApartmentContractStatus.Draft => "Nháp",
+        ApartmentContractStatus.Active => "Đang hiệu lực",
+        ApartmentContractStatus.Completed => "Đã hoàn tất",
+        ApartmentContractStatus.Terminated => "Đã chấm dứt",
+        ApartmentContractStatus.Cancelled => "Đã hủy",
+        _ => "Không xác định"
+    };
+}

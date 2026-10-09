@@ -1,55 +1,83 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using ApartmentManagement.Data;
+using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
+using ApartmentManagement.Common.Security;
+using ApartmentManagement.Common.Validation;
 using ApartmentManagement.Models;
+using ApartmentManagement.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
-namespace ApartmentManagement.Controllers
+namespace ApartmentManagement.Controllers;
+
+[ApiController]
+[Authorize]
+[Route("api/apartmentresidents")]
+public sealed class ApartmentResidentsController : ControllerBase
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    public class ApartmentResidentsController : ControllerBase
+    private readonly IOccupancyService _service;
+    public ApartmentResidentsController(IOccupancyService service) => _service = service;
+
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<ApartmentResidentResponse>>> GetApartmentResidents()
     {
-        private readonly ApplicationDbContext _context;
-
-        public ApartmentResidentsController(ApplicationDbContext context)
+        List<ApartmentResident> occupancies;
+        if (User.IsInRole(AppRoles.Resident))
         {
-            _context = context;
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            occupancies = await _service.GetForUserAsync(userId);
         }
-
-        // GET: api/apartmentresidents
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<ApartmentResident>>> GetApartmentResidents()
+        else if (User.IsInRole(AppRoles.SuperAdmin) || User.IsInRole(AppRoles.BuildingManager))
         {
-            return await _context.ApartmentResidents
-                .Include(ar => ar.Apartment)
-                .Include(ar => ar.Resident)
-                .ToListAsync();
+            occupancies = await _service.GetAllAsync();
         }
+        else return Forbid();
 
-        // POST: api/apartmentresidents (Gán cư dân vào căn hộ)
-        [HttpPost]
-        public async Task<ActionResult> AssignResidentToApartment(ApartmentResident model)
-        {
-            var aptExists = await _context.Apartments.AnyAsync(a => a.ApartmentId == model.ApartmentId);
-            var resExists = await _context.Residents.AnyAsync(r => r.ResidentId == model.ResidentId);
-
-            if (!aptExists || !resExists)
-            {
-                return BadRequest("Căn hộ hoặc cư dân không tồn tại.");
-            }
-
-            var alreadyAssigned = await _context.ApartmentResidents
-                .AnyAsync(ar => ar.ApartmentId == model.ApartmentId && ar.ResidentId == model.ResidentId);
-
-            if (alreadyAssigned)
-            {
-                return BadRequest("Cư dân này đã được gán vào căn hộ rồi.");
-            }
-
-            _context.ApartmentResidents.Add(model);
-            await _context.SaveChangesAsync();
-
-            return Ok(model);
-        }
+        return Ok(occupancies.Select(ToResponse));
     }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Policy = AppPolicies.RequireManagement)]
+    public async Task<ActionResult<ApartmentResidentResponse>> MoveIn(AssignResidentRequest request)
+    {
+        var result = await _service.MoveInAsync(new MoveInViewModel
+        {
+            ApartmentId = request.ApartmentId,
+            ResidentId = request.ResidentId,
+            Relationship = request.Relationship,
+            MoveInDate = request.MoveInDate,
+            IsOwner = request.IsOwner
+        });
+        if (!result.Success) return Conflict(new { error = result.ErrorMessage });
+        var occupancy = await _service.GetByIdAsync(result.Occupancy!.ApartmentResidentId);
+        return Ok(ToResponse(occupancy!));
+    }
+
+    [HttpPost("{id:int}/move-out")]
+    [ValidateAntiForgeryToken]
+    [Authorize(Policy = AppPolicies.RequireManagement)]
+    public async Task<IActionResult> MoveOut(int id, MoveOutRequest request)
+    {
+        var result = await _service.MoveOutAsync(id, request.MoveOutDate);
+        return result.Success ? NoContent() : Conflict(new { error = result.ErrorMessage });
+    }
+
+    private static ApartmentResidentResponse ToResponse(ApartmentResident x) => new(
+        x.ApartmentResidentId, x.ApartmentId, x.Apartment.ApartmentCode,
+        x.Apartment.Building?.BuildingName, x.ResidentId, x.Resident.User.FullName,
+        x.Relationship, x.MoveInDate, x.MoveOutDate, x.IsOwner);
 }
+
+public sealed record AssignResidentRequest(
+    [Range(1, int.MaxValue)] int ApartmentId,
+    [Range(1, int.MaxValue)] int ResidentId,
+    [Required, StringLength(ResidentValidation.RelationshipMaxLength)] string Relationship,
+    DateTime MoveInDate,
+    bool IsOwner);
+
+public sealed record MoveOutRequest([Required] DateTime MoveOutDate);
+
+public sealed record ApartmentResidentResponse(
+    int ApartmentResidentId, int ApartmentId, string ApartmentCode, string? BuildingName,
+    int ResidentId, string ResidentName, string Relationship,
+    DateTime MoveInDate, DateTime? MoveOutDate, bool IsOwner);

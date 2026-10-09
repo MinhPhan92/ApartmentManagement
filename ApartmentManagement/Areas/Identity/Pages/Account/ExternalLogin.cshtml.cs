@@ -138,7 +138,9 @@ public class ExternalLoginModel : PageModel
         }
     }
 
-    public async Task<IActionResult> OnPostConfirmationAsync(string? returnUrl = null)
+    public IActionResult OnPostConfirmation(string? returnUrl = null) => NotFound();
+
+    private async Task<IActionResult> CreateExternalAccountAsync(string? returnUrl = null)
     {
         returnUrl = returnUrl ?? Url.Content("~/");
         // Get the information about the user from the external login provider

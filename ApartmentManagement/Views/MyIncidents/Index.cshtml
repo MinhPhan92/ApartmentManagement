@@ -1,0 +1,50 @@
+@model IncidentTicketListViewModel
+@{
+    ViewData["Title"] = "Sự cố của tôi";
+}
+<div class="container py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h1 class="h3 fw-bold mb-1">Sự cố của tôi</h1>
+            <p class="text-muted mb-0">Theo dõi các phiếu sự cố đã gửi cho căn hộ bạn đang cư trú.</p>
+        </div>
+        <a asp-action="Create" class="btn btn-primary">Gửi phiếu sự cố</a>
+    </div>
+    @if (TempData["SuccessMessage"] != null) { <div class="alert alert-success" role="status">@TempData["SuccessMessage"]</div> }
+    @if (TempData["ErrorMessage"] != null) { <div class="alert alert-danger" role="alert">@TempData["ErrorMessage"]</div> }
+    @if (Model.Tickets.Count == 0)
+    {
+        <div class="card border-0 shadow-sm rounded-4"><div class="card-body text-center py-5">
+            <h2 class="h5">Chưa có phiếu sự cố</h2>
+            <p class="text-muted mb-0">Các phiếu bạn gửi sẽ được theo dõi tại đây.</p>
+        </div></div>
+    }
+    else
+    {
+        <div class="table-responsive bg-white rounded-4 shadow-sm">
+            <table class="table align-middle mb-0">
+                <thead><tr><th>Mã phiếu</th><th>Tiêu đề</th><th>Căn hộ</th><th>Trạng thái</th><th>Ngày gửi</th><th></th></tr></thead>
+                <tbody>
+                @foreach (var ticket in Model.Tickets)
+                {
+                    <tr>
+                        <td>@ticket.TicketCode</td><td>@ticket.Title</td>
+                        <td>@ticket.Apartment.Building?.BuildingName — @ticket.Apartment.ApartmentCode</td>
+                        <td>@StatusText(ticket.Status)</td><td>@ticket.CreatedAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                        <td><a asp-action="Details" asp-route-id="@ticket.IncidentTicketId" class="btn btn-sm btn-outline-primary">Chi tiết</a></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+@functions {
+    private static string StatusText(IncidentTicketStatus status) => status switch
+    {
+        IncidentTicketStatus.Submitted => "Tiếp nhận",
+        IncidentTicketStatus.InProgress => "Đang xử lý",
+        IncidentTicketStatus.Completed => "Hoàn thành",
+        _ => "Không xác định"
+    };
+}

@@ -42,7 +42,7 @@
                         </li>
                         @if (User.Identity?.IsAuthenticated == true)
                         {
-                            @if (User.IsInRole("SystemAdmin") || User.IsInRole("Manager"))
+                            @if (User.IsInRole("SuperAdmin") || User.IsInRole("BuildingManager"))
                             {
                                 <li class="nav-item">
                                     <a class="nav-link text-primary" asp-area="" asp-controller="Dashboard" asp-action="Index">
@@ -59,13 +59,50 @@
                                         🚪 Căn Hộ
                                     </a>
                                 </li>
+                                <li class="nav-item">
+                                    <a class="nav-link text-dark" asp-area="" asp-controller="Residents" asp-action="Index">
+                                        👥 Cư Dân
+                                    </a>
+                                </li>
+                                <li class="nav-item"><a class="nav-link text-dark" asp-controller="Occupancies" asp-action="Index">🔑 Cư Trú</a></li>
+                                @if (User.IsInRole("SuperAdmin"))
+                                {
+                                    <li class="nav-item"><a class="nav-link text-dark" asp-controller="Contracts" asp-action="Index">📄 Hợp Đồng</a></li>
+                                    <li class="nav-item"><a class="nav-link text-danger" asp-controller="Accounts" asp-action="Index">🔐 Tài Khoản</a></li>
+                                }
                             }
                             @if (User.IsInRole("Resident"))
                             {
                                 <li class="nav-item">
+                                    <a class="nav-link text-success" asp-controller="MyInvoices" asp-action="Index">🧾 Hóa đơn của tôi</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link text-success" asp-controller="MyIncidents" asp-action="Index">🛠 Sự cố của tôi</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link text-success" asp-area="" asp-controller="MyContracts" asp-action="Index">
+                                        📄 Hợp Đồng Của Tôi
+                                    </a>
+                                </li>
+                                <li class="nav-item">
                                     <a class="nav-link text-success" asp-area="" asp-controller="Dashboard" asp-action="Resident">
                                         🏠 Cư Dân
                                     </a>
+                                </li>
+                            }
+                            @if (User.IsInRole("Technician") || User.IsInRole("BuildingManager") || User.IsInRole("SuperAdmin"))
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link text-primary" asp-controller="IncidentQueue" asp-action="Index">🧰 Hàng đợi sự cố</a>
+                                </li>
+                            }
+                            @if (User.IsInRole("Accountant") || User.IsInRole("BuildingManager") || User.IsInRole("SuperAdmin"))
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link text-dark" asp-controller="Billing" asp-action="Index">💳 Phí & Hóa đơn</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link text-dark" asp-controller="Payments" asp-action="Index">Giao dịch</a>
                                 </li>
                             }
                         }

@@ -1,11 +1,12 @@
 using ApartmentManagement.Models;
 using ApartmentManagement.Services;
+using ApartmentManagement.Common.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ApartmentManagement.Controllers
 {
-    [Authorize(Roles = "SystemAdmin,Manager")]
+    [Authorize(Policy = AppPolicies.RequireManagement)]
     public class ApartmentsController : Controller
     {
         private readonly IApartmentService _apartmentService;

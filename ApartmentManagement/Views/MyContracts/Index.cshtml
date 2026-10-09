@@ -1,0 +1,66 @@
+@model ApartmentManagement.Models.ResidentContractListViewModel
+@{
+    ViewData["Title"] = "Hợp đồng của tôi";
+}
+<div class="container py-4">
+    <header class="mb-4">
+        <h1 class="h3 fw-bold mb-1">Hợp đồng của tôi</h1>
+        <p class="text-muted mb-0">Các hợp đồng có tài khoản của bạn là một bên tham gia.</p>
+    </header>
+
+    @if (Model.Contracts.Count == 0)
+    {
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-body text-center py-5">
+                <span class="display-6 d-block mb-3" aria-hidden="true">📄</span>
+                <h2 class="h5">Chưa có hợp đồng</h2>
+                <p class="text-muted mb-0">Khi bạn là bên tham gia của một hợp đồng, hợp đồng sẽ hiển thị tại đây.</p>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="row g-3">
+            @foreach (var contract in Model.Contracts)
+            {
+                <div class="col-12 col-lg-6">
+                    <article class="card border-0 shadow-sm rounded-4 h-100">
+                        <div class="card-body p-4">
+                            <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+                                <h2 class="h5 fw-bold mb-0">@contract.ContractCode</h2>
+                                <span class="badge @StatusClass(contract.Status)">@StatusText(contract.Status)</span>
+                            </div>
+                            <dl class="row mb-3">
+                                <dt class="col-5 text-muted fw-normal">Căn hộ</dt><dd class="col-7">@contract.Apartment</dd>
+                                <dt class="col-5 text-muted fw-normal">Thời hạn</dt><dd class="col-7">@contract.StartDate.ToString("dd/MM/yyyy") – @(contract.EndDate?.ToString("dd/MM/yyyy") ?? "Không xác định")</dd>
+                                <dt class="col-5 text-muted fw-normal">Tiền thuê/tháng</dt><dd class="col-7">@contract.MonthlyRent.ToString("N0") đ</dd>
+                                <dt class="col-5 text-muted fw-normal">Tiền đặt cọc</dt><dd class="col-7">@contract.DepositAmount.ToString("N0") đ</dd>
+                            </dl>
+                            <a asp-action="Details" asp-route-id="@contract.Id" class="btn btn-outline-primary">Xem chi tiết</a>
+                        </div>
+                    </article>
+                </div>
+            }
+        </div>
+    }
+</div>
+@functions {
+    private static string StatusText(ApartmentContractStatus status) => status switch
+    {
+        ApartmentContractStatus.Draft => "Nháp",
+        ApartmentContractStatus.Active => "Đang hiệu lực",
+        ApartmentContractStatus.Completed => "Đã hoàn tất",
+        ApartmentContractStatus.Terminated => "Đã chấm dứt",
+        ApartmentContractStatus.Cancelled => "Đã hủy",
+        _ => "Không xác định"
+    };
+
+    private static string StatusClass(ApartmentContractStatus status) => status switch
+    {
+        ApartmentContractStatus.Active => "bg-success",
+        ApartmentContractStatus.Draft => "bg-secondary",
+        ApartmentContractStatus.Completed => "bg-primary",
+        ApartmentContractStatus.Terminated or ApartmentContractStatus.Cancelled => "bg-dark",
+        _ => "bg-secondary"
+    };
+}

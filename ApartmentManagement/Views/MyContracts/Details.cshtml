@@ -1,0 +1,94 @@
+@model ApartmentManagement.Models.ResidentContractDetailsViewModel
+@{
+    ViewData["Title"] = "Chi tiết hợp đồng";
+}
+<div class="container py-4">
+    <a asp-action="Index" class="small text-decoration-none">← Hợp đồng của tôi</a>
+    <header class="d-flex flex-wrap justify-content-between align-items-center gap-3 my-3">
+        <div>
+            <h1 class="h3 fw-bold mb-1">@Model.ContractCode</h1>
+            <span class="badge @StatusClass(Model.Status)">@StatusText(Model.Status)</span>
+        </div>
+        <span class="text-muted small">Chế độ chỉ xem</span>
+    </header>
+
+    <div class="row g-4">
+        <div class="col-12 col-lg-7">
+            <section class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4">
+                    <h2 class="h5 fw-bold mb-3">Thông tin hợp đồng</h2>
+                    <dl class="row mb-0">
+                        <dt class="col-sm-5 text-muted">Căn hộ</dt><dd class="col-sm-7">@Model.Apartment</dd>
+                        <dt class="col-sm-5 text-muted">Ngày bắt đầu</dt><dd class="col-sm-7">@Model.StartDate.ToString("dd/MM/yyyy")</dd>
+                        <dt class="col-sm-5 text-muted">Ngày kết thúc</dt><dd class="col-sm-7">@(Model.EndDate?.ToString("dd/MM/yyyy") ?? "Không xác định")</dd>
+                        <dt class="col-sm-5 text-muted">Tiền thuê hàng tháng</dt><dd class="col-sm-7">@Model.MonthlyRent.ToString("N0") đ</dd>
+                        <dt class="col-sm-5 text-muted">Tiền đặt cọc</dt><dd class="col-sm-7">@Model.DepositAmount.ToString("N0") đ</dd>
+                    </dl>
+                </div>
+            </section>
+            <section class="card border-0 shadow-sm rounded-4 mt-4">
+                <div class="card-body p-4">
+                    <h2 class="h5 fw-bold mb-3">Các bên tham gia</h2>
+                    <ul class="list-group list-group-flush">
+                        @foreach (var party in Model.Parties)
+                        {
+                            <li class="list-group-item px-0 d-flex justify-content-between gap-3">
+                                <span>@party.ResidentName</span><span class="badge bg-light text-dark border">@RoleText(party.Role)</span>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            </section>
+        </div>
+        <div class="col-12 col-lg-5">
+            <section class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4">
+                    <h2 class="h5 fw-bold mb-3">Lịch sử trạng thái</h2>
+                    @if (Model.History.Count == 0)
+                    {
+                        <p class="text-muted mb-0">Chưa có lịch sử trạng thái.</p>
+                    }
+                    else
+                    {
+                        <ol class="list-group list-group-numbered list-group-flush">
+                            @foreach (var item in Model.History)
+                            {
+                                <li class="list-group-item px-0">
+                                    <div class="fw-semibold">@StatusText(item.NewStatus)</div>
+                                    <div class="small text-muted">@item.ChangedAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+                                </li>
+                            }
+                        </ol>
+                    }
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
+@functions {
+    private static string StatusText(ApartmentContractStatus status) => status switch
+    {
+        ApartmentContractStatus.Draft => "Nháp",
+        ApartmentContractStatus.Active => "Đang hiệu lực",
+        ApartmentContractStatus.Completed => "Đã hoàn tất",
+        ApartmentContractStatus.Terminated => "Đã chấm dứt",
+        ApartmentContractStatus.Cancelled => "Đã hủy",
+        _ => "Không xác định"
+    };
+
+    private static string StatusClass(ApartmentContractStatus status) => status switch
+    {
+        ApartmentContractStatus.Active => "bg-success",
+        ApartmentContractStatus.Draft => "bg-secondary",
+        ApartmentContractStatus.Completed => "bg-primary",
+        ApartmentContractStatus.Terminated or ApartmentContractStatus.Cancelled => "bg-dark",
+        _ => "bg-secondary"
+    };
+
+    private static string RoleText(ContractPartyRole role) => role switch
+    {
+        ContractPartyRole.Lessor => "Bên cho thuê",
+        ContractPartyRole.Lessee => "Bên thuê",
+        _ => "Bên tham gia"
+    };
+}

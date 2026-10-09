@@ -1,0 +1,77 @@
+@model IncidentTicket
+@{
+    ViewData["Title"] = "Chi tiết phiếu sự cố";
+}
+<div class="container py-4">
+    @if (TempData["SuccessMessage"] != null) { <div class="alert alert-success" role="status">@TempData["SuccessMessage"]</div> }
+    @if (TempData["ErrorMessage"] != null) { <div class="alert alert-danger" role="alert">@TempData["ErrorMessage"]</div> }
+    <article class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-4">
+            <div class="d-flex flex-wrap justify-content-between gap-2">
+                <div><h1 class="h3 fw-bold">@Model.Title</h1><p class="text-muted">@Model.TicketCode · @CategoryText(Model.Category)</p></div>
+                <span class="badge bg-primary align-self-start">@StatusText(Model.Status)</span>
+            </div>
+            <dl class="row mb-0">
+                <dt class="col-sm-3">Căn hộ</dt><dd class="col-sm-9">@Model.Apartment.Building?.BuildingName — @Model.Apartment.ApartmentCode</dd>
+                <dt class="col-sm-3">Ngày gửi</dt><dd class="col-sm-9">@Model.CreatedAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</dd>
+                <dt class="col-sm-3">Mô tả</dt><dd class="col-sm-9 text-break">@Model.Description</dd>
+                @if (Model.AssignedToUser != null) { <dt class="col-sm-3">Nhân viên phụ trách</dt><dd class="col-sm-9">@Model.AssignedToUser.FullName</dd> }
+            </dl>
+        </div>
+    </article>
+    <section class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-4">
+            <h2 class="h5 fw-bold">Lịch sử xử lý</h2>
+            <ol class="mb-0">
+                @foreach (var history in Model.StatusHistory.OrderBy(x => x.ChangedAtUtc))
+                {
+                    <li class="mb-2">@StatusText(history.NewStatus) — @history.ChangedAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm") (@history.ChangedByUser.FullName)</li>
+                }
+            </ol>
+        </div>
+    </section>
+    @if (Model.Status == IncidentTicketStatus.Completed && Model.Rating == null)
+    {
+        <section class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-body p-4">
+                <h2 class="h5 fw-bold">Đánh giá xử lý</h2>
+                <form asp-action="Rate" method="post">
+                    <input type="hidden" name="Id" value="@Model.IncidentTicketId" />
+                    <input type="hidden" name="RowVersionToken" value="@Convert.ToBase64String(Model.RowVersion)" />
+                    <label for="Rating" class="form-label">Số sao</label>
+                    <select id="Rating" name="Rating" class="form-select mb-3" required>
+                        <option value="">Chọn số sao</option>
+                        @for (var rating = 1; rating <= 5; rating++) { <option value="@rating">@rating sao</option> }
+                    </select>
+                    <label for="Feedback" class="form-label">Nhận xét (không bắt buộc)</label>
+                    <textarea id="Feedback" name="Feedback" class="form-control mb-3" maxlength="1000" rows="3"></textarea>
+                    <button class="btn btn-primary" type="submit">Gửi đánh giá</button>
+                </form>
+            </div>
+        </section>
+    }
+    else if (Model.Rating.HasValue)
+    {
+        <section class="card border-0 shadow-sm rounded-4 mb-4"><div class="card-body p-4">
+            <h2 class="h5 fw-bold">Đánh giá của bạn: @Model.Rating/5</h2><p class="mb-0">@(Model.ResidentFeedback ?? "Không có nhận xét.")</p>
+        </div></section>
+    }
+    <a asp-action="Index" class="btn btn-outline-secondary">Quay lại danh sách</a>
+</div>
+@functions {
+    private static string StatusText(IncidentTicketStatus status) => status switch
+    {
+        IncidentTicketStatus.Submitted => "Tiếp nhận",
+        IncidentTicketStatus.InProgress => "Đang xử lý",
+        IncidentTicketStatus.Completed => "Hoàn thành",
+        _ => "Không xác định"
+    };
+    private static string CategoryText(IncidentCategory category) => category switch
+    {
+        IncidentCategory.Electricity => "Điện",
+        IncidentCategory.Water => "Nước",
+        IncidentCategory.Elevator => "Thang máy",
+        IncidentCategory.CommonArea => "Khu vực chung",
+        _ => "Khác"
+    };
+}

@@ -1,0 +1,31 @@
+@model ResidentInvoiceListViewModel
+@{
+    ViewData["Title"] = "Hóa đơn của tôi";
+}
+<div class="container py-4">
+    <h1 class="h3 fw-bold">Hóa đơn của tôi</h1>
+    <p class="text-muted mb-4">Chỉ hiển thị hóa đơn đã được Ban quản lý phát hành.</p>
+    @if (Model.Invoices.Count == 0)
+    {
+        <div class="alert alert-info">Chưa có hóa đơn được phát hành cho tài khoản của bạn.</div>
+    }
+    else
+    {
+        <div class="table-responsive bg-white rounded-4 shadow-sm">
+            <table class="table align-middle mb-0">
+                <thead><tr><th>Mã hóa đơn</th><th>Kỳ</th><th>Căn hộ</th><th>Hạn thanh toán</th><th>Tổng phải thu</th><th></th></tr></thead>
+                <tbody>
+                @foreach (var invoice in Model.Invoices)
+                {
+                    <tr>
+                        <td>@invoice.InvoiceCode</td><td>@invoice.BillingMonth.ToString("D2")/@invoice.BillingYear</td>
+                        <td>@invoice.Apartment.Building?.BuildingName — @invoice.Apartment.ApartmentCode</td>
+                        <td>@invoice.DueDate.ToString("dd/MM/yyyy")</td><td>@invoice.TotalAmount.ToString("N0") đ</td>
+                        <td><a asp-action="Details" asp-route-id="@invoice.ApartmentInvoiceId" class="btn btn-sm btn-outline-primary">Xem</a></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

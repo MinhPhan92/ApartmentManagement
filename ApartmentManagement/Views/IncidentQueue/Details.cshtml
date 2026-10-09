@@ -1,0 +1,36 @@
+@model StaffIncidentTicketViewModel
+@{
+    ViewData["Title"] = "Xử lý phiếu sự cố";
+    var ticket = Model.Ticket;
+}
+<div class="container py-4">
+    @if (TempData["SuccessMessage"] != null) { <div class="alert alert-success" role="status">@TempData["SuccessMessage"]</div> }
+    @if (TempData["ErrorMessage"] != null) { <div class="alert alert-danger" role="alert">@TempData["ErrorMessage"]</div> }
+    <article class="card border-0 shadow-sm rounded-4 mb-4"><div class="card-body p-4">
+        <p class="text-muted mb-1">@ticket.TicketCode · @ticket.Category</p>
+        <h1 class="h3 fw-bold">@ticket.Title</h1>
+        <dl class="row">
+            <dt class="col-sm-3">Cư dân</dt><dd class="col-sm-9">@ticket.Resident.User.FullName</dd>
+            <dt class="col-sm-3">Căn hộ</dt><dd class="col-sm-9">@ticket.Apartment.Building?.BuildingName — @ticket.Apartment.ApartmentCode</dd>
+            <dt class="col-sm-3">Mô tả</dt><dd class="col-sm-9 text-break">@ticket.Description</dd>
+            <dt class="col-sm-3">Trạng thái</dt><dd class="col-sm-9">@ticket.Status</dd>
+        </dl>
+        @if (ticket.Status == IncidentTicketStatus.Submitted)
+        {
+            <form asp-action="Claim" method="post">
+                <input type="hidden" name="id" value="@ticket.IncidentTicketId" />
+                <input type="hidden" name="rowVersionToken" value="@Model.RowVersionToken" />
+                <button type="submit" class="btn btn-primary">Tiếp nhận phiếu</button>
+            </form>
+        }
+        else if (ticket.Status == IncidentTicketStatus.InProgress)
+        {
+            <form asp-action="Complete" method="post">
+                <input type="hidden" name="id" value="@ticket.IncidentTicketId" />
+                <input type="hidden" name="rowVersionToken" value="@Model.RowVersionToken" />
+                <button type="submit" class="btn btn-success">Đánh dấu hoàn thành</button>
+            </form>
+        }
+    </div></article>
+    <a asp-action="Index" class="btn btn-outline-secondary">Quay lại hàng đợi</a>
+</div>

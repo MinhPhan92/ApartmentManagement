@@ -1,0 +1,11 @@
+@model IEnumerable<ApartmentManagement.Models.ApartmentResident>
+@{ ViewData["Title"] = "Quản lý cư trú"; }
+<div class="container-fluid px-4 py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3"><div><h2 class="fw-bold">🔑 Quản Lý Cư Trú</h2><p class="text-muted mb-0">Theo dõi chuyển vào, chuyển đi và toàn bộ lịch sử cư trú.</p></div><a asp-action="Create" class="btn btn-primary">➕ Làm thủ tục chuyển vào</a></div>
+    @if (TempData["SuccessMessage"] != null) { <div class="alert alert-success">@TempData["SuccessMessage"]</div> }
+    <div class="mb-3 btn-group"><a asp-action="Index" class="btn @(ViewBag.Status == null ? "btn-primary" : "btn-outline-primary")">Tất cả</a><a asp-action="Index" asp-route-status="active" class="btn @(ViewBag.Status == "active" ? "btn-success" : "btn-outline-success")">Đang cư trú</a><a asp-action="Index" asp-route-status="history" class="btn @(ViewBag.Status == "history" ? "btn-secondary" : "btn-outline-secondary")">Đã chuyển đi</a></div>
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="table-light"><tr><th class="ps-4">Cư dân</th><th>Căn hộ</th><th>Quan hệ</th><th>Chuyển vào</th><th>Chuyển đi</th><th>Trạng thái</th><th class="text-end pe-4">Thao tác</th></tr></thead><tbody>
+    @foreach (var item in Model) { <tr><td class="ps-4"><strong>@item.Resident.User.FullName</strong></td><td>@item.Apartment.ApartmentCode — @item.Apartment.Building?.BuildingName</td><td>@item.Relationship @(item.IsOwner ? "· Chủ hộ" : "")</td><td>@item.MoveInDate.ToString("dd/MM/yyyy")</td><td>@(item.MoveOutDate?.ToString("dd/MM/yyyy") ?? "—")</td><td><span class="badge @(item.MoveOutDate == null ? "bg-success" : "bg-secondary")">@(item.MoveOutDate == null ? "Đang cư trú" : "Đã chuyển đi")</span></td><td class="text-end pe-4"><a asp-action="Details" asp-route-id="@item.ApartmentResidentId" class="btn btn-sm btn-outline-info">Chi tiết</a> @if (item.MoveOutDate == null) { <a asp-action="MoveOut" asp-route-id="@item.ApartmentResidentId" class="btn btn-sm btn-outline-danger">Chuyển đi</a> }</td></tr> }
+    @if (!Model.Any()) { <tr><td colspan="7" class="text-center text-muted py-5">Chưa có hồ sơ cư trú phù hợp.</td></tr> }
+    </tbody></table></div></div>
+</div>
