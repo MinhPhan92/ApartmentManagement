@@ -49,6 +49,18 @@ namespace ApartmentManagement.Data
 
         public DbSet<PaymentTransaction> PaymentTransactions => Set<PaymentTransaction>();
 
+        public DbSet<Vehicle> Vehicles => Set<Vehicle>();
+
+        public DbSet<Complaint> Complaints => Set<Complaint>();
+
+        public DbSet<Amenity> Amenities => Set<Amenity>();
+
+        public DbSet<AmenityBooking> AmenityBookings => Set<AmenityBooking>();
+
+        public DbSet<Announcement> Announcements => Set<Announcement>();
+
+        public DbSet<VisitorPass> VisitorPasses => Set<VisitorPass>();
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
@@ -481,6 +493,80 @@ namespace ApartmentManagement.Data
                 entity.HasOne(x => x.ConfirmedByUser).WithMany()
                     .HasForeignKey(x => x.ConfirmedByUserId).OnDelete(DeleteBehavior.Restrict);
             });
+
+            // VEHICLE
+            builder.Entity<Vehicle>(entity =>
+            {
+                entity.HasKey(x => x.VehicleId);
+                entity.HasIndex(x => x.LicensePlate).IsUnique();
+                entity.Property(x => x.VehicleType).HasMaxLength(50).IsRequired();
+                entity.Property(x => x.LicensePlate).HasMaxLength(20).IsRequired();
+                entity.Property(x => x.Status).HasMaxLength(50).IsRequired();
+                entity.HasOne(x => x.Resident).WithMany(x => x.Vehicles)
+                    .HasForeignKey(x => x.ResidentId).OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // COMPLAINT
+            builder.Entity<Complaint>(entity =>
+            {
+                entity.HasKey(x => x.ComplaintId);
+                entity.Property(x => x.Title).HasMaxLength(200).IsRequired();
+                entity.Property(x => x.Content).HasMaxLength(2000).IsRequired();
+                entity.Property(x => x.Category).HasMaxLength(50).IsRequired();
+                entity.Property(x => x.Status).HasMaxLength(50).IsRequired();
+                entity.HasOne(x => x.Resident).WithMany(x => x.Complaints)
+                    .HasForeignKey(x => x.ResidentId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(x => x.Apartment).WithMany(x => x.Complaints)
+                    .HasForeignKey(x => x.ApartmentId).OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // AMENITY
+            builder.Entity<Amenity>(entity =>
+            {
+                entity.HasKey(x => x.AmenityId);
+                entity.Property(x => x.Name).HasMaxLength(100).IsRequired();
+                entity.Property(x => x.PricePerHour).HasPrecision(18, 2);
+            });
+
+            // AMENITY BOOKING
+            builder.Entity<AmenityBooking>(entity =>
+            {
+                entity.HasKey(x => x.AmenityBookingId);
+                entity.Property(x => x.BookingDate).HasColumnType("date");
+                entity.Property(x => x.Status).HasMaxLength(50).IsRequired();
+                entity.HasOne(x => x.Amenity).WithMany(x => x.Bookings)
+                    .HasForeignKey(x => x.AmenityId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(x => x.Resident).WithMany(x => x.AmenityBookings)
+                    .HasForeignKey(x => x.ResidentId).OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // ANNOUNCEMENT
+            builder.Entity<Announcement>(entity =>
+            {
+                entity.HasKey(x => x.AnnouncementId);
+                entity.Property(x => x.Title).HasMaxLength(200).IsRequired();
+                entity.Property(x => x.Category).HasMaxLength(50).IsRequired();
+                entity.Property(x => x.CreatedAtUtc).HasColumnType("datetime2");
+                entity.Property(x => x.CreatedByUserId).HasMaxLength(450);
+                entity.HasOne(x => x.Building).WithMany(x => x.Announcements)
+                    .HasForeignKey(x => x.BuildingId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(x => x.CreatedByUser).WithMany()
+                    .HasForeignKey(x => x.CreatedByUserId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // VISITOR PASS
+            builder.Entity<VisitorPass>(entity =>
+            {
+                entity.HasKey(x => x.VisitorPassId);
+                entity.Property(x => x.VisitorName).HasMaxLength(100).IsRequired();
+                entity.Property(x => x.ExpectedArrivalDate).HasColumnType("date");
+                entity.Property(x => x.Status).HasMaxLength(50).IsRequired();
+                entity.HasOne(x => x.Resident).WithMany(x => x.VisitorPasses)
+                    .HasForeignKey(x => x.ResidentId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(x => x.Apartment).WithMany(x => x.VisitorPasses)
+                    .HasForeignKey(x => x.ApartmentId).OnDelete(DeleteBehavior.Restrict);
+            });
         }
     }
 }
+

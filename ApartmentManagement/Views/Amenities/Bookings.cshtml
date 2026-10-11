@@ -1,0 +1,121 @@
+@model IEnumerable<ApartmentManagement.Models.AmenityBooking>
+
+@{
+    ViewData["Title"] = "Quản lý Lịch đặt Tiện ích";
+    var amenities = ViewBag.Amenities as IEnumerable<ApartmentManagement.Models.Amenity> ?? Enumerable.Empty<ApartmentManagement.Models.Amenity>();
+}
+
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="h4 mb-1">Quản lý Lịch đặt Tiện ích</h2>
+            <p class="text-muted small mb-0">Theo dõi toàn bộ lịch đặt tiện ích của cư dân</p>
+        </div>
+        <a asp-action="Index" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Danh mục tiện ích
+        </a>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <form method="get" class="card card-body shadow-sm border-0 mb-4">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-5">
+                <label class="form-label small fw-bold">Lọc theo tiện ích</label>
+                <select name="amenityId" class="form-select">
+                    <option value="">-- Tất cả tiện ích --</option>
+                    @foreach (var a in amenities)
+                    {
+                        <!option value="@a.AmenityId" @(ViewBag.SelectedAmenityId?.ToString() == a.AmenityId.ToString() ? "selected" : "")>@a.Name</!option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small fw-bold">Ngày sử dụng</label>
+                <input type="date" name="date" class="form-control" value="@ViewBag.SelectedDate" />
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-primary w-100"><i class="bi bi-filter"></i> Lọc dữ liệu</button>
+            </div>
+        </div>
+    </form>
+
+    <div class="card shadow-sm border-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Mã</th>
+                        <th>Tiện ích</th>
+                        <th>Cư dân</th>
+                        <th>Ngày</th>
+                        <th>Khung giờ</th>
+                        <th>Số người</th>
+                        <th>Trạng thái</th>
+                        <th>Ghi chú</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!Model.Any())
+                    {
+                        <tr>
+                            <td colspan="9" class="text-center py-4 text-muted">Chưa có lịch đặt chỗ nào phù hợp.</td>
+                        </tr>
+                    }
+                    @foreach (var item in Model)
+                    {
+                        <tr>
+                            <td>#@item.AmenityBookingId</td>
+                            <td><span class="fw-bold">@item.Amenity?.Name</span></td>
+                            <td>
+                                <div>@item.Resident?.User?.FullName</div>
+                                <small class="text-muted">@item.Resident?.User?.PhoneNumber</small>
+                            </td>
+                            <td>@item.BookingDate.ToString("dd/MM/yyyy")</td>
+                            <td><span class="badge bg-light text-dark border">@item.StartTime.ToString(@"hh\:mm") - @item.EndTime.ToString(@"hh\:mm")</span></td>
+                            <td>@item.NumberOfGuests người</td>
+                            <td>
+                                @if (item.Status == "Đã xác nhận")
+                                {
+                                    <span class="badge bg-success">Đã xác nhận</span>
+                                }
+                                else if (item.Status == "Đã hủy")
+                                {
+                                    <span class="badge bg-secondary">Đã hủy</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-warning text-dark">@item.Status</span>
+                                }
+                            </td>
+                            <td><small class="text-muted">@(item.Notes ?? "-")</small></td>
+                            <td>
+                                @if (item.Status != "Đã hủy")
+                                {
+                                    <form asp-action="CancelBooking" asp-route-id="@item.AmenityBookingId" method="post" onsubmit="return confirm('Bạn có chắc muốn hủy lịch này?');">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">Hủy lịch</button>
+                                    </form>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

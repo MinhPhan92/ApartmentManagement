@@ -1,0 +1,71 @@
+@model ApartmentManagement.Models.VisitorPass
+
+@{
+    ViewData["Title"] = "Đăng ký Khách đến thăm";
+    var myApartments = ViewBag.MyApartments as IEnumerable<ApartmentManagement.Models.Apartment> ?? Enumerable.Empty<ApartmentManagement.Models.Apartment>();
+}
+
+<div class="container py-3">
+    <div class="row justify-content-center">
+        <div class="col-md-7">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-person-plus-fill me-2"></i>Đăng ký Khách đến thăm căn hộ</h5>
+                </div>
+                <div class="card-body">
+                    <form asp-action="Register" method="post">
+                        @Html.AntiForgeryToken()
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+
+                        <div class="mb-3">
+                            <label asp-for="ApartmentId" class="form-label fw-bold">Căn hộ tiếp khách</label>
+                            <select asp-for="ApartmentId" class="form-select">
+                                @foreach (var apt in myApartments)
+                                {
+                                    <option value="@apt.ApartmentId">Căn @apt.ApartmentCode - Tòa @(apt.Building?.BuildingCode ?? "")</option>
+                                }
+                            </select>
+                            <span asp-validation-for="ApartmentId" class="text-danger small"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="VisitorName" class="form-label fw-bold"></label>
+                            <input asp-for="VisitorName" class="form-control" placeholder="Nhập họ và tên khách..." />
+                            <span asp-validation-for="VisitorName" class="text-danger small"></span>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label asp-for="PhoneNumber" class="form-label"></label>
+                                <input asp-for="PhoneNumber" class="form-control" placeholder="Số điện thoại khách..." />
+                                <span asp-validation-for="PhoneNumber" class="text-danger small"></span>
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="IdCardNumber" class="form-label"></label>
+                                <input asp-for="IdCardNumber" class="form-control" placeholder="Số CCCD/CMND..." />
+                                <span asp-validation-for="IdCardNumber" class="text-danger small"></span>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="ExpectedArrivalDate" class="form-label fw-bold"></label>
+                            <input asp-for="ExpectedArrivalDate" class="form-control" type="date" min="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                            <span asp-validation-for="ExpectedArrivalDate" class="text-danger small"></span>
+                        </div>
+
+                        <div class="mb-4">
+                            <label asp-for="Purpose" class="form-label"></label>
+                            <textarea asp-for="Purpose" class="form-control" rows="3" placeholder="Mục đích đến thăm (thăm thân, giao hàng, bảo trì cá nhân...)"></textarea>
+                            <span asp-validation-for="Purpose" class="text-danger small"></span>
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-2">
+                            <a asp-action="Index" class="btn btn-outline-secondary">Hủy</a>
+                            <button type="submit" class="btn btn-primary px-4">Đăng ký khách</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

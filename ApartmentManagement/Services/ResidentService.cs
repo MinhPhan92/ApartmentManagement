@@ -12,16 +12,20 @@ public sealed class ResidentService : IResidentService
     private readonly ApplicationDbContext _context;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ILogger<ResidentService> _logger;
+    private readonly Microsoft.AspNetCore.Http.IHttpContextAccessor _httpContextAccessor;
 
     public ResidentService(
         ApplicationDbContext context,
         UserManager<ApplicationUser> userManager,
-        ILogger<ResidentService> logger)
+        ILogger<ResidentService> logger,
+        Microsoft.AspNetCore.Http.IHttpContextAccessor httpContextAccessor)
     {
         _context = context;
         _userManager = userManager;
         _logger = logger;
+        _httpContextAccessor = httpContextAccessor;
     }
+
 
     public async Task<List<Resident>> GetAllAsync(string? searchTerm = null)
     {
@@ -151,6 +155,24 @@ public sealed class ResidentService : IResidentService
         var result = await _userManager.DeleteAsync(resident.User);
         if (!result.Succeeded) return (false, IdentityErrors(result));
         return (true, null);
+    }
+
+    public async Task<List<Apartment>> GetApartmentsForCurrentResidentAsync()
+    {
+        var userId = _httpContextAccessor.HttpContext?.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            return new List<Apartment>();
+        }
+
+        return await _context.Apartments
+            .Include(x => x.Building)
+            .Include(x => x.ApartmentResidents.Where(ar => ar.MoveOutDate == null))
+                .ThenInclude(ar => ar.Resident)
+            .Where(x => x.ApartmentResidents.Any(ar =>
+                ar.Resident.UserId == userId &&
+                ar.MoveOutDate == null))
+            .ToListAsync();
     }
 
     private IQueryable<Resident> ResidentQuery() => _context.Residents.AsNoTracking()

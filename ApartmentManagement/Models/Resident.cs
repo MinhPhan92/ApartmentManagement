@@ -30,4 +30,8 @@ public class Resident
     public ICollection<ContractParty> ContractParties { get; set; } = new List<ContractParty>();
     public ICollection<IncidentTicket> IncidentTickets { get; set; } = new List<IncidentTicket>();
     public ICollection<ApartmentInvoice> Invoices { get; set; } = new List<ApartmentInvoice>();
+    public ICollection<Vehicle> Vehicles { get; set; } = new List<Vehicle>();
+    public ICollection<Complaint> Complaints { get; set; } = new List<Complaint>();
+    public ICollection<AmenityBooking> AmenityBookings { get; set; } = new List<AmenityBooking>();
+    public ICollection<VisitorPass> VisitorPasses { get; set; } = new List<VisitorPass>();
 }

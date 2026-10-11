@@ -1,0 +1,91 @@
+@model ApartmentManagement.ViewModels.ComplaintCreateViewModel
+
+@{
+    ViewData["Title"] = "Gửi Phản Ánh & Khiếu Nại";
+    var myApartments = ViewBag.MyApartments as List<ApartmentManagement.Models.Apartment> ?? new List<ApartmentManagement.Models.Apartment>();
+}
+
+<div class="container py-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb small mb-3">
+            <li class="breadcrumb-item"><a asp-action="Index" class="text-decoration-none">Phản Ánh</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Gửi phản ánh mới</li>
+        </ol>
+    </nav>
+
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-9 col-lg-7">
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <div class="card-header bg-primary text-white py-3 px-4 bg-gradient" style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);">
+                    <h5 class="fw-bold mb-1">✍️ Gửi Phản Ánh / Khiếu Nại Mới</h5>
+                    <small class="text-white-50">Ý kiến của bạn sẽ được chuyển trực tiếp tới Ban Quản Lý tòa nhà để xem xét và xử lý.</small>
+                </div>
+
+                <div class="card-body p-4">
+                    <form asp-action="Create" method="post">
+                        @Html.AntiForgeryToken()
+
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger border-0 rounded-3 small py-2 mb-3" role="alert"></div>
+
+                        <!-- Title -->
+                        <div class="mb-3">
+                            <label asp-for="Title" class="form-label fw-semibold">Tiêu đề phản ánh <span class="text-danger">*</span></label>
+                            <input asp-for="Title" class="form-control rounded-3" placeholder="Ví dụ: Rác thải chưa thu gom tại tầng 5..." />
+                            <span asp-validation-for="Title" class="text-danger small"></span>
+                        </div>
+
+                        <!-- Category & Apartment -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-12 col-md-6">
+                                <label asp-for="Category" class="form-label fw-semibold">Danh mục <span class="text-danger">*</span></label>
+                                <select asp-for="Category" class="form-select rounded-3">
+                                    <option value="Vệ sinh">🧹 Vệ sinh môi trường</option>
+                                    <option value="Tiếng ồn">🔊 Tiếng ồn / Trật tự</option>
+                                    <option value="An ninh">🛡️ An ninh tòa nhà</option>
+                                    <option value="Tiện ích / Thiết bị">💡 Tiện ích / Thiết bị chung</option>
+                                    <option value="Dịch vụ khác">📦 Dịch vụ khác</option>
+                                </select>
+                                <span asp-validation-for="Category" class="text-danger small"></span>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label asp-for="ApartmentId" class="form-label fw-semibold">Căn hộ liên quan</label>
+                                <select asp-for="ApartmentId" class="form-select rounded-3">
+                                    <option value="">-- Khu vực chung (Không chọn) --</option>
+                                    @foreach (var apt in myApartments)
+                                    {
+                                        <option value="@apt.ApartmentId">🚪 Căn @apt.ApartmentCode - Tầng @apt.Floor</option>
+                                    }
+                                </select>
+                                <small class="text-muted d-block mt-1">Chỉ được chọn căn hộ bạn đang cư trú.</small>
+                                <span asp-validation-for="ApartmentId" class="text-danger small"></span>
+                            </div>
+                        </div>
+
+                        <!-- Content -->
+                        <div class="mb-4">
+                            <label asp-for="Content" class="form-label fw-semibold">Nội dung chi tiết <span class="text-danger">*</span></label>
+                            <textarea asp-for="Content" rows="5" class="form-control rounded-3" placeholder="Mô tả cụ thể vấn đề bạn gặp phải, vị trí, thời gian và đề xuất mong muốn..."></textarea>
+                            <span asp-validation-for="Content" class="text-danger small"></span>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="d-flex justify-content-between align-items-center pt-2">
+                            <a asp-action="Index" class="btn btn-outline-secondary rounded-pill px-4">
+                                Hủy bỏ
+                            </a>
+                            <button type="submit" class="btn btn-primary rounded-pill px-4 shadow-sm">
+                                🚀 Gửi phản ánh
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

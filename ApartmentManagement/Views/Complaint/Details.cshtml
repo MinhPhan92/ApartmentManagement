@@ -1,0 +1,199 @@
+@model ApartmentManagement.Models.Complaint
+
+@{
+    ViewData["Title"] = "Chi Tiết Phản Ánh: " + Model.Title;
+    var isManagerOrAdmin = User.IsInRole("SystemAdmin") || User.IsInRole("Manager");
+    var isResident = User.IsInRole("Resident") && !isManagerOrAdmin;
+}
+
+<div class="container py-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb small mb-3">
+            <li class="breadcrumb-item"><a asp-action="Index" class="text-decoration-none">Phản Ánh</a></li>
+            <li class="breadcrumb-item active" aria-current="page">#@Model.ComplaintId - @Model.Title</li>
+        </ol>
+    </nav>
+
+    <!-- Alert Notifications -->
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm rounded-3 mb-4" role="alert">
+            <div class="d-flex align-items-center gap-2">
+                <span>✅</span>
+                <strong>@TempData["SuccessMessage"]</strong>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm rounded-3 mb-4" role="alert">
+            <div class="d-flex align-items-center gap-2">
+                <span>⚠️</span>
+                <strong>@TempData["ErrorMessage"]</strong>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    <div class="row g-4">
+        <!-- Main Content Card -->
+        <div class="col-12 col-lg-8">
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+                <div class="card-header bg-primary text-white py-4 px-4 bg-gradient" style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                        <span class="badge bg-white text-dark px-3 py-2 rounded-pill">
+                            🏷️ @Model.Category
+                        </span>
+                        @switch (Model.Status)
+                        {
+                            case "Chờ tiếp nhận":
+                                <span class="badge bg-warning text-dark px-3 py-2 rounded-pill">⏳ Chờ tiếp nhận</span>
+                                break;
+                            case "Đang xử lý":
+                                <span class="badge bg-info text-dark px-3 py-2 rounded-pill">⚙️ Đang xử lý</span>
+                                break;
+                            case "Đã xử lý":
+                                <span class="badge bg-success px-3 py-2 rounded-pill">✅ Đã xử lý</span>
+                                break;
+                            case "Từ chối":
+                                <span class="badge bg-danger px-3 py-2 rounded-pill">❌ Từ chối</span>
+                                break;
+                            case "Đã hủy":
+                                <span class="badge bg-secondary px-3 py-2 rounded-pill">⚪ Đã hủy</span>
+                                break;
+                            default:
+                                <span class="badge bg-light text-dark px-3 py-2 rounded-pill">@Model.Status</span>
+                                break;
+                        }
+                    </div>
+                    <h4 class="fw-bold mb-1">@Model.Title</h4>
+                    <small class="text-white-50">
+                        Mã đơn: #@Model.ComplaintId · Gửi lúc: @Model.CreatedAt.ToString("dd/MM/yyyy HH:mm:ss")
+                    </small>
+                </div>
+
+                <div class="card-body p-4">
+                    <h6 class="fw-bold text-muted mb-2">NỘI DUNG PHẢN ÁNH:</h6>
+                    <div class="p-3 bg-light rounded-3 text-dark border mb-4" style="white-space: pre-wrap; font-size: 1.05rem; line-height: 1.6;">
+                        @Model.Content
+                    </div>
+
+                    <!-- Management Response Block -->
+                    <div class="card border-0 rounded-4 @(Model.Status == "Đã xử lý" ? "bg-success-subtle border border-success-subtle" : Model.Status == "Từ chối" ? "bg-danger-subtle border border-danger-subtle" : "bg-light border") mb-4">
+                        <div class="card-body p-4">
+                            <h6 class="fw-bold mb-2 @(Model.Status == "Đã xử lý" ? "text-success" : Model.Status == "Từ chối" ? "text-danger" : "text-muted")">
+                                💬 PHẢN HỒI TỪ BAN QUẢN LÝ:
+                            </h6>
+                            @if (!string.IsNullOrWhiteSpace(Model.ResponseNotes))
+                            {
+                                <p class="mb-2 text-dark" style="white-space: pre-wrap; font-size: 1rem;">@Model.ResponseNotes</p>
+                                @if (Model.ResolvedAt.HasValue)
+                                {
+                                    <small class="text-muted d-block">
+                                        Thời điểm hoàn tất: @Model.ResolvedAt.Value.ToString("dd/MM/yyyy HH:mm:ss")
+                                    </small>
+                                }
+                            }
+                            else
+                            {
+                                <p class="text-muted mb-0 fst-italic">
+                                    Ban Quản Lý đang tiếp nhận ý kiến và sẽ phản hồi trong thời gian sớm nhất.
+                                </p>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="d-flex flex-wrap gap-2 pt-2">
+                        <a asp-action="Index" class="btn btn-outline-secondary rounded-pill px-4">
+                            ← Quay lại
+                        </a>
+
+                        @if (isResident && Model.Status == "Chờ tiếp nhận")
+                        {
+                            <form asp-action="Cancel" asp-route-id="@Model.ComplaintId" method="post" onsubmit="return confirm('Bạn có chắc chắn muốn rút phản ánh này?');">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn-outline-danger rounded-pill px-4">
+                                    Rút phản ánh
+                                </button>
+                            </form>
+                        }
+
+                        @if (isManagerOrAdmin && Model.Status != "Đã hủy")
+                        {
+                            <a asp-action="Process" asp-route-id="@Model.ComplaintId" class="btn btn-primary rounded-pill px-4">
+                                ⚖️ Cập nhật xử lý / Phản hồi
+                            </a>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Metadata & Context Card -->
+        <div class="col-12 col-lg-4">
+            <!-- Resident Info -->
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-white py-3 border-0">
+                    <h6 class="fw-bold mb-0">👤 Thông Tin Cư Dân</h6>
+                </div>
+                <div class="card-body pt-0">
+                    @if (Model.Resident != null)
+                    {
+                        <ul class="list-group list-group-flush small">
+                            <li class="list-group-item px-0 d-flex justify-content-between">
+                                <span class="text-muted">Họ tên:</span>
+                                <span class="fw-semibold">@(Model.Resident.User?.FullName ?? "Cư dân")</span>
+                            </li>
+                            <li class="list-group-item px-0 d-flex justify-content-between">
+                                <span class="text-muted">CCCD:</span>
+                                <span class="fw-semibold">@Model.Resident.CitizenId</span>
+                            </li>
+                            <li class="list-group-item px-0 d-flex justify-content-between">
+                                <span class="text-muted">Số điện thoại:</span>
+                                <span class="fw-semibold">@(Model.Resident.User?.PhoneNumber ?? "-")</span>
+                            </li>
+                            <li class="list-group-item px-0 d-flex justify-content-between">
+                                <span class="text-muted">Email:</span>
+                                <span class="fw-semibold">@(Model.Resident.User?.Email ?? "-")</span>
+                            </li>
+                        </ul>
+                    }
+                    else
+                    {
+                        <p class="text-muted mb-0 small">Không có thông tin cư dân.</p>
+                    }
+                </div>
+            </div>
+
+            <!-- Apartment Info -->
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-white py-3 border-0">
+                    <h6 class="fw-bold mb-0">🚪 Căn Hộ Liên Quan</h6>
+                </div>
+                <div class="card-body pt-0">
+                    @if (Model.Apartment != null)
+                    {
+                        <div class="p-3 bg-light rounded-3 border">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="fw-bold text-primary fs-5">Căn @Model.Apartment.ApartmentCode</span>
+                                <span class="badge bg-secondary-subtle text-secondary">Tầng @Model.Apartment.Floor</span>
+                            </div>
+                            <small class="text-muted d-block">
+                                Tòa nhà: @(Model.Apartment.Building?.BuildingName ?? "Chung cư")
+                            </small>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="p-3 bg-light rounded-3 text-muted text-center border">
+                            <span>🏢 Khu vực sinh hoạt chung tòa nhà</span>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

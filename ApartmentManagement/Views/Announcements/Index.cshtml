@@ -1,0 +1,119 @@
+@model IEnumerable<ApartmentManagement.Models.Announcement>
+@using ApartmentManagement.Common.Security
+
+@{
+    ViewData["Title"] = "Bảng tin & Thông báo";
+    var isManager = User.IsInRole(AppRoles.SuperAdmin) || User.IsInRole(AppRoles.BuildingManager);
+    var buildings = ViewBag.Buildings as IEnumerable<ApartmentManagement.Models.Building> ?? Enumerable.Empty<ApartmentManagement.Models.Building>();
+}
+
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="h4 mb-1"><i class="bi bi-megaphone text-primary me-2"></i>Bảng tin & Thông báo</h2>
+            <p class="text-muted small mb-0">Cập nhật tin tức, lịch bảo trì, thông báo tài chính và an ninh tòa nhà</p>
+        </div>
+        @if (isManager)
+        {
+            <a asp-action="Create" class="btn btn-primary">
+                <i class="bi bi-plus-circle me-1"></i> Tạo thông báo mới
+            </a>
+        }
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (isManager)
+    {
+        <form method="get" class="card card-body shadow-sm border-0 mb-4">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-6">
+                    <label class="form-label small fw-bold">Lọc theo tòa nhà</label>
+                    <select name="buildingId" class="form-select">
+                        <option value="">-- Toàn khu chung cư --</option>
+                        @foreach (var b in buildings)
+                        {
+                            <!option value="@b.BuildingId" @(ViewBag.SelectedBuildingId?.ToString() == b.BuildingId.ToString() ? "selected" : "")>@b.BuildingName (@b.BuildingCode)</!option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-outline-primary w-100"><i class="bi bi-filter"></i> Lọc</button>
+                </div>
+            </div>
+        </form>
+    }
+
+    <div class="row g-3">
+        @if (!Model.Any())
+        {
+            <div class="col-12">
+                <div class="card card-body text-center py-5 shadow-sm border-0">
+                    <i class="bi bi-inbox text-muted display-4 mb-3"></i>
+                    <h5 class="text-muted">Chưa có thông báo nào.</h5>
+                </div>
+            </div>
+        }
+        @foreach (var item in Model)
+        {
+            <div class="col-12">
+                <div class="card shadow-sm border-0 @(item.IsPinned ? "border-start border-4 border-warning bg-light" : "")">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                @if (item.IsPinned)
+                                {
+                                    <span class="badge bg-warning text-dark me-2"><i class="bi bi-pin-angle-fill"></i> Đã ghim</span>
+                                }
+                                <span class="badge bg-secondary me-2">@item.Category</span>
+                                @if (item.Building != null)
+                                {
+                                    <span class="badge bg-info text-dark">Tòa: @item.Building.BuildingCode</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-primary">Toàn khu</span>
+                                }
+                                <h5 class="fw-bold mt-2 mb-1">
+                                    <a asp-action="Details" asp-route-id="@item.AnnouncementId" class="text-decoration-none text-dark">
+                                        @item.Title
+                                    </a>
+                                </h5>
+                            </div>
+                            <small class="text-muted">@item.CreatedAtUtc.ToString("dd/MM/yyyy HH:mm")</small>
+                        </div>
+                        <p class="card-text text-muted mb-3" style="max-height: 4.5em; overflow: hidden; text-overflow: ellipsis;">
+                            @item.Content
+                        </p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted">Người đăng: @(item.CreatedByUser?.FullName ?? "Ban Quản Lý")</small>
+                            <div class="d-flex gap-2">
+                                <a asp-action="Details" asp-route-id="@item.AnnouncementId" class="btn btn-sm btn-outline-primary">Xem chi tiết</a>
+                                @if (isManager)
+                                {
+                                    <form asp-action="Delete" asp-route-id="@item.AnnouncementId" method="post" onsubmit="return confirm('Bạn có chắc muốn xóa thông báo này?');">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">Xóa</button>
+                                    </form>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>

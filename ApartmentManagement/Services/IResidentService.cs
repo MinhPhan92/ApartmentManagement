@@ -9,4 +9,6 @@ public interface IResidentService
     Task<(bool Success, string? ErrorMessage, Resident? Resident)> CreateAsync(ResidentCreateViewModel model);
     Task<(bool Success, string? ErrorMessage)> UpdateAsync(ResidentEditViewModel model);
     Task<(bool Success, string? ErrorMessage)> DeleteAsync(int id);
+    Task<List<Apartment>> GetApartmentsForCurrentResidentAsync();
 }
+

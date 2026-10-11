@@ -1,0 +1,108 @@
+@model ApartmentManagement.ViewModels.ComplaintProcessViewModel
+
+@{
+    ViewData["Title"] = "Xử Lý Phản Ánh: #" + Model.ComplaintId;
+}
+
+<div class="container py-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb small mb-3">
+            <li class="breadcrumb-item"><a asp-action="Index" class="text-decoration-none">Phản Ánh</a></li>
+            <li class="breadcrumb-item"><a asp-action="Details" asp-route-id="@Model.ComplaintId" class="text-decoration-none">#@Model.ComplaintId</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Xử lý</li>
+        </ol>
+    </nav>
+
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-9 col-lg-7">
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <div class="card-header bg-dark text-white py-3 px-4">
+                    <h5 class="fw-bold mb-1">⚖️ Cập Nhật Tiến Độ & Phản Hồi Phản Ánh</h5>
+                    <small class="text-white-50">Ban Quản Lý chuyển trạng thái xử lý và gửi phản hồi chính thức tới cư dân.</small>
+                </div>
+
+                <div class="card-body p-4">
+                    <!-- Complaint Summary -->
+                    <div class="p-3 bg-light rounded-3 border mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="fw-bold text-primary mb-0">#@Model.ComplaintId - @Model.Title</h6>
+                            <span class="badge bg-secondary-subtle text-secondary">@Model.Category</span>
+                        </div>
+                        <p class="text-muted small mb-2" style="white-space: pre-wrap;">@Model.Content</p>
+                        <div class="d-flex justify-content-between small text-muted border-top pt-2">
+                            <span>Cư dân: <strong>@(Model.ResidentName ?? "Chưa rõ")</strong></span>
+                            <span>Căn hộ: <strong>@(Model.ApartmentCode != null ? "Căn " + Model.ApartmentCode : "Khu vực chung")</strong></span>
+                        </div>
+                    </div>
+
+                    <form asp-action="Process" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" asp-for="ComplaintId" />
+                        <input type="hidden" asp-for="Title" />
+                        <input type="hidden" asp-for="Content" />
+                        <input type="hidden" asp-for="Category" />
+                        <input type="hidden" asp-for="ResidentName" />
+                        <input type="hidden" asp-for="ApartmentCode" />
+                        <input type="hidden" asp-for="CurrentStatus" />
+
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger border-0 rounded-3 small py-2 mb-3" role="alert"></div>
+
+                        <!-- Target Status -->
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">Chọn trạng thái xử lý mới <span class="text-danger">*</span></label>
+                            <div class="row g-2">
+                                <div class="col-4">
+                                    <input type="radio" class="btn-check" name="TargetStatus" id="statusProcessing" value="Đang xử lý" @(Model.TargetStatus == "Đang xử lý" ? "checked" : "")>
+                                    <label class="btn btn-outline-info w-100 py-3 rounded-3 text-start d-flex flex-column gap-1" for="statusProcessing">
+                                        <span class="fs-5">⚙️</span>
+                                        <strong>Đang xử lý</strong>
+                                        <small class="text-muted">Đang phân công giải quyết</small>
+                                    </label>
+                                </div>
+                                <div class="col-4">
+                                    <input type="radio" class="btn-check" name="TargetStatus" id="statusResolved" value="Đã xử lý" @(Model.TargetStatus == "Đã xử lý" ? "checked" : "")>
+                                    <label class="btn btn-outline-success w-100 py-3 rounded-3 text-start d-flex flex-column gap-1" for="statusResolved">
+                                        <span class="fs-5">✅</span>
+                                        <strong>Đã xử lý</strong>
+                                        <small class="text-muted">Hoàn thành giải quyết</small>
+                                    </label>
+                                </div>
+                                <div class="col-4">
+                                    <input type="radio" class="btn-check" name="TargetStatus" id="statusRejected" value="Từ chối" @(Model.TargetStatus == "Từ chối" ? "checked" : "")>
+                                    <label class="btn btn-outline-danger w-100 py-3 rounded-3 text-start d-flex flex-column gap-1" for="statusRejected">
+                                        <span class="fs-5">❌</span>
+                                        <strong>Từ chối</strong>
+                                        <small class="text-muted">Phản ánh không phù hợp</small>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Response Notes -->
+                        <div class="mb-4">
+                            <label asp-for="ResponseNotes" class="form-label fw-semibold">
+                                Nội dung phản hồi tới Cư Dân <span class="text-muted small">(Bắt buộc nếu 'Đã xử lý' hoặc 'Từ chối')</span>
+                            </label>
+                            <textarea asp-for="ResponseNotes" rows="4" class="form-control rounded-3" placeholder="Nhập chi tiết biện pháp giải quyết hoặc lý do từ chối phản ánh..."></textarea>
+                            <span asp-validation-for="ResponseNotes" class="text-danger small"></span>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center pt-2">
+                            <a asp-action="Details" asp-route-id="@Model.ComplaintId" class="btn btn-outline-secondary rounded-pill px-4">
+                                Hủy bỏ
+                            </a>
+                            <button type="submit" class="btn btn-primary rounded-pill px-4 shadow-sm" onclick="return confirm('Xác nhận cập nhật trạng thái phản ánh?');">
+                                💾 Cập nhật trạng thái
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

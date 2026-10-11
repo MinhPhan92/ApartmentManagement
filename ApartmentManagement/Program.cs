@@ -35,6 +35,14 @@ builder.Services
     .AddEntityFrameworkStores<ApplicationDbContext>();
 
 // Register Application Services
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+builder.Services.AddScoped<IResourceAuthorizationService, ResourceAuthorizationService>();
+builder.Services.AddScoped<IVehicleService, VehicleService>();
+builder.Services.AddScoped<IComplaintService, ComplaintService>();
+builder.Services.AddScoped<IAmenityService, AmenityService>();
+builder.Services.AddScoped<IAnnouncementService, AnnouncementService>();
+builder.Services.AddScoped<IVisitorService, VisitorService>();
 builder.Services.AddScoped<IBuildingService, BuildingService>();
 builder.Services.AddScoped<IApartmentService, ApartmentService>();
 builder.Services.AddScoped<IResidentService, ResidentService>();

@@ -1,0 +1,76 @@
+@model ApartmentManagement.ViewModels.VehicleRegisterViewModel
+
+@{
+    ViewData["Title"] = "Đăng Ký Phương Tiện";
+}
+
+<div class="container py-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb small mb-3">
+            <li class="breadcrumb-item"><a asp-action="Index" class="text-decoration-none">Phương Tiện</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Đăng ký mới</li>
+        </ol>
+    </nav>
+
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-8 col-lg-6">
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <div class="card-header bg-primary text-white py-3 px-4 bg-gradient" style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);">
+                    <h5 class="fw-bold mb-1">📝 Đăng Ký Phương Tiện Đi Lại</h5>
+                    <small class="text-white-50">Phương tiện sẽ được ban quản lý tòa nhà kiểm tra và phê duyệt trước khi kích hoạt thẻ gửi xe.</small>
+                </div>
+
+                <div class="card-body p-4">
+                    <form asp-action="Register" method="post">
+                        @Html.AntiForgeryToken()
+
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger border-0 rounded-3 small py-2 mb-3" role="alert"></div>
+
+                        <div class="mb-3">
+                            <label asp-for="VehicleType" class="form-label fw-semibold">Loại phương tiện <span class="text-danger">*</span></label>
+                            <select asp-for="VehicleType" class="form-select rounded-3">
+                                <option value="Xe máy">🛵 Xe máy</option>
+                                <option value="Ô tô">🚗 Ô tô</option>
+                                <option value="Xe đạp điện">🚲 Xe đạp điện / Xe máy điện</option>
+                            </select>
+                            <span asp-validation-for="VehicleType" class="text-danger small"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="LicensePlate" class="form-label fw-semibold">Biển số xe <span class="text-danger">*</span></label>
+                            <input asp-for="LicensePlate" class="form-control rounded-3 font-monospace text-uppercase" placeholder="Ví dụ: 29A-12345 hoặc 51F-99999" />
+                            <small class="text-muted d-block mt-1">Vui lòng nhập chính xác biển số xe ghi trên giấy đăng ký xe.</small>
+                            <span asp-validation-for="LicensePlate" class="text-danger small"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="BrandModel" class="form-label fw-semibold">Hãng / Kiểu dáng</label>
+                            <input asp-for="BrandModel" class="form-control rounded-3" placeholder="Ví dụ: Honda Vision, VinFast VF8, Yamaha Grande..." />
+                            <span asp-validation-for="BrandModel" class="text-danger small"></span>
+                        </div>
+
+                        <div class="mb-4">
+                            <label asp-for="Color" class="form-label fw-semibold">Màu xe</label>
+                            <input asp-for="Color" class="form-control rounded-3" placeholder="Ví dụ: Trắng, Đen nhám, Đỏ đô..." />
+                            <span asp-validation-for="Color" class="text-danger small"></span>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center pt-2">
+                            <a asp-action="Index" class="btn btn-outline-secondary rounded-pill px-4">
+                                Hủy bỏ
+                            </a>
+                            <button type="submit" class="btn btn-primary rounded-pill px-4 shadow-sm">
+                                Gửi yêu cầu đăng ký
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

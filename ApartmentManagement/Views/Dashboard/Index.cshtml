@@ -90,7 +90,58 @@
         </div>
     </div>
 
-    <!-- Quick action & building list -->
+    <!-- Operational KPI row -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100 bg-white">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span class="text-danger fw-semibold small">SỰ CỐ CẦN XỬ LÝ</span>
+                        <span class="fs-5">🛠</span>
+                    </div>
+                    <h3 class="fw-bold mb-0 text-danger">@ViewBag.PendingTickets</h3>
+                    <a asp-controller="IncidentQueue" asp-action="Index" class="small text-decoration-none">Hàng đợi sự cố →</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100 bg-white">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span class="text-warning fw-semibold small">KHIẾU NẠI ĐANG XỬ LÝ</span>
+                        <span class="fs-5">📢</span>
+                    </div>
+                    <h3 class="fw-bold mb-0 text-warning">@ViewBag.PendingComplaints</h3>
+                    <a asp-controller="Complaint" asp-action="Index" class="small text-decoration-none">Xem phản ánh →</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100 bg-white">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span class="text-primary fw-semibold small">XE CHỜ PHÊ DUYỆT</span>
+                        <span class="fs-5">🚗</span>
+                    </div>
+                    <h3 class="fw-bold mb-0 text-primary">@ViewBag.PendingVehicles</h3>
+                    <a asp-controller="Vehicle" asp-action="Index" asp-route-status="Chờ duyệt" class="small text-decoration-none">Duyệt phương tiện →</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100 bg-white">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span class="text-success fw-semibold small">HÓA ĐƠN CHƯA THU</span>
+                        <span class="fs-5">💳</span>
+                    </div>
+                    <h3 class="fw-bold mb-0 text-success">@ViewBag.UnpaidInvoices</h3>
+                    <a asp-controller="Billing" asp-action="Index" class="small text-decoration-none">Quản lý hóa đơn →</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="row g-4">
         <div class="col-12 col-lg-8">
             <div class="card border-0 shadow-sm rounded-4">

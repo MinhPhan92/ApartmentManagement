@@ -1,0 +1,157 @@
+@model IEnumerable<ApartmentManagement.Models.VisitorPass>
+@using ApartmentManagement.Common.Security
+
+@{
+    ViewData["Title"] = "Quản lý Khách ra vào";
+    var isResident = User.IsInRole(AppRoles.Resident);
+    var isStaff = !isResident;
+}
+
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="h4 mb-1"><i class="bi bi-person-badge text-primary me-2"></i>Quản lý Khách ra vào (Visitor Pass)</h2>
+            <p class="text-muted small mb-0">Đăng ký khách đến thăm và theo dõi lịch sử ra vào tòa nhà</p>
+        </div>
+        @if (isResident)
+        {
+            <a asp-action="Register" class="btn btn-primary">
+                <i class="bi bi-person-plus-fill me-1"></i> Đăng ký khách đến thăm
+            </a>
+        }
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (isStaff)
+    {
+        <form method="get" class="card card-body shadow-sm border-0 mb-4">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label small fw-bold">Ngày dự kiến đến</label>
+                    <input type="date" name="date" class="form-control" value="@ViewBag.SelectedDate" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small fw-bold">Trạng thái</label>
+                    <select name="status" class="form-select">
+                        <option value="">-- Tất cả trạng thái --</option>
+                        <!option value="Đã đăng ký" @(ViewBag.SelectedStatus == "Đã đăng ký" ? "selected" : "")>Đã đăng ký</!option>
+                        <!option value="Đã vào" @(ViewBag.SelectedStatus == "Đã vào" ? "selected" : "")>Đã vào</!option>
+                        <!option value="Đã ra" @(ViewBag.SelectedStatus == "Đã ra" ? "selected" : "")>Đã ra</!option>
+                        <!option value="Đã hủy" @(ViewBag.SelectedStatus == "Đã hủy" ? "selected" : "")>Đã hủy</!option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-filter"></i> Lọc dữ liệu</button>
+                </div>
+            </div>
+        </form>
+    }
+
+    <div class="card shadow-sm border-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Mã</th>
+                        <th>Họ tên khách</th>
+                        <th>Số điện thoại</th>
+                        <th>Căn hộ</th>
+                        <th>Cư dân đăng ký</th>
+                        <th>Ngày đến</th>
+                        <th>Thời gian vào/ra</th>
+                        <th>Trạng thái</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!Model.Any())
+                    {
+                        <tr>
+                            <td colspan="9" class="text-center py-4 text-muted">Chưa có thông tin khách nào.</td>
+                        </tr>
+                    }
+                    @foreach (var item in Model)
+                    {
+                        <tr>
+                            <td>#@item.VisitorPassId</td>
+                            <td>
+                                <div class="fw-bold">@item.VisitorName</div>
+                                @if (!string.IsNullOrEmpty(item.IdCardNumber))
+                                {
+                                    <small class="text-muted">CCCD: @item.IdCardNumber</small>
+                                }
+                            </td>
+                            <td>@(item.PhoneNumber ?? "-")</td>
+                            <td>
+                                <span class="badge bg-light text-dark border">@item.Apartment?.ApartmentCode (@item.Apartment?.Building?.BuildingCode)</span>
+                            </td>
+                            <td>@item.Resident?.User?.FullName</td>
+                            <td>@item.ExpectedArrivalDate.ToString("dd/MM/yyyy")</td>
+                            <td>
+                                <small class="text-muted d-block">Vào: @(item.ActualCheckInUtc?.ToString("dd/MM HH:mm") ?? "-")</small>
+                                <small class="text-muted d-block">Ra: @(item.ActualCheckOutUtc?.ToString("dd/MM HH:mm") ?? "-")</small>
+                            </td>
+                            <td>
+                                @if (item.Status == "Đã đăng ký")
+                                {
+                                    <span class="badge bg-primary">Đã đăng ký</span>
+                                }
+                                else if (item.Status == "Đã vào")
+                                {
+                                    <span class="badge bg-success">Đã vào</span>
+                                }
+                                else if (item.Status == "Đã ra")
+                                {
+                                    <span class="badge bg-secondary">Đã ra</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-danger">@item.Status</span>
+                                }
+                            </td>
+                            <td>
+                                <div class="d-flex gap-1">
+                                    @if (isStaff && item.Status == "Đã đăng ký")
+                                    {
+                                        <form asp-action="CheckIn" asp-route-id="@item.VisitorPassId" method="post">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="btn btn-sm btn-success">Check-in</button>
+                                        </form>
+                                    }
+                                    @if (isStaff && item.Status == "Đã vào")
+                                    {
+                                        <form asp-action="CheckOut" asp-route-id="@item.VisitorPassId" method="post">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="btn btn-sm btn-secondary">Check-out</button>
+                                        </form>
+                                    }
+                                    @if (item.Status == "Đã đăng ký")
+                                    {
+                                        <form asp-action="Cancel" asp-route-id="@item.VisitorPassId" method="post" onsubmit="return confirm('Bạn có chắc muốn hủy đăng ký khách này?');">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">Hủy</button>
+                                        </form>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

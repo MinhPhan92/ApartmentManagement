@@ -20,7 +20,11 @@ public static class IdentityDataSeeder
 
         if (context.Database.IsRelational())
         {
-            await context.Database.MigrateAsync();
+            var applyMigrations = configuration.GetValue<bool>("Database:ApplyMigrationsOnStartup", false);
+            if (applyMigrations)
+            {
+                await context.Database.MigrateAsync();
+            }
         }
         else
         {

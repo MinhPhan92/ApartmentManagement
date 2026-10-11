@@ -22,6 +22,139 @@ namespace ApartmentManagement.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("ApartmentManagement.Models.Amenity", b =>
+                {
+                    b.Property<int>("AmenityId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("AmenityId"));
+
+                    b.Property<int>("Capacity")
+                        .HasColumnType("int");
+
+                    b.Property<TimeSpan>("CloseTime")
+                        .HasColumnType("time");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Location")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<TimeSpan>("OpenTime")
+                        .HasColumnType("time");
+
+                    b.Property<decimal>("PricePerHour")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("AmenityId");
+
+                    b.ToTable("Amenities");
+                });
+
+            modelBuilder.Entity("ApartmentManagement.Models.AmenityBooking", b =>
+                {
+                    b.Property<int>("AmenityBookingId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("AmenityBookingId"));
+
+                    b.Property<int>("AmenityId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("BookingDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<TimeSpan>("EndTime")
+                        .HasColumnType("time");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("NumberOfGuests")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ResidentId")
+                        .HasColumnType("int");
+
+                    b.Property<TimeSpan>("StartTime")
+                        .HasColumnType("time");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("AmenityBookingId");
+
+                    b.HasIndex("AmenityId");
+
+                    b.HasIndex("ResidentId");
+
+                    b.ToTable("AmenityBookings");
+                });
+
+            modelBuilder.Entity("ApartmentManagement.Models.Announcement", b =>
+                {
+                    b.Property<int>("AnnouncementId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("AnnouncementId"));
+
+                    b.Property<int?>("BuildingId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<bool>("IsPinned")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("AnnouncementId");
+
+                    b.HasIndex("BuildingId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.ToTable("Announcements");
+                });
+
             modelBuilder.Entity("ApartmentManagement.Models.Apartment", b =>
                 {
                     b.Property<int>("ApartmentId")
@@ -457,6 +590,59 @@ namespace ApartmentManagement.Migrations
                         .IsUnique();
 
                     b.ToTable("Buildings");
+                });
+
+            modelBuilder.Entity("ApartmentManagement.Models.Complaint", b =>
+                {
+                    b.Property<int>("ComplaintId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ComplaintId"));
+
+                    b.Property<int?>("ApartmentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("ResidentId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ResponseNotes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("ComplaintId");
+
+                    b.HasIndex("ApartmentId");
+
+                    b.HasIndex("ResidentId");
+
+                    b.ToTable("Complaints");
                 });
 
             modelBuilder.Entity("ApartmentManagement.Models.ContractParty", b =>
@@ -909,6 +1095,117 @@ namespace ApartmentManagement.Migrations
                         });
                 });
 
+            modelBuilder.Entity("ApartmentManagement.Models.Vehicle", b =>
+                {
+                    b.Property<int>("VehicleId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("VehicleId"));
+
+                    b.Property<string>("BrandModel")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Color")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LicensePlate")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("ResidentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ReviewNotes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("VehicleType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("VehicleId");
+
+                    b.HasIndex("LicensePlate")
+                        .IsUnique();
+
+                    b.HasIndex("ResidentId");
+
+                    b.ToTable("Vehicles");
+                });
+
+            modelBuilder.Entity("ApartmentManagement.Models.VisitorPass", b =>
+                {
+                    b.Property<int>("VisitorPassId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("VisitorPassId"));
+
+                    b.Property<DateTime?>("ActualCheckInUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ActualCheckOutUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("ApartmentId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ExpectedArrivalDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("IdCardNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("PhoneNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Purpose")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("ResidentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("VisitorName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("VisitorPassId");
+
+                    b.HasIndex("ApartmentId");
+
+                    b.HasIndex("ResidentId");
+
+                    b.ToTable("VisitorPasses");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
                 {
                     b.Property<string>("Id")
@@ -1046,6 +1343,42 @@ namespace ApartmentManagement.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("ApartmentManagement.Models.AmenityBooking", b =>
+                {
+                    b.HasOne("ApartmentManagement.Models.Amenity", "Amenity")
+                        .WithMany("Bookings")
+                        .HasForeignKey("AmenityId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ApartmentManagement.Models.Resident", "Resident")
+                        .WithMany("AmenityBookings")
+                        .HasForeignKey("ResidentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Amenity");
+
+                    b.Navigation("Resident");
+                });
+
+            modelBuilder.Entity("ApartmentManagement.Models.Announcement", b =>
+                {
+                    b.HasOne("ApartmentManagement.Models.Building", "Building")
+                        .WithMany("Announcements")
+                        .HasForeignKey("BuildingId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ApartmentManagement.Models.ApplicationUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Building");
+
+                    b.Navigation("CreatedByUser");
+                });
+
             modelBuilder.Entity("ApartmentManagement.Models.Apartment", b =>
                 {
                     b.HasOne("ApartmentManagement.Models.Building", "Building")
@@ -1154,6 +1487,24 @@ namespace ApartmentManagement.Migrations
                         .WithMany("ApartmentResidents")
                         .HasForeignKey("ResidentId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Apartment");
+
+                    b.Navigation("Resident");
+                });
+
+            modelBuilder.Entity("ApartmentManagement.Models.Complaint", b =>
+                {
+                    b.HasOne("ApartmentManagement.Models.Apartment", "Apartment")
+                        .WithMany("Complaints")
+                        .HasForeignKey("ApartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ApartmentManagement.Models.Resident", "Resident")
+                        .WithMany("Complaints")
+                        .HasForeignKey("ResidentId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Apartment");
@@ -1322,6 +1673,36 @@ namespace ApartmentManagement.Migrations
                     b.Navigation("RecordedByUser");
                 });
 
+            modelBuilder.Entity("ApartmentManagement.Models.Vehicle", b =>
+                {
+                    b.HasOne("ApartmentManagement.Models.Resident", "Resident")
+                        .WithMany("Vehicles")
+                        .HasForeignKey("ResidentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Resident");
+                });
+
+            modelBuilder.Entity("ApartmentManagement.Models.VisitorPass", b =>
+                {
+                    b.HasOne("ApartmentManagement.Models.Apartment", "Apartment")
+                        .WithMany("VisitorPasses")
+                        .HasForeignKey("ApartmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ApartmentManagement.Models.Resident", "Resident")
+                        .WithMany("VisitorPasses")
+                        .HasForeignKey("ResidentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Apartment");
+
+                    b.Navigation("Resident");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
@@ -1373,9 +1754,16 @@ namespace ApartmentManagement.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("ApartmentManagement.Models.Amenity", b =>
+                {
+                    b.Navigation("Bookings");
+                });
+
             modelBuilder.Entity("ApartmentManagement.Models.Apartment", b =>
                 {
                     b.Navigation("ApartmentResidents");
+
+                    b.Navigation("Complaints");
 
                     b.Navigation("Contracts");
 
@@ -1384,6 +1772,8 @@ namespace ApartmentManagement.Migrations
                     b.Navigation("Invoices");
 
                     b.Navigation("UtilityMeterReadings");
+
+                    b.Navigation("VisitorPasses");
                 });
 
             modelBuilder.Entity("ApartmentManagement.Models.ApartmentContract", b =>
@@ -1409,6 +1799,8 @@ namespace ApartmentManagement.Migrations
 
             modelBuilder.Entity("ApartmentManagement.Models.Building", b =>
                 {
+                    b.Navigation("Announcements");
+
                     b.Navigation("Apartments");
 
                     b.Navigation("FeeTariffs");
@@ -1428,13 +1820,21 @@ namespace ApartmentManagement.Migrations
 
             modelBuilder.Entity("ApartmentManagement.Models.Resident", b =>
                 {
+                    b.Navigation("AmenityBookings");
+
                     b.Navigation("ApartmentResidents");
+
+                    b.Navigation("Complaints");
 
                     b.Navigation("ContractParties");
 
                     b.Navigation("IncidentTickets");
 
                     b.Navigation("Invoices");
+
+                    b.Navigation("Vehicles");
+
+                    b.Navigation("VisitorPasses");
                 });
 
             modelBuilder.Entity("ApartmentManagement.Models.UtilityMeterReading", b =>

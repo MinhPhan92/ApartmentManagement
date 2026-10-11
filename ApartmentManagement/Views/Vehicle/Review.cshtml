@@ -1,0 +1,82 @@
+@model ApartmentManagement.ViewModels.VehicleReviewViewModel
+
+@{
+    ViewData["Title"] = "Xét Duyệt Phương Tiện: " + Model.LicensePlate;
+}
+
+<div class="container py-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb small mb-3">
+            <li class="breadcrumb-item"><a asp-action="Index" class="text-decoration-none">Phương Tiện</a></li>
+            <li class="breadcrumb-item"><a asp-action="Details" asp-route-id="@Model.VehicleId" class="text-decoration-none">@Model.LicensePlate</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Xét duyệt</li>
+        </ol>
+    </nav>
+
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-8 col-lg-6">
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <div class="card-header bg-dark text-white py-3 px-4">
+                    <h5 class="fw-bold mb-1">⚖️ Xét Duyệt Đăng Ký Phương Tiện</h5>
+                    <small class="text-white-50">Ban quản lý kiểm tra tính hợp lệ của biển số và thông tin cư dân trước khi duyệt.</small>
+                </div>
+
+                <div class="card-body p-4">
+                    <div class="p-3 bg-light rounded-3 border mb-4">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted">Biển số:</span>
+                            <span class="fw-bold font-monospace fs-5 text-primary">@Model.LicensePlate</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted">Loại phương tiện:</span>
+                            <span class="fw-semibold">@Model.VehicleType</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted">Cư dân đăng ký:</span>
+                            <span class="fw-semibold">@(Model.ResidentName ?? "Chưa rõ")</span>
+                        </div>
+                    </div>
+
+                    <!-- Approval Form -->
+                    <div class="mb-4">
+                        <h6 class="fw-bold text-success mb-2">1. Phê Duyệt</h6>
+                        <form asp-action="Approve" asp-route-id="@Model.VehicleId" method="post">
+                            @Html.AntiForgeryToken()
+                            <div class="mb-3">
+                                <label class="form-label small text-muted">Ghi chú duyệt (Tùy chọn)</label>
+                                <input type="text" name="notes" class="form-control rounded-3" placeholder="Ví dụ: Đã cấp thẻ từ số 1234..." />
+                            </div>
+                            <button type="submit" class="btn btn-success rounded-pill px-4 shadow-sm w-100" onclick="return confirm('Xác nhận PHÊ DUYỆT cho phương tiện này?');">
+                                ✅ Phê Duyệt Đăng Ký
+                            </button>
+                        </form>
+                    </div>
+
+                    <hr class="my-4" />
+
+                    <!-- Rejection Form -->
+                    <div>
+                        <h6 class="fw-bold text-danger mb-2">2. Từ Chối</h6>
+                        <form asp-action="Reject" asp-route-id="@Model.VehicleId" method="post">
+                            @Html.AntiForgeryToken()
+                            <div class="mb-3">
+                                <label class="form-label small text-muted">Lý do từ chối <span class="text-danger">*</span></label>
+                                <textarea name="reason" class="form-control rounded-3" rows="3" placeholder="Nhập rõ lý do từ chối (Ví dụ: Biển số xe không rõ ràng, chưa nộp bản sao đăng ký xe...)" required></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-outline-danger rounded-pill px-4 w-100" onclick="return confirm('Xác nhận TỪ CHỐI đơn đăng ký này?');">
+                                ❌ Từ Chối Đăng Ký
+                            </button>
+                        </form>
+                    </div>
+
+                    <div class="text-center mt-4">
+                        <a asp-action="Details" asp-route-id="@Model.VehicleId" class="text-decoration-none text-muted small">
+                            ← Quay lại trang chi tiết
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

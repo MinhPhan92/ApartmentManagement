@@ -45,5 +45,9 @@ namespace ApartmentManagement.Models
 
         public ICollection<ApartmentInvoice> Invoices { get; set; }
             = new List<ApartmentInvoice>();
+
+        public ICollection<Complaint> Complaints { get; set; } = new List<Complaint>();
+
+        public ICollection<VisitorPass> VisitorPasses { get; set; } = new List<VisitorPass>();
     }
 }

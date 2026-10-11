@@ -42,6 +42,12 @@ namespace ApartmentManagement.Controllers
                 .Take(5)
                 .ToListAsync();
 
+            var pendingTickets = await _context.IncidentTickets.CountAsync(x => x.Status == IncidentTicketStatus.Submitted || x.Status == IncidentTicketStatus.InProgress);
+            var pendingComplaints = await _context.Complaints.CountAsync(x => x.Status == "Chờ tiếp nhận" || x.Status == "Đang xử lý");
+            var pendingVehicles = await _context.Vehicles.CountAsync(x => x.Status == "Chờ duyệt");
+            var activeAmenities = await _context.Amenities.CountAsync(x => x.IsActive);
+            var unpaidInvoices = await _context.ApartmentInvoices.CountAsync(x => x.Status == ApartmentInvoiceStatus.Issued && !x.PaymentTransactions.Any(pt => pt.Status == PaymentTransactionStatus.Confirmed));
+
             ViewBag.UserFullName = user?.FullName ?? user?.UserName;
             ViewBag.UserRole = isSystemAdmin ? "System Administrator" : "Building Manager";
             ViewBag.TotalBuildings = totalBuildings;
@@ -49,6 +55,11 @@ namespace ApartmentManagement.Controllers
             ViewBag.TotalResidents = totalResidents;
             ViewBag.OccupiedApartments = occupiedApartments;
             ViewBag.VacantApartments = Math.Max(0, totalApartments - occupiedApartments);
+            ViewBag.PendingTickets = pendingTickets;
+            ViewBag.PendingComplaints = pendingComplaints;
+            ViewBag.PendingVehicles = pendingVehicles;
+            ViewBag.ActiveAmenities = activeAmenities;
+            ViewBag.UnpaidInvoices = unpaidInvoices;
 
             return View(recentBuildings);
         }
@@ -67,6 +78,9 @@ namespace ApartmentManagement.Controllers
                 .Include(r => r.ApartmentResidents)
                     .ThenInclude(ar => ar.Apartment)
                         .ThenInclude(a => a.Building)
+                .Include(r => r.Vehicles)
+                .Include(r => r.Complaints)
+                .Include(r => r.IncidentTickets)
                 .FirstOrDefaultAsync(r => r.UserId == user.Id);
 
             ViewBag.UserFullName = user.FullName;

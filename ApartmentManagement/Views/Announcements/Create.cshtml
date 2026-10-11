@@ -1,0 +1,69 @@
+@model ApartmentManagement.Models.Announcement
+
+@{
+    ViewData["Title"] = "Tạo thông báo mới";
+    var buildings = ViewBag.Buildings as IEnumerable<ApartmentManagement.Models.Building> ?? Enumerable.Empty<ApartmentManagement.Models.Building>();
+}
+
+<div class="container py-3">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-megaphone me-2"></i>Tạo thông báo mới</h5>
+                </div>
+                <div class="card-body">
+                    <form asp-action="Create" method="post">
+                        @Html.AntiForgeryToken()
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+
+                        <div class="mb-3">
+                            <label asp-for="Title" class="form-label fw-bold"></label>
+                            <input asp-for="Title" class="form-control" placeholder="VD: Thông báo bảo trì hệ thống nước tòa A..." />
+                            <span asp-validation-for="Title" class="text-danger small"></span>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label asp-for="Category" class="form-label fw-bold"></label>
+                                <select asp-for="Category" class="form-select">
+                                    <option value="Thông báo chung">Thông báo chung</option>
+                                    <option value="Bảo trì">Bảo trì kỹ thuật</option>
+                                    <option value="Thu phí">Tài chính & Thu phí</option>
+                                    <option value="An ninh">An ninh trật tự</option>
+                                    <option value="Sự kiện">Sự kiện & Hoạt động</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="BuildingId" class="form-label fw-bold">Phạm vi áp dụng</label>
+                                <select asp-for="BuildingId" class="form-select">
+                                    <option value="">-- Toàn khu chung cư --</option>
+                                    @foreach (var b in buildings)
+                                    {
+                                        <option value="@b.BuildingId">@b.BuildingName (@b.BuildingCode)</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Content" class="form-label fw-bold"></label>
+                            <textarea asp-for="Content" class="form-control" rows="6" placeholder="Nhập nội dung chi tiết thông báo..."></textarea>
+                            <span asp-validation-for="Content" class="text-danger small"></span>
+                        </div>
+
+                        <div class="mb-4 form-check">
+                            <input asp-for="IsPinned" class="form-check-input" />
+                            <label asp-for="IsPinned" class="form-check-label fw-bold">Ghim thông báo lên đầu bảng tin</label>
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-2">
+                            <a asp-action="Index" class="btn btn-outline-secondary">Hủy</a>
+                            <button type="submit" class="btn btn-primary px-4">Đăng thông báo</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

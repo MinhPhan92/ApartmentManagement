@@ -64,12 +64,17 @@
                                         👥 Cư Dân
                                     </a>
                                 </li>
-                                <li class="nav-item"><a class="nav-link text-dark" asp-controller="Occupancies" asp-action="Index">🔑 Cư Trú</a></li>
-                                @if (User.IsInRole("SuperAdmin"))
-                                {
+                                    <li class="nav-item"><a class="nav-link text-dark" asp-controller="Vehicle" asp-action="Index">🚗 Phương tiện</a></li>
+                                    <li class="nav-item"><a class="nav-link text-dark" asp-controller="Complaint" asp-action="Index">📢 Khiếu nại</a></li>
+                                    <li class="nav-item"><a class="nav-link text-dark" asp-controller="Amenities" asp-action="Index">🏊 Tiện ích</a></li>
+                                    <li class="nav-item"><a class="nav-link text-dark" asp-controller="Announcements" asp-action="Index">📢 Bảng tin</a></li>
+                                    <li class="nav-item"><a class="nav-link text-dark" asp-controller="Visitors" asp-action="Index">🚶 Khách ra vào</a></li>
+                                    <li class="nav-item"><a class="nav-link text-dark" asp-controller="Occupancies" asp-action="Index">🔑 Cư Trú</a></li>
                                     <li class="nav-item"><a class="nav-link text-dark" asp-controller="Contracts" asp-action="Index">📄 Hợp Đồng</a></li>
-                                    <li class="nav-item"><a class="nav-link text-danger" asp-controller="Accounts" asp-action="Index">🔐 Tài Khoản</a></li>
-                                }
+                                    @if (User.IsInRole("SuperAdmin"))
+                                    {
+                                        <li class="nav-item"><a class="nav-link text-danger" asp-controller="Accounts" asp-action="Index">🔐 Tài Khoản</a></li>
+                                    }
                             }
                             @if (User.IsInRole("Resident"))
                             {
@@ -77,11 +82,26 @@
                                     <a class="nav-link text-success" asp-controller="MyInvoices" asp-action="Index">🧾 Hóa đơn của tôi</a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link text-success" asp-controller="MyIncidents" asp-action="Index">🛠 Sự cố của tôi</a>
+                                    <a class="nav-link text-success" asp-controller="MyIncidents" asp-action="Index">🛠 Sự cố</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link text-success" asp-controller="Complaint" asp-action="Index">📢 Phản ánh</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link text-success" asp-controller="Vehicle" asp-action="Index">🚗 Xe của tôi</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link text-success" asp-controller="MyAmenities" asp-action="Index">🏊 Tiện ích</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link text-success" asp-controller="Announcements" asp-action="Index">📢 Bảng tin</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link text-success" asp-controller="Visitors" asp-action="Index">🚶 Khách</a>
                                 </li>
                                 <li class="nav-item">
                                     <a class="nav-link text-success" asp-area="" asp-controller="MyContracts" asp-action="Index">
-                                        📄 Hợp Đồng Của Tôi
+                                        📄 Hợp Đồng
                                     </a>
                                 </li>
                                 <li class="nav-item">
@@ -95,6 +115,12 @@
                                 <li class="nav-item">
                                     <a class="nav-link text-primary" asp-controller="IncidentQueue" asp-action="Index">🧰 Hàng đợi sự cố</a>
                                 </li>
+                                @if (User.IsInRole("Technician"))
+                                {
+                                    <li class="nav-item">
+                                        <a class="nav-link text-primary" asp-controller="Visitors" asp-action="Index">🚶 Khách ra vào</a>
+                                    </li>
+                                }
                             }
                             @if (User.IsInRole("Accountant") || User.IsInRole("BuildingManager") || User.IsInRole("SuperAdmin"))
                             {

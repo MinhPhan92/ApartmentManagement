@@ -1,0 +1,92 @@
+@model IEnumerable<ApartmentManagement.Models.Amenity>
+@using ApartmentManagement.Common.Security
+
+@{
+    ViewData["Title"] = "Quản lý Tiện ích";
+    var isManager = User.IsInRole(AppRoles.SuperAdmin) || User.IsInRole(AppRoles.BuildingManager);
+}
+
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="h4 mb-1">Danh mục Tiện ích</h2>
+            <p class="text-muted small mb-0">Quản lý các tiện ích nội khu (Hồ bơi, Gym, Sân thể thao, BBQ...)</p>
+        </div>
+        <div>
+            @if (isManager)
+            {
+                <a asp-action="Create" class="btn btn-primary me-2">
+                    <i class="bi bi-plus-circle"></i> Thêm tiện ích mới
+                </a>
+                <a asp-action="Bookings" class="btn btn-outline-secondary">
+                    <i class="bi bi-calendar-check"></i> Xem lịch đặt chỗ
+                </a>
+            }
+            else
+            {
+                <a asp-controller="MyAmenities" asp-action="Index" class="btn btn-primary">
+                    <i class="bi bi-calendar-plus"></i> Đặt tiện ích
+                </a>
+            }
+        </div>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <div class="row row-cols-1 row-cols-md-3 g-4">
+        @foreach (var item in Model)
+        {
+            <div class="col">
+                <div class="card h-100 shadow-sm border-0">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="card-title fw-bold text-primary mb-0">@item.Name</h5>
+                            @if (item.IsActive)
+                            {
+                                <span class="badge bg-success">Đang mở</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary">Tạm đóng</span>
+                            }
+                        </div>
+                        <p class="card-text text-muted small">@item.Description</p>
+                        <ul class="list-unstyled small mb-3">
+                            <li><i class="bi bi-geo-alt text-danger me-1"></i> <strong>Vị trí:</strong> @(item.Location ?? "Khuôn viên chung")</li>
+                            <li><i class="bi bi-people text-info me-1"></i> <strong>Sức chứa:</strong> @item.Capacity người</li>
+                            <li><i class="bi bi-clock text-warning me-1"></i> <strong>Giờ mở cửa:</strong> @item.OpenTime.ToString(@"hh\:mm") - @item.CloseTime.ToString(@"hh\:mm")</li>
+                            <li><i class="bi bi-cash text-success me-1"></i> <strong>Phí:</strong> @(item.PricePerHour > 0 ? $"{item.PricePerHour:N0} VNĐ/giờ" : "Miễn phí")</li>
+                        </ul>
+                    </div>
+                    <div class="card-footer bg-transparent border-0 d-flex justify-content-between pb-3">
+                        @if (isManager)
+                        {
+                            <a asp-action="Edit" asp-route-id="@item.AmenityId" class="btn btn-sm btn-outline-primary">Sửa</a>
+                            <form asp-action="Delete" asp-route-id="@item.AmenityId" method="post" onsubmit="return confirm('Bạn có chắc muốn xóa tiện ích này?');">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Xóa</button>
+                            </form>
+                        }
+                        else
+                        {
+                            <a asp-controller="MyAmenities" asp-action="Book" asp-route-id="@item.AmenityId" class="btn btn-sm btn-primary w-100 @(!item.IsActive ? "disabled" : "")">Đặt chỗ ngay</a>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
