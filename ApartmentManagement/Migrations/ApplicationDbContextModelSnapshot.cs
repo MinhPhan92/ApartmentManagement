@@ -61,6 +61,9 @@ namespace ApartmentManagement.Migrations
 
                     b.HasKey("AmenityId");
 
+                    b.HasIndex("Name")
+                        .IsUnique();
+
                     b.ToTable("Amenities");
                 });
 
@@ -1142,7 +1145,8 @@ namespace ApartmentManagement.Migrations
                     b.HasKey("VehicleId");
 
                     b.HasIndex("LicensePlate")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[Status] IN (N'Chờ duyệt', N'Đã duyệt')");
 
                     b.HasIndex("ResidentId");
 

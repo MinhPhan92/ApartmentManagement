@@ -258,5 +258,92 @@ namespace ApartmentManagement.Tests
             Assert.Equal("Đã ra", checkedOutPass!.Status);
             Assert.NotNull(checkedOutPass.ActualCheckOutUtc);
         }
+
+        [Fact]
+        public async Task Amenity_Create_DuplicateName_IsRejected()
+        {
+            using var context = CreateInMemoryDbContext();
+            var service = new AmenityService(context);
+
+            var first = new Amenity
+            {
+                Name = "Bể bơi bốn mùa",
+                Capacity = 20,
+                OpenTime = new TimeSpan(6, 0, 0),
+                CloseTime = new TimeSpan(21, 0, 0)
+            };
+            var (firstSuccess, _) = await service.CreateAmenityAsync(first);
+            Assert.True(firstSuccess);
+
+            // Thử tạo trùng tên (khác chữ hoa-thường và khoảng trắng thừa)
+            var duplicate = new Amenity
+            {
+                Name = "  bể bơi bốn mùa  ",
+                Capacity = 15,
+                OpenTime = new TimeSpan(7, 0, 0),
+                CloseTime = new TimeSpan(20, 0, 0)
+            };
+            var (dupSuccess, dupError) = await service.CreateAmenityAsync(duplicate);
+            Assert.False(dupSuccess);
+            Assert.Contains("đã tồn tại trong hệ thống", dupError);
+        }
+
+        [Fact]
+        public async Task Amenity_Create_DifferentName_Succeeds()
+        {
+            using var context = CreateInMemoryDbContext();
+            var service = new AmenityService(context);
+
+            var first = new Amenity
+            {
+                Name = "Bể bơi",
+                Capacity = 20,
+                OpenTime = new TimeSpan(6, 0, 0),
+                CloseTime = new TimeSpan(21, 0, 0)
+            };
+            var (firstSuccess, _) = await service.CreateAmenityAsync(first);
+            Assert.True(firstSuccess);
+
+            var second = new Amenity
+            {
+                Name = "Phòng Gym",
+                Capacity = 10,
+                OpenTime = new TimeSpan(6, 0, 0),
+                CloseTime = new TimeSpan(21, 0, 0)
+            };
+            var (secondSuccess, secondError) = await service.CreateAmenityAsync(second);
+            Assert.True(secondSuccess, secondError);
+        }
+
+        [Fact]
+        public async Task Amenity_Update_DuplicateName_IsRejected()
+        {
+            using var context = CreateInMemoryDbContext();
+            var service = new AmenityService(context);
+
+            var first = new Amenity
+            {
+                Name = "Sân Tennis 1",
+                Capacity = 4,
+                OpenTime = new TimeSpan(6, 0, 0),
+                CloseTime = new TimeSpan(21, 0, 0)
+            };
+            await service.CreateAmenityAsync(first);
+
+            var second = new Amenity
+            {
+                Name = "Sân Tennis 2",
+                Capacity = 4,
+                OpenTime = new TimeSpan(6, 0, 0),
+                CloseTime = new TimeSpan(21, 0, 0)
+            };
+            await service.CreateAmenityAsync(second);
+
+            // Đổi tên sân 2 thành sân 1 -> Bị từ chối
+            second.Name = "Sân Tennis 1";
+            var (updateSuccess, updateError) = await service.UpdateAmenityAsync(second);
+            Assert.False(updateSuccess);
+            Assert.Contains("đã tồn tại trong hệ thống", updateError);
+        }
     }
 }

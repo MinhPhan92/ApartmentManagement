@@ -34,6 +34,34 @@ public sealed class OccupancyService : IOccupancyService
         Query().Where(x => x.Resident.UserId == userId)
             .OrderByDescending(x => x.MoveInDate).ToListAsync();
 
+    private static readonly TimeZoneInfo VietnamTimeZone = ResolveVietnamTimeZone();
+
+    private static TimeZoneInfo ResolveVietnamTimeZone()
+    {
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+        }
+        catch
+        {
+            try
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh");
+            }
+            catch
+            {
+                return TimeZoneInfo.Local;
+            }
+        }
+    }
+
+    public static DateTime GetApplicationToday()
+    {
+        var vnDate = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, VietnamTimeZone).Date;
+        var localDate = DateTime.Today;
+        return vnDate > localDate ? vnDate : localDate;
+    }
+
     public async Task<(bool Success, string? ErrorMessage, ApartmentResident? Occupancy)> MoveInAsync(
         MoveInViewModel model)
     {
@@ -46,7 +74,7 @@ public sealed class OccupancyService : IOccupancyService
             return (false, "Quan hệ cư trú là bắt buộc và không được vượt quá 100 ký tự.", null);
         if (model.MoveInDate.Date < new DateTime(1900, 1, 1))
             return (false, "Ngày chuyển vào phải từ 01/01/1900.", null);
-        if (model.MoveInDate.Date > DateTime.UtcNow.Date)
+        if (model.MoveInDate.Date > GetApplicationToday())
             return (false, "Ngày chuyển vào không thể ở tương lai.", null);
         if (await _context.ApartmentResidents.AnyAsync(x =>
                 x.ApartmentId == model.ApartmentId && x.ResidentId == model.ResidentId && x.MoveOutDate == null))
@@ -83,7 +111,7 @@ public sealed class OccupancyService : IOccupancyService
         if (occupancy.MoveOutDate != null) return (false, "Hồ sơ cư trú này đã kết thúc.");
         if (moveOutDate.Date < occupancy.MoveInDate.Date)
             return (false, "Ngày chuyển đi không thể trước ngày chuyển vào.");
-        if (moveOutDate.Date > DateTime.UtcNow.Date)
+        if (moveOutDate.Date > GetApplicationToday())
             return (false, "Ngày chuyển đi không thể ở tương lai.");
 
         occupancy.MoveOutDate = moveOutDate.Date;

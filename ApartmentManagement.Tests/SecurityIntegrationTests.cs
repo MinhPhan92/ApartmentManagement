@@ -829,6 +829,80 @@ public sealed class SecurityIntegrationTests : IClassFixture<CustomWebApplicatio
             .ToListAsync());
     }
 
+    [Fact]
+    public async Task Resident_CanOnlyViewAccessibleAnnouncements_AndManagerCanViewAll()
+    {
+        int globalId, buildingOneId, buildingTwoId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var buildingTwo = new Building
+            {
+                BuildingCode = "BLOCK-B",
+                BuildingName = "Block B",
+                Address = "Building B address",
+                NumberOfFloors = 10
+            };
+            db.Buildings.Add(buildingTwo);
+            await db.SaveChangesAsync();
+
+            var globalAnn = new Announcement
+            {
+                Title = "Thông báo chung toàn khu",
+                Content = "Nội dung chung",
+                Category = "Thông báo",
+                BuildingId = null,
+                CreatedAtUtc = DateTime.UtcNow
+            };
+            var bld1Ann = new Announcement
+            {
+                Title = "Thông báo bảo trì Block A",
+                Content = "Nội dung Block A",
+                Category = "Bảo trì",
+                BuildingId = 1,
+                CreatedAtUtc = DateTime.UtcNow
+            };
+            var bld2Ann = new Announcement
+            {
+                Title = "Thông báo bảo trì Block B",
+                Content = "Nội dung Block B",
+                Category = "Bảo trì",
+                BuildingId = buildingTwo.BuildingId,
+                CreatedAtUtc = DateTime.UtcNow
+            };
+            db.Announcements.AddRange(globalAnn, bld1Ann, bld2Ann);
+            await db.SaveChangesAsync();
+
+            globalId = globalAnn.AnnouncementId;
+            buildingOneId = bld1Ann.AnnouncementId;
+            buildingTwoId = bld2Ann.AnnouncementId;
+        }
+
+        // Cư dân 1 sống tại Block A (BuildingId = 1)
+        using var residentClient = CreateAuthenticatedClient(AppRoles.Resident, ResidentOneUserId);
+
+        // 1. Cư dân xem thông báo của tòa nhà mình (Block A) -> 200 OK
+        var resBuildingOne = await residentClient.GetAsync($"/Announcements/Details/{buildingOneId}");
+        Assert.Equal(HttpStatusCode.OK, resBuildingOne.StatusCode);
+
+        // 2. Cư dân xem thông báo chung toàn khu -> 200 OK
+        var resGlobal = await residentClient.GetAsync($"/Announcements/Details/{globalId}");
+        Assert.Equal(HttpStatusCode.OK, resGlobal.StatusCode);
+
+        // 3. Cư dân xem thông báo của tòa nhà khác (Block B) -> 403 Forbidden
+        var resBuildingTwo = await residentClient.GetAsync($"/Announcements/Details/{buildingTwoId}");
+        Assert.Equal(HttpStatusCode.Forbidden, resBuildingTwo.StatusCode);
+
+        // 4. Cư dân xem ID không tồn tại -> 404 NotFound
+        var resNotFound = await residentClient.GetAsync("/Announcements/Details/999999");
+        Assert.Equal(HttpStatusCode.NotFound, resNotFound.StatusCode);
+
+        // 5. Quản lý có thể xem thông báo của bất kỳ tòa nhà nào -> 200 OK
+        using var managerClient = CreateAuthenticatedClient(AppRoles.BuildingManager, "manager-user");
+        var mgrBuildingTwo = await managerClient.GetAsync($"/Announcements/Details/{buildingTwoId}");
+        Assert.Equal(HttpStatusCode.OK, mgrBuildingTwo.StatusCode);
+    }
+
     private int GetContractId(string contractCode)
     {
         using var scope = _factory.Services.CreateScope();

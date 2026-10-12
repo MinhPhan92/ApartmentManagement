@@ -498,7 +498,9 @@ namespace ApartmentManagement.Data
             builder.Entity<Vehicle>(entity =>
             {
                 entity.HasKey(x => x.VehicleId);
-                entity.HasIndex(x => x.LicensePlate).IsUnique();
+                entity.HasIndex(x => x.LicensePlate)
+                    .IsUnique()
+                    .HasFilter("[Status] IN (N'Chờ duyệt', N'Đã duyệt')");
                 entity.Property(x => x.VehicleType).HasMaxLength(50).IsRequired();
                 entity.Property(x => x.LicensePlate).HasMaxLength(20).IsRequired();
                 entity.Property(x => x.Status).HasMaxLength(50).IsRequired();
@@ -524,6 +526,7 @@ namespace ApartmentManagement.Data
             builder.Entity<Amenity>(entity =>
             {
                 entity.HasKey(x => x.AmenityId);
+                entity.HasIndex(x => x.Name).IsUnique();
                 entity.Property(x => x.Name).HasMaxLength(100).IsRequired();
                 entity.Property(x => x.PricePerHour).HasPrecision(18, 2);
             });
@@ -569,4 +572,3 @@ namespace ApartmentManagement.Data
         }
     }
 }
-

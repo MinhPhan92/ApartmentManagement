@@ -335,5 +335,91 @@ namespace ApartmentManagement.Tests
             Assert.False(success);
             Assert.Contains("đang có đăng ký đang chờ duyệt hoặc đã được duyệt", error);
         }
+
+        [Fact]
+        public async Task DuplicateApprovedLicensePlate_IsRejected()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (_, _, vA, _) = await SeedDataAsync(context);
+            vA.Status = "Đã duyệt";
+            await context.SaveChangesAsync();
+
+            var currentUserServiceMock = new Mock<ICurrentUserService>();
+            currentUserServiceMock.Setup(s => s.UserId).Returns("user-a");
+
+            var vehicleService = new VehicleService(context, currentUserServiceMock.Object);
+
+            var model = new VehicleRegisterViewModel
+            {
+                VehicleType = "Xe máy",
+                LicensePlate = vA.LicensePlate
+            };
+
+            var (success, error) = await vehicleService.RegisterVehicleAsync(model);
+            Assert.False(success);
+            Assert.Contains("đang có đăng ký đang chờ duyệt hoặc đã được duyệt", error);
+        }
+
+        [Fact]
+        public async Task RejectedLicensePlate_CanBeReRegistered()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (_, _, vA, _) = await SeedDataAsync(context);
+            vA.Status = "Từ chối";
+            await context.SaveChangesAsync();
+
+            var currentUserServiceMock = new Mock<ICurrentUserService>();
+            currentUserServiceMock.Setup(s => s.UserId).Returns("user-a");
+
+            var vehicleService = new VehicleService(context, currentUserServiceMock.Object);
+
+            var model = new VehicleRegisterViewModel
+            {
+                VehicleType = "Xe máy",
+                LicensePlate = vA.LicensePlate,
+                BrandModel = "Honda Vision",
+                Color = "Trắng"
+            };
+
+            var (success, error) = await vehicleService.RegisterVehicleAsync(model);
+            Assert.True(success, error);
+            Assert.Null(error);
+
+            var vehicles = await context.Vehicles.Where(v => v.LicensePlate == vA.LicensePlate).ToListAsync();
+            Assert.Equal(2, vehicles.Count);
+            Assert.Single(vehicles, v => v.Status == "Chờ duyệt");
+            Assert.Single(vehicles, v => v.Status == "Từ chối");
+        }
+
+        [Fact]
+        public async Task CancelledLicensePlate_CanBeReRegistered()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (_, _, vA, _) = await SeedDataAsync(context);
+            vA.Status = "Đã hủy";
+            await context.SaveChangesAsync();
+
+            var currentUserServiceMock = new Mock<ICurrentUserService>();
+            currentUserServiceMock.Setup(s => s.UserId).Returns("user-a");
+
+            var vehicleService = new VehicleService(context, currentUserServiceMock.Object);
+
+            var model = new VehicleRegisterViewModel
+            {
+                VehicleType = "Xe máy",
+                LicensePlate = vA.LicensePlate,
+                BrandModel = "Honda Lead",
+                Color = "Vàng"
+            };
+
+            var (success, error) = await vehicleService.RegisterVehicleAsync(model);
+            Assert.True(success, error);
+            Assert.Null(error);
+
+            var vehicles = await context.Vehicles.Where(v => v.LicensePlate == vA.LicensePlate).ToListAsync();
+            Assert.Equal(2, vehicles.Count);
+            Assert.Single(vehicles, v => v.Status == "Chờ duyệt");
+            Assert.Single(vehicles, v => v.Status == "Đã hủy");
+        }
     }
 }

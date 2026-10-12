@@ -9,4 +9,5 @@ public interface IAnnouncementService
     Task<Announcement?> GetAnnouncementByIdAsync(int id);
     Task<(bool Success, string? ErrorMessage)> CreateAnnouncementAsync(string userId, Announcement announcement);
     Task<(bool Success, string? ErrorMessage)> DeleteAnnouncementAsync(int id);
+    Task<bool> CanResidentAccessAnnouncementAsync(string userId, Announcement announcement);
 }

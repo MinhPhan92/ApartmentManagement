@@ -23,12 +23,30 @@ public class AmenityService : IAmenityService
     {
         if (string.IsNullOrWhiteSpace(amenity.Name))
             return (false, "Tên tiện ích không được để trống.");
+
+        var trimmedName = amenity.Name.Trim();
+        var duplicate = await _context.Amenities
+            .AnyAsync(x => x.Name.ToLower() == trimmedName.ToLower());
+        if (duplicate)
+            return (false, $"Tên tiện ích '{trimmedName}' đã tồn tại trong hệ thống.");
+
         if (amenity.OpenTime >= amenity.CloseTime)
             return (false, "Giờ mở cửa phải trước giờ đóng cửa.");
 
+        amenity.Name = trimmedName;
+        amenity.Description = amenity.Description?.Trim();
+        amenity.Location = amenity.Location?.Trim();
+
         _context.Amenities.Add(amenity);
-        await _context.SaveChangesAsync();
-        return (true, null);
+        try
+        {
+            await _context.SaveChangesAsync();
+            return (true, null);
+        }
+        catch (DbUpdateException)
+        {
+            return (false, $"Tên tiện ích '{trimmedName}' đã tồn tại trong hệ thống.");
+        }
     }
 
     public async Task<(bool Success, string? ErrorMessage)> UpdateAmenityAsync(Amenity amenity)
@@ -38,10 +56,17 @@ public class AmenityService : IAmenityService
 
         if (string.IsNullOrWhiteSpace(amenity.Name))
             return (false, "Tên tiện ích không được để trống.");
+
+        var trimmedName = amenity.Name.Trim();
+        var duplicate = await _context.Amenities
+            .AnyAsync(x => x.AmenityId != amenity.AmenityId && x.Name.ToLower() == trimmedName.ToLower());
+        if (duplicate)
+            return (false, $"Tên tiện ích '{trimmedName}' đã tồn tại trong hệ thống.");
+
         if (amenity.OpenTime >= amenity.CloseTime)
             return (false, "Giờ mở cửa phải trước giờ đóng cửa.");
 
-        existing.Name = amenity.Name.Trim();
+        existing.Name = trimmedName;
         existing.Description = amenity.Description?.Trim();
         existing.Location = amenity.Location?.Trim();
         existing.Capacity = amenity.Capacity;
@@ -50,15 +75,22 @@ public class AmenityService : IAmenityService
         existing.PricePerHour = amenity.PricePerHour;
         existing.IsActive = amenity.IsActive;
 
-        await _context.SaveChangesAsync();
-        return (true, null);
+        try
+        {
+            await _context.SaveChangesAsync();
+            return (true, null);
+        }
+        catch (DbUpdateException)
+        {
+            return (false, $"Tên tiện ích '{trimmedName}' đã tồn tại trong hệ thống.");
+        }
     }
 
     public async Task<(bool Success, string? ErrorMessage)> DeleteAmenityAsync(int id)
     {
         var amenity = await _context.Amenities.Include(x => x.Bookings).FirstOrDefaultAsync(x => x.AmenityId == id);
         if (amenity == null) return (false, "Không tìm thấy tiện ích.");
-        if (amenity.Bookings.Any(b => b.BookingDate >= DateTime.UtcNow.Date && b.Status != "Đã hủy"))
+        if (amenity.Bookings.Any(b => b.BookingDate >= OccupancyService.GetApplicationToday() && b.Status != "Đã hủy"))
             return (false, "Không thể xóa tiện ích đang có lịch đặt chỗ sắp tới. Hãy hủy các lịch đặt trước.");
 
         _context.Amenities.Remove(amenity);
@@ -108,15 +140,56 @@ public class AmenityService : IAmenityService
         if (startTime < amenity.OpenTime || endTime > amenity.CloseTime)
             return (false, $"Khung giờ phải nằm trong thời gian hoạt động ({amenity.OpenTime:hh\\:mm} - {amenity.CloseTime:hh\\:mm}).");
 
-        if (bookingDate.Date < DateTime.UtcNow.Date)
+        if (bookingDate.Date < OccupancyService.GetApplicationToday())
             return (false, "Không thể đặt lịch cho ngày trong quá khứ.");
 
         if (guests <= 0 || guests > amenity.Capacity)
             return (false, $"Số người phải từ 1 đến {amenity.Capacity}.");
 
+        if (_context.Database.IsRelational())
+        {
+            var strategy = _context.Database.CreateExecutionStrategy();
+            return await strategy.ExecuteAsync(async () =>
+            {
+                await using var transaction = await _context.Database.BeginTransactionAsync(
+                    System.Data.IsolationLevel.Serializable);
+                try
+                {
+                    var result = await CreateBookingInternalAsync(resident.ResidentId, amenity, bookingDate, startTime, endTime, guests, notes);
+                    if (result.Success)
+                    {
+                        await transaction.CommitAsync();
+                    }
+                    else
+                    {
+                        await transaction.RollbackAsync();
+                    }
+                    return result;
+                }
+                catch (Exception ex) when (ex is DbUpdateException || ex is InvalidOperationException)
+                {
+                    try
+                    {
+                        await transaction.RollbackAsync();
+                    }
+                    catch
+                    {
+                        // Transaction may have already been aborted by SQL Server
+                    }
+                    return (false, "Không thể hoàn tất đặt chỗ do có giao dịch cạnh tranh xảy ra đồng thời. Vui lòng thử lại.");
+                }
+            });
+        }
+
+        return await CreateBookingInternalAsync(resident.ResidentId, amenity, bookingDate, startTime, endTime, guests, notes);
+    }
+
+    private async Task<(bool Success, string? ErrorMessage)> CreateBookingInternalAsync(
+        int residentId, Amenity amenity, DateTime bookingDate, TimeSpan startTime, TimeSpan endTime, int guests, string? notes)
+    {
         // Kiểm tra trùng lịch và quá tải sức chứa
         var existingBookings = await _context.AmenityBookings
-            .Where(b => b.AmenityId == amenityId &&
+            .Where(b => b.AmenityId == amenity.AmenityId &&
                         b.BookingDate.Date == bookingDate.Date &&
                         b.Status != "Đã hủy" &&
                         b.StartTime < endTime &&
@@ -131,8 +204,8 @@ public class AmenityService : IAmenityService
 
         var booking = new AmenityBooking
         {
-            AmenityId = amenityId,
-            ResidentId = resident.ResidentId,
+            AmenityId = amenity.AmenityId,
+            ResidentId = residentId,
             BookingDate = bookingDate.Date,
             StartTime = startTime,
             EndTime = endTime,

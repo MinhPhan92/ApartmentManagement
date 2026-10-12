@@ -173,7 +173,7 @@ public sealed class ContractService : IContractService
             if (result.Success && transaction != null) await transaction.CommitAsync();
             return result;
         }
-        catch (SqlException exception) when (exception.Number == 1205)
+        catch (Exception exception) when (IsDeadlock(exception))
         {
             _logger.LogInformation(exception, "Deadlock khi kích hoạt hợp đồng {ContractId}", id);
             return Failure("Hợp đồng đang được xử lý đồng thời. Tải lại dữ liệu trước khi thử lại.");
@@ -410,4 +410,13 @@ public sealed class ContractService : IContractService
 
     private static ContractServiceResult ConcurrencyFailure() =>
         Failure("Hợp đồng đã được cập nhật bởi người khác. Tải lại dữ liệu trước khi thử lại.");
+
+    private static bool IsDeadlock(Exception exception)
+    {
+        for (var current = exception; current != null; current = current.InnerException)
+        {
+            if (current is SqlException sqlEx && sqlEx.Number == 1205) return true;
+        }
+        return false;
+    }
 }

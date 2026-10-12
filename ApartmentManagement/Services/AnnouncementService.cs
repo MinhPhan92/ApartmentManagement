@@ -76,4 +76,19 @@ public class AnnouncementService : IAnnouncementService
         await _context.SaveChangesAsync();
         return (true, null);
     }
+
+    public async Task<bool> CanResidentAccessAnnouncementAsync(string userId, Announcement announcement)
+    {
+        // Thông báo toàn khu (BuildingId == null) -> mọi cư dân đều có quyền xem
+        if (!announcement.BuildingId.HasValue)
+        {
+            return true;
+        }
+
+        // Thông báo riêng cho tòa nhà -> chỉ cư dân đang thực sự cư trú tại tòa nhà đó mới được xem
+        return await _context.ApartmentResidents.AsNoTracking().AnyAsync(ar =>
+            ar.Resident.UserId == userId &&
+            ar.MoveOutDate == null &&
+            ar.Apartment.BuildingId == announcement.BuildingId.Value);
+    }
 }

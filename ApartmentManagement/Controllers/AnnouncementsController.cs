@@ -45,6 +45,17 @@ public class AnnouncementsController : Controller
     {
         var announcement = await _announcementService.GetAnnouncementByIdAsync(id);
         if (announcement == null) return NotFound();
+
+        if (User.IsInRole(AppRoles.Resident))
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var canAccess = await _announcementService.CanResidentAccessAnnouncementAsync(userId, announcement);
+            if (!canAccess)
+            {
+                return Forbid();
+            }
+        }
+
         return View(announcement);
     }
 

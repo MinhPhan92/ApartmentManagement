@@ -132,9 +132,15 @@ namespace ApartmentManagement.Services
             };
 
             _context.Vehicles.Add(vehicle);
-            await _context.SaveChangesAsync();
-
-            return (true, null);
+            try
+            {
+                await _context.SaveChangesAsync();
+                return (true, null);
+            }
+            catch (DbUpdateException)
+            {
+                return (false, $"Biển số '{normalizedPlate}' đang có đăng ký đang chờ duyệt hoặc đã được duyệt sử dụng.");
+            }
         }
 
         public async Task<(bool Success, string? ErrorMessage)> CancelRegistrationAsync(int vehicleId)
