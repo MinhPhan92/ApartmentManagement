@@ -7,6 +7,9 @@ namespace ApartmentManagement.Models
         public int VehicleId { get; set; }
 
         [Required]
+        public int ApartmentId { get; set; }
+
+        [Required]
         public int ResidentId { get; set; }
 
         [Required(ErrorMessage = "Vui lòng chọn loại phương tiện.")]
@@ -44,5 +47,7 @@ namespace ApartmentManagement.Models
 
         // Navigation
         public Resident? Resident { get; set; }
+        public Apartment? Apartment { get; set; }
+        public ParkingCard? ParkingCard { get; set; }
     }
 }

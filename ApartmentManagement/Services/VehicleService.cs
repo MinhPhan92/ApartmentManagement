@@ -1,6 +1,7 @@
 using ApartmentManagement.Data;
 using ApartmentManagement.Models;
 using ApartmentManagement.ViewModels;
+using ApartmentManagement.Common.Security;
 using Microsoft.EntityFrameworkCore;
 
 namespace ApartmentManagement.Services
@@ -32,7 +33,7 @@ namespace ApartmentManagement.Services
                 .AsQueryable();
 
             // Phân quyền dữ liệu: Cư dân chỉ thấy phương tiện của chính mình
-            if (!_currentUserService.IsInRole("SystemAdmin") && !_currentUserService.IsInRole("Manager"))
+            if (!_currentUserService.IsInRole(AppRoles.SuperAdmin) && !_currentUserService.IsInRole(AppRoles.BuildingManager))
             {
                 query = query.Where(v => v.Resident != null && v.Resident.UserId == userId);
             }
@@ -73,7 +74,7 @@ namespace ApartmentManagement.Services
                 .AsQueryable();
 
             // Quản trị viên và Ban quản lý được xem chi tiết phương tiện bất kỳ
-            if (_currentUserService.IsInRole("SystemAdmin") || _currentUserService.IsInRole("Manager"))
+            if (_currentUserService.IsInRole(AppRoles.SuperAdmin) || _currentUserService.IsInRole(AppRoles.BuildingManager))
             {
                 return await query.FirstOrDefaultAsync(v => v.VehicleId == id);
             }
@@ -110,10 +111,19 @@ namespace ApartmentManagement.Services
 
             var normalizedPlate = model.LicensePlate.Trim().ToUpper();
 
+            var apartmentId = await _context.ApartmentResidents
+                .Where(x => x.ResidentId == resident.ResidentId && x.MoveOutDate == null)
+                .OrderByDescending(x => x.MoveInDate)
+                .Select(x => (int?)x.ApartmentId)
+                .FirstOrDefaultAsync();
+            if (apartmentId is null)
+            {
+                return (false, "Bạn chưa có căn hộ đang cư trú để đăng ký phương tiện.");
+            }
+
             // Kiểm tra trùng biển số đang còn hiệu lực (Chờ duyệt hoặc Đã duyệt) trong toàn hệ thống
             var duplicateActive = await _context.Vehicles
-                .AnyAsync(v => v.LicensePlate == normalizedPlate &&
-                              (v.Status == "Chờ duyệt" || v.Status == "Đã duyệt"));
+                .AnyAsync(v => v.LicensePlate == normalizedPlate);
 
             if (duplicateActive)
             {
@@ -123,6 +133,7 @@ namespace ApartmentManagement.Services
             var vehicle = new Vehicle
             {
                 ResidentId = resident.ResidentId,
+                ApartmentId = apartmentId.Value,
                 VehicleType = model.VehicleType!.Trim(),
                 LicensePlate = normalizedPlate,
                 BrandModel = model.BrandModel?.Trim(),

@@ -63,9 +63,18 @@ namespace ApartmentManagement.Tests
             context.Residents.AddRange(resA, resB);
             await context.SaveChangesAsync();
 
+            var building = new Building { BuildingCode = "A", BuildingName = "Tòa A", Address = "Test", NumberOfFloors = 10 };
+            var apartment = new Apartment { Building = building, ApartmentCode = "A-101", Floor = 1, Area = 60 };
+            context.AddRange(building, apartment);
+            context.ApartmentResidents.AddRange(
+                new ApartmentResident { Apartment = apartment, ResidentId = resA.ResidentId, Relationship = "Chủ hộ", MoveInDate = DateTime.UtcNow.Date },
+                new ApartmentResident { Apartment = apartment, ResidentId = resB.ResidentId, Relationship = "Thành viên", MoveInDate = DateTime.UtcNow.Date });
+            await context.SaveChangesAsync();
+
             var vA = new Vehicle
             {
                 ResidentId = resA.ResidentId,
+                ApartmentId = apartment.ApartmentId,
                 VehicleType = "Xe máy",
                 LicensePlate = "29A-11111",
                 BrandModel = "Honda Vision",
@@ -77,6 +86,7 @@ namespace ApartmentManagement.Tests
             var vB = new Vehicle
             {
                 ResidentId = resB.ResidentId,
+                ApartmentId = apartment.ApartmentId,
                 VehicleType = "Ô tô",
                 LicensePlate = "30E-22222",
                 BrandModel = "Mazda 3",
@@ -172,8 +182,8 @@ namespace ApartmentManagement.Tests
 
             var currentUserServiceMock = new Mock<ICurrentUserService>();
             currentUserServiceMock.Setup(s => s.UserId).Returns("manager-id");
-            currentUserServiceMock.Setup(s => s.IsInRole("Manager")).Returns(true);
-            currentUserServiceMock.Setup(s => s.IsInRole("SystemAdmin")).Returns(false);
+            currentUserServiceMock.Setup(s => s.IsInRole("BuildingManager")).Returns(true);
+            currentUserServiceMock.Setup(s => s.IsInRole("SuperAdmin")).Returns(false);
 
             var vehicleService = new VehicleService(context, currentUserServiceMock.Object);
 
@@ -229,8 +239,8 @@ namespace ApartmentManagement.Tests
 
             var authAttr = approveMethod.GetCustomAttribute<AuthorizeAttribute>();
             Assert.NotNull(authAttr);
-            Assert.Contains("Manager", authAttr.Roles);
-            Assert.Contains("SystemAdmin", authAttr.Roles);
+            Assert.Contains("BuildingManager", authAttr.Roles);
+            Assert.Contains("SuperAdmin", authAttr.Roles);
             Assert.DoesNotContain("Resident", authAttr.Roles);
 
             var rejectMethod = typeof(VehicleController).GetMethod(nameof(VehicleController.Reject));
@@ -238,7 +248,7 @@ namespace ApartmentManagement.Tests
 
             var rejectAuthAttr = rejectMethod.GetCustomAttribute<AuthorizeAttribute>();
             Assert.NotNull(rejectAuthAttr);
-            Assert.Contains("Manager", rejectAuthAttr.Roles);
+            Assert.Contains("BuildingManager", rejectAuthAttr.Roles);
             Assert.DoesNotContain("Resident", rejectAuthAttr.Roles);
         }
 
@@ -251,7 +261,7 @@ namespace ApartmentManagement.Tests
 
             var currentUserServiceMock = new Mock<ICurrentUserService>();
             currentUserServiceMock.Setup(s => s.UserId).Returns("manager-id");
-            currentUserServiceMock.Setup(s => s.IsInRole("Manager")).Returns(true);
+            currentUserServiceMock.Setup(s => s.IsInRole("BuildingManager")).Returns(true);
 
             var vehicleService = new VehicleService(context, currentUserServiceMock.Object);
 
@@ -361,7 +371,7 @@ namespace ApartmentManagement.Tests
         }
 
         [Fact]
-        public async Task RejectedLicensePlate_CanBeReRegistered()
+        public async Task RejectedLicensePlate_CannotBeReRegistered()
         {
             using var context = CreateInMemoryDbContext();
             var (_, _, vA, _) = await SeedDataAsync(context);
@@ -382,17 +392,15 @@ namespace ApartmentManagement.Tests
             };
 
             var (success, error) = await vehicleService.RegisterVehicleAsync(model);
-            Assert.True(success, error);
-            Assert.Null(error);
+            Assert.False(success);
+            Assert.NotNull(error);
 
             var vehicles = await context.Vehicles.Where(v => v.LicensePlate == vA.LicensePlate).ToListAsync();
-            Assert.Equal(2, vehicles.Count);
-            Assert.Single(vehicles, v => v.Status == "Chờ duyệt");
-            Assert.Single(vehicles, v => v.Status == "Từ chối");
+            Assert.Single(vehicles);
         }
 
         [Fact]
-        public async Task CancelledLicensePlate_CanBeReRegistered()
+        public async Task CancelledLicensePlate_CannotBeReRegistered()
         {
             using var context = CreateInMemoryDbContext();
             var (_, _, vA, _) = await SeedDataAsync(context);
@@ -413,13 +421,11 @@ namespace ApartmentManagement.Tests
             };
 
             var (success, error) = await vehicleService.RegisterVehicleAsync(model);
-            Assert.True(success, error);
-            Assert.Null(error);
+            Assert.False(success);
+            Assert.NotNull(error);
 
             var vehicles = await context.Vehicles.Where(v => v.LicensePlate == vA.LicensePlate).ToListAsync();
-            Assert.Equal(2, vehicles.Count);
-            Assert.Single(vehicles, v => v.Status == "Chờ duyệt");
-            Assert.Single(vehicles, v => v.Status == "Đã hủy");
+            Assert.Single(vehicles);
         }
     }
 }

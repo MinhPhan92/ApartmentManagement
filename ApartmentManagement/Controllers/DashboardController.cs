@@ -42,7 +42,6 @@ namespace ApartmentManagement.Controllers
                 .Take(5)
                 .ToListAsync();
 
-            var pendingTickets = await _context.IncidentTickets.CountAsync(x => x.Status == IncidentTicketStatus.Submitted || x.Status == IncidentTicketStatus.InProgress);
             var pendingComplaints = await _context.Complaints.CountAsync(x => x.Status == "Chờ tiếp nhận" || x.Status == "Đang xử lý");
             var pendingVehicles = await _context.Vehicles.CountAsync(x => x.Status == "Chờ duyệt");
             var activeAmenities = await _context.Amenities.CountAsync(x => x.IsActive);
@@ -55,7 +54,6 @@ namespace ApartmentManagement.Controllers
             ViewBag.TotalResidents = totalResidents;
             ViewBag.OccupiedApartments = occupiedApartments;
             ViewBag.VacantApartments = Math.Max(0, totalApartments - occupiedApartments);
-            ViewBag.PendingTickets = pendingTickets;
             ViewBag.PendingComplaints = pendingComplaints;
             ViewBag.PendingVehicles = pendingVehicles;
             ViewBag.ActiveAmenities = activeAmenities;
@@ -80,7 +78,6 @@ namespace ApartmentManagement.Controllers
                         .ThenInclude(a => a.Building)
                 .Include(r => r.Vehicles)
                 .Include(r => r.Complaints)
-                .Include(r => r.IncidentTickets)
                 .FirstOrDefaultAsync(r => r.UserId == user.Id);
 
             ViewBag.UserFullName = user.FullName;

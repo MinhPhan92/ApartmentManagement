@@ -17,7 +17,7 @@ namespace ApartmentManagement.Controllers
 
         // GET: /Vehicle
         [HttpGet]
-        [Authorize(Roles = "SuperAdmin,BuildingManager,SystemAdmin,Manager,Resident")]
+        [Authorize(Roles = "SuperAdmin,BuildingManager,Resident")]
         public async Task<IActionResult> Index(string? searchTerm, string? status)
         {
             var vehicles = await _vehicleService.GetVehiclesAsync(searchTerm, status);
@@ -29,7 +29,7 @@ namespace ApartmentManagement.Controllers
 
         // GET: /Vehicle/Details/5
         [HttpGet]
-        [Authorize(Roles = "SuperAdmin,BuildingManager,SystemAdmin,Manager,Resident")]
+        [Authorize(Roles = "SuperAdmin,BuildingManager,Resident")]
         public async Task<IActionResult> Details(int id)
         {
             var vehicle = await _vehicleService.GetVehicleByIdAsync(id);
@@ -93,7 +93,7 @@ namespace ApartmentManagement.Controllers
 
         // GET: /Vehicle/Review/5
         [HttpGet]
-        [Authorize(Roles = "SuperAdmin,BuildingManager,SystemAdmin,Manager")]
+        [Authorize(Roles = "SuperAdmin,BuildingManager")]
         public async Task<IActionResult> Review(int id)
         {
             var vehicle = await _vehicleService.GetVehicleByIdAsync(id);
@@ -122,7 +122,7 @@ namespace ApartmentManagement.Controllers
         // POST: /Vehicle/Approve/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "SuperAdmin,BuildingManager,SystemAdmin,Manager")]
+        [Authorize(Roles = "SuperAdmin,BuildingManager")]
         public async Task<IActionResult> Approve(int id, string? notes)
         {
             var result = await _vehicleService.ApproveVehicleAsync(id, notes);
@@ -141,7 +141,7 @@ namespace ApartmentManagement.Controllers
         // POST: /Vehicle/Reject/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "SuperAdmin,BuildingManager,SystemAdmin,Manager")]
+        [Authorize(Roles = "SuperAdmin,BuildingManager")]
         public async Task<IActionResult> Reject(int id, string reason)
         {
             var result = await _vehicleService.RejectVehicleAsync(id, reason);

@@ -801,139 +801,41 @@ namespace ApartmentManagement.Migrations
                         });
                 });
 
-            modelBuilder.Entity("ApartmentManagement.Models.IncidentTicket", b =>
+            modelBuilder.Entity("ApartmentManagement.Models.ParkingCard", b =>
                 {
-                    b.Property<int>("IncidentTicketId")
+                    b.Property<int>("ParkingCardId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("IncidentTicketId"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ParkingCardId"));
 
-                    b.Property<int>("ApartmentId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("AssignedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("AssignedToUserId")
-                        .HasMaxLength(450)
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("Category")
+                    b.Property<string>("CardCode")
                         .IsRequired()
-                        .HasMaxLength(24)
-                        .HasColumnType("nvarchar(24)");
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
 
-                    b.Property<DateTime?>("CompletedAtUtc")
+                    b.Property<DateTime>("IssuedAtUtc")
                         .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasMaxLength(4000)
-                        .HasColumnType("nvarchar(4000)");
-
-                    b.Property<DateTime?>("RatedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<byte?>("Rating")
-                        .HasColumnType("tinyint");
-
-                    b.Property<string>("ResidentFeedback")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<int>("ResidentId")
-                        .HasColumnType("int");
-
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion");
 
                     b.Property<string>("Status")
                         .IsRequired()
-                        .HasMaxLength(24)
-                        .HasColumnType("nvarchar(24)");
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
 
-                    b.Property<string>("TicketCode")
-                        .IsRequired()
-                        .HasMaxLength(24)
-                        .HasColumnType("nvarchar(24)");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)");
-
-                    b.HasKey("IncidentTicketId");
-
-                    b.HasIndex("ApartmentId");
-
-                    b.HasIndex("AssignedToUserId");
-
-                    b.HasIndex("TicketCode")
-                        .IsUnique();
-
-                    b.HasIndex("ResidentId", "CreatedAtUtc");
-
-                    b.HasIndex("Status", "CreatedAtUtc");
-
-                    b.ToTable("IncidentTickets", t =>
-                        {
-                            t.HasCheckConstraint("CK_IncidentTickets_Category", "[Category] IN (N'Electricity', N'Water', N'Elevator', N'CommonArea', N'Other')");
-
-                            t.HasCheckConstraint("CK_IncidentTickets_Feedback", "([Rating] IS NULL AND [ResidentFeedback] IS NULL AND [RatedAtUtc] IS NULL) OR ([Rating] IS NOT NULL AND [RatedAtUtc] IS NOT NULL)");
-
-                            t.HasCheckConstraint("CK_IncidentTickets_Rating", "[Rating] IS NULL OR [Rating] BETWEEN 1 AND 5");
-
-                            t.HasCheckConstraint("CK_IncidentTickets_Status", "[Status] IN (N'Submitted', N'InProgress', N'Completed')");
-                        });
-                });
-
-            modelBuilder.Entity("ApartmentManagement.Models.IncidentTicketStatusHistory", b =>
-                {
-                    b.Property<int>("IncidentTicketStatusHistoryId")
-                        .ValueGeneratedOnAdd()
+                    b.Property<int>("VehicleId")
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("IncidentTicketStatusHistoryId"));
+                    b.HasKey("ParkingCardId");
 
-                    b.Property<DateTime>("ChangedAtUtc")
-                        .HasColumnType("datetime2");
+                    b.HasIndex("CardCode")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ParkingCards_CardCode");
 
-                    b.Property<string>("ChangedByUserId")
-                        .IsRequired()
-                        .HasMaxLength(450)
-                        .HasColumnType("nvarchar(450)");
+                    b.HasIndex("VehicleId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ParkingCards_VehicleId");
 
-                    b.Property<int>("IncidentTicketId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("NewStatus")
-                        .IsRequired()
-                        .HasMaxLength(24)
-                        .HasColumnType("nvarchar(24)");
-
-                    b.Property<string>("PreviousStatus")
-                        .HasMaxLength(24)
-                        .HasColumnType("nvarchar(24)");
-
-                    b.HasKey("IncidentTicketStatusHistoryId");
-
-                    b.HasIndex("ChangedByUserId");
-
-                    b.HasIndex("IncidentTicketId");
-
-                    b.ToTable("IncidentTicketStatusHistory", t =>
-                        {
-                            t.HasCheckConstraint("CK_IncidentTicketStatusHistory_NewStatus", "[NewStatus] IN (N'Submitted', N'InProgress', N'Completed')");
-
-                            t.HasCheckConstraint("CK_IncidentTicketStatusHistory_PreviousStatus", "[PreviousStatus] IS NULL OR [PreviousStatus] IN (N'Submitted', N'InProgress', N'Completed')");
-                        });
+                    b.ToTable("ParkingCards");
                 });
 
             modelBuilder.Entity("ApartmentManagement.Models.PaymentTransaction", b =>
@@ -1106,6 +1008,9 @@ namespace ApartmentManagement.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("VehicleId"));
 
+                    b.Property<int>("ApartmentId")
+                        .HasColumnType("int");
+
                     b.Property<string>("BrandModel")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
@@ -1144,9 +1049,11 @@ namespace ApartmentManagement.Migrations
 
                     b.HasKey("VehicleId");
 
+                    b.HasIndex("ApartmentId");
+
                     b.HasIndex("LicensePlate")
                         .IsUnique()
-                        .HasFilter("[Status] IN (N'Chờ duyệt', N'Đã duyệt')");
+                        .HasDatabaseName("UX_Vehicles_LicensePlate");
 
                     b.HasIndex("ResidentId");
 
@@ -1584,49 +1491,15 @@ namespace ApartmentManagement.Migrations
                     b.Navigation("FeeTariff");
                 });
 
-            modelBuilder.Entity("ApartmentManagement.Models.IncidentTicket", b =>
+            modelBuilder.Entity("ApartmentManagement.Models.ParkingCard", b =>
                 {
-                    b.HasOne("ApartmentManagement.Models.Apartment", "Apartment")
-                        .WithMany("IncidentTickets")
-                        .HasForeignKey("ApartmentId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("ApartmentManagement.Models.ApplicationUser", "AssignedToUser")
-                        .WithMany("AssignedIncidentTickets")
-                        .HasForeignKey("AssignedToUserId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("ApartmentManagement.Models.Resident", "Resident")
-                        .WithMany("IncidentTickets")
-                        .HasForeignKey("ResidentId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Apartment");
-
-                    b.Navigation("AssignedToUser");
-
-                    b.Navigation("Resident");
-                });
-
-            modelBuilder.Entity("ApartmentManagement.Models.IncidentTicketStatusHistory", b =>
-                {
-                    b.HasOne("ApartmentManagement.Models.ApplicationUser", "ChangedByUser")
-                        .WithMany()
-                        .HasForeignKey("ChangedByUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("ApartmentManagement.Models.IncidentTicket", "IncidentTicket")
-                        .WithMany("StatusHistory")
-                        .HasForeignKey("IncidentTicketId")
+                    b.HasOne("ApartmentManagement.Models.Vehicle", "Vehicle")
+                        .WithOne("ParkingCard")
+                        .HasForeignKey("ApartmentManagement.Models.ParkingCard", "VehicleId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("ChangedByUser");
-
-                    b.Navigation("IncidentTicket");
+                    b.Navigation("Vehicle");
                 });
 
             modelBuilder.Entity("ApartmentManagement.Models.PaymentTransaction", b =>
@@ -1679,11 +1552,19 @@ namespace ApartmentManagement.Migrations
 
             modelBuilder.Entity("ApartmentManagement.Models.Vehicle", b =>
                 {
+                    b.HasOne("ApartmentManagement.Models.Apartment", "Apartment")
+                        .WithMany("Vehicles")
+                        .HasForeignKey("ApartmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("ApartmentManagement.Models.Resident", "Resident")
                         .WithMany("Vehicles")
                         .HasForeignKey("ResidentId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("Apartment");
 
                     b.Navigation("Resident");
                 });
@@ -1771,11 +1652,11 @@ namespace ApartmentManagement.Migrations
 
                     b.Navigation("Contracts");
 
-                    b.Navigation("IncidentTickets");
-
                     b.Navigation("Invoices");
 
                     b.Navigation("UtilityMeterReadings");
+
+                    b.Navigation("Vehicles");
 
                     b.Navigation("VisitorPasses");
                 });
@@ -1796,8 +1677,6 @@ namespace ApartmentManagement.Migrations
 
             modelBuilder.Entity("ApartmentManagement.Models.ApplicationUser", b =>
                 {
-                    b.Navigation("AssignedIncidentTickets");
-
                     b.Navigation("Resident");
                 });
 
@@ -1817,11 +1696,6 @@ namespace ApartmentManagement.Migrations
                     b.Navigation("Tiers");
                 });
 
-            modelBuilder.Entity("ApartmentManagement.Models.IncidentTicket", b =>
-                {
-                    b.Navigation("StatusHistory");
-                });
-
             modelBuilder.Entity("ApartmentManagement.Models.Resident", b =>
                 {
                     b.Navigation("AmenityBookings");
@@ -1831,8 +1705,6 @@ namespace ApartmentManagement.Migrations
                     b.Navigation("Complaints");
 
                     b.Navigation("ContractParties");
-
-                    b.Navigation("IncidentTickets");
 
                     b.Navigation("Invoices");
 
@@ -1844,6 +1716,11 @@ namespace ApartmentManagement.Migrations
             modelBuilder.Entity("ApartmentManagement.Models.UtilityMeterReading", b =>
                 {
                     b.Navigation("InvoiceLines");
+                });
+
+            modelBuilder.Entity("ApartmentManagement.Models.Vehicle", b =>
+                {
+                    b.Navigation("ParkingCard");
                 });
 #pragma warning restore 612, 618
         }

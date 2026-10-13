@@ -32,11 +32,6 @@ namespace ApartmentManagement.Data
         public DbSet<ContractStatusHistory> ContractStatusHistory
             => Set<ContractStatusHistory>();
 
-        public DbSet<IncidentTicket> IncidentTickets => Set<IncidentTicket>();
-
-        public DbSet<IncidentTicketStatusHistory> IncidentTicketStatusHistory
-            => Set<IncidentTicketStatusHistory>();
-
         public DbSet<FeeTariff> FeeTariffs => Set<FeeTariff>();
 
         public DbSet<FeeTariffTier> FeeTariffTiers => Set<FeeTariffTier>();
@@ -50,6 +45,8 @@ namespace ApartmentManagement.Data
         public DbSet<PaymentTransaction> PaymentTransactions => Set<PaymentTransaction>();
 
         public DbSet<Vehicle> Vehicles => Set<Vehicle>();
+
+        public DbSet<ParkingCard> ParkingCards => Set<ParkingCard>();
 
         public DbSet<Complaint> Complaints => Set<Complaint>();
 
@@ -256,79 +253,6 @@ namespace ApartmentManagement.Data
                     .OnDelete(DeleteBehavior.Restrict);
             });
 
-            // INCIDENT TICKETS
-            builder.Entity<IncidentTicket>(entity =>
-            {
-                entity.Property(x => x.TicketCode).HasMaxLength(24).IsRequired();
-                entity.HasIndex(x => x.TicketCode).IsUnique();
-                entity.Property(x => x.Category).HasConversion<string>().HasMaxLength(24);
-                entity.Property(x => x.Title).HasMaxLength(120).IsRequired();
-                entity.Property(x => x.Description).HasMaxLength(4000).IsRequired();
-                entity.Property(x => x.Status).HasConversion<string>().HasMaxLength(24);
-                entity.Property(x => x.CreatedAtUtc).HasColumnType("datetime2");
-                entity.Property(x => x.AssignedAtUtc).HasColumnType("datetime2");
-                entity.Property(x => x.CompletedAtUtc).HasColumnType("datetime2");
-                entity.Property(x => x.RatedAtUtc).HasColumnType("datetime2");
-                entity.Property(x => x.AssignedToUserId).HasMaxLength(450);
-                entity.Property(x => x.ResidentFeedback).HasMaxLength(1000);
-                entity.Property(x => x.RowVersion).IsRowVersion();
-                entity.HasIndex(x => new { x.Status, x.CreatedAtUtc });
-                entity.HasIndex(x => new { x.ResidentId, x.CreatedAtUtc });
-                entity.ToTable(table =>
-                {
-                    table.HasCheckConstraint(
-                        "CK_IncidentTickets_Category",
-                        "[Category] IN (N'Electricity', N'Water', N'Elevator', N'CommonArea', N'Other')");
-                    table.HasCheckConstraint(
-                        "CK_IncidentTickets_Status",
-                        "[Status] IN (N'Submitted', N'InProgress', N'Completed')");
-                    table.HasCheckConstraint(
-                        "CK_IncidentTickets_Rating",
-                        "[Rating] IS NULL OR [Rating] BETWEEN 1 AND 5");
-                    table.HasCheckConstraint(
-                        "CK_IncidentTickets_Feedback",
-                        "([Rating] IS NULL AND [ResidentFeedback] IS NULL AND [RatedAtUtc] IS NULL) OR " +
-                        "([Rating] IS NOT NULL AND [RatedAtUtc] IS NOT NULL)");
-                });
-                entity.HasOne(x => x.Apartment)
-                    .WithMany(x => x.IncidentTickets)
-                    .HasForeignKey(x => x.ApartmentId)
-                    .OnDelete(DeleteBehavior.Restrict);
-                entity.HasOne(x => x.Resident)
-                    .WithMany(x => x.IncidentTickets)
-                    .HasForeignKey(x => x.ResidentId)
-                    .OnDelete(DeleteBehavior.Restrict);
-                entity.HasOne(x => x.AssignedToUser)
-                    .WithMany(x => x.AssignedIncidentTickets)
-                    .HasForeignKey(x => x.AssignedToUserId)
-                    .OnDelete(DeleteBehavior.Restrict);
-            });
-
-            builder.Entity<IncidentTicketStatusHistory>(entity =>
-            {
-                entity.Property(x => x.PreviousStatus).HasConversion<string>().HasMaxLength(24);
-                entity.Property(x => x.NewStatus).HasConversion<string>().HasMaxLength(24);
-                entity.Property(x => x.ChangedAtUtc).HasColumnType("datetime2");
-                entity.Property(x => x.ChangedByUserId).HasMaxLength(450).IsRequired();
-                entity.ToTable(table =>
-                {
-                    table.HasCheckConstraint(
-                        "CK_IncidentTicketStatusHistory_PreviousStatus",
-                        "[PreviousStatus] IS NULL OR [PreviousStatus] IN (N'Submitted', N'InProgress', N'Completed')");
-                    table.HasCheckConstraint(
-                        "CK_IncidentTicketStatusHistory_NewStatus",
-                        "[NewStatus] IN (N'Submitted', N'InProgress', N'Completed')");
-                });
-                entity.HasOne(x => x.IncidentTicket)
-                    .WithMany(x => x.StatusHistory)
-                    .HasForeignKey(x => x.IncidentTicketId)
-                    .OnDelete(DeleteBehavior.Cascade);
-                entity.HasOne(x => x.ChangedByUser)
-                    .WithMany()
-                    .HasForeignKey(x => x.ChangedByUserId)
-                    .OnDelete(DeleteBehavior.Restrict);
-            });
-
             builder.Entity<FeeTariff>(entity =>
             {
                 entity.Property(x => x.ChargeType).HasConversion<string>().HasMaxLength(24);
@@ -500,12 +424,29 @@ namespace ApartmentManagement.Data
                 entity.HasKey(x => x.VehicleId);
                 entity.HasIndex(x => x.LicensePlate)
                     .IsUnique()
-                    .HasFilter("[Status] IN (N'Chờ duyệt', N'Đã duyệt')");
+                    .HasDatabaseName("UX_Vehicles_LicensePlate");
                 entity.Property(x => x.VehicleType).HasMaxLength(50).IsRequired();
                 entity.Property(x => x.LicensePlate).HasMaxLength(20).IsRequired();
                 entity.Property(x => x.Status).HasMaxLength(50).IsRequired();
                 entity.HasOne(x => x.Resident).WithMany(x => x.Vehicles)
                     .HasForeignKey(x => x.ResidentId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(x => x.Apartment).WithMany(x => x.Vehicles)
+                    .HasForeignKey(x => x.ApartmentId).OnDelete(DeleteBehavior.Restrict);
+            });
+
+            builder.Entity<ParkingCard>(entity =>
+            {
+                entity.HasKey(x => x.ParkingCardId);
+                entity.Property(x => x.CardCode).HasMaxLength(32).IsRequired();
+                entity.Property(x => x.Status).HasMaxLength(32).IsRequired();
+                entity.Property(x => x.IssuedAtUtc).HasColumnType("datetime2");
+                entity.HasIndex(x => x.CardCode).IsUnique()
+                    .HasDatabaseName("UX_ParkingCards_CardCode");
+                entity.HasIndex(x => x.VehicleId).IsUnique()
+                    .HasDatabaseName("UX_ParkingCards_VehicleId");
+                entity.HasOne(x => x.Vehicle).WithOne(x => x.ParkingCard)
+                    .HasForeignKey<ParkingCard>(x => x.VehicleId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
 
             // COMPLAINT

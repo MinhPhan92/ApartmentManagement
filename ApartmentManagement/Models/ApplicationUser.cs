@@ -11,5 +11,4 @@ public class ApplicationUser : IdentityUser
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public Resident? Resident { get; set; }
-    public ICollection<IncidentTicket> AssignedIncidentTickets { get; set; } = new List<IncidentTicket>();
 }

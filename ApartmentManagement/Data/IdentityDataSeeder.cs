@@ -9,7 +9,8 @@ public static class IdentityDataSeeder
 {
     public static async Task InitializeAsync(
         IServiceProvider serviceProvider,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IWebHostEnvironment environment)
     {
         using var scope = serviceProvider.CreateScope();
         var services = scope.ServiceProvider;
@@ -48,6 +49,8 @@ public static class IdentityDataSeeder
         var password = configuration["Seed:SuperAdmin:Password"];
         var fullName = configuration["Seed:SuperAdmin:FullName"] ?? "System Administrator";
 
+        await SeedDevelopmentVehicleAsync(context, configuration, environment);
+
         if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
         {
             return;
@@ -73,6 +76,47 @@ public static class IdentityDataSeeder
         {
             var addRoleResult = await userManager.AddToRoleAsync(admin, AppRoles.SuperAdmin);
             EnsureSucceeded(addRoleResult, "Không thể gán role SuperAdmin");
+        }
+
+    }
+
+    private static async Task SeedDevelopmentVehicleAsync(
+        ApplicationDbContext context,
+        IConfiguration configuration,
+        IWebHostEnvironment environment)
+    {
+        if (!environment.IsDevelopment() ||
+            !configuration.GetValue<bool>("Seed:DevelopmentSampleVehicle:Enabled")) return;
+
+        var occupancy = await context.ApartmentResidents.AsNoTracking()
+            .Where(x => x.MoveOutDate == null)
+            .OrderBy(x => x.ApartmentResidentId)
+            .FirstOrDefaultAsync();
+        if (occupancy is null) return;
+
+        const string plate = "29A1-123.45";
+        var vehicle = await context.Vehicles.SingleOrDefaultAsync(x => x.LicensePlate == plate);
+        if (vehicle is null)
+        {
+            vehicle = new Vehicle
+            {
+                ApartmentId = occupancy.ApartmentId,
+                ResidentId = occupancy.ResidentId,
+                VehicleType = "Xe máy",
+                LicensePlate = plate,
+                BrandModel = "Honda",
+                Status = "Đã duyệt",
+                CreatedAt = DateTime.UtcNow,
+                ReviewedAt = DateTime.UtcNow
+            };
+            context.Vehicles.Add(vehicle);
+            await context.SaveChangesAsync();
+        }
+
+        if (!await context.ParkingCards.AnyAsync(x => x.CardCode == "CARD-001" || x.VehicleId == vehicle.VehicleId))
+        {
+            context.ParkingCards.Add(new ParkingCard { VehicleId = vehicle.VehicleId, CardCode = "CARD-001" });
+            await context.SaveChangesAsync();
         }
     }
 

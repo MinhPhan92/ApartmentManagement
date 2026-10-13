@@ -37,8 +37,7 @@ namespace ApartmentManagement.Models
         public ICollection<ApartmentContract> Contracts { get; set; }
             = new List<ApartmentContract>();
 
-        public ICollection<IncidentTicket> IncidentTickets { get; set; }
-            = new List<IncidentTicket>();
+        public ICollection<Vehicle> Vehicles { get; set; } = new List<Vehicle>();
 
         public ICollection<UtilityMeterReading> UtilityMeterReadings { get; set; }
             = new List<UtilityMeterReading>();

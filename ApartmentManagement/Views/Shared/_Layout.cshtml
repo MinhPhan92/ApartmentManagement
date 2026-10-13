@@ -82,9 +82,6 @@
                                     <a class="nav-link text-success" asp-controller="MyInvoices" asp-action="Index">🧾 Hóa đơn của tôi</a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link text-success" asp-controller="MyIncidents" asp-action="Index">🛠 Sự cố</a>
-                                </li>
-                                <li class="nav-item">
                                     <a class="nav-link text-success" asp-controller="Complaint" asp-action="Index">📢 Phản ánh</a>
                                 </li>
                                 <li class="nav-item">
@@ -109,18 +106,6 @@
                                         🏠 Cư Dân
                                     </a>
                                 </li>
-                            }
-                            @if (User.IsInRole("Technician") || User.IsInRole("BuildingManager") || User.IsInRole("SuperAdmin"))
-                            {
-                                <li class="nav-item">
-                                    <a class="nav-link text-primary" asp-controller="IncidentQueue" asp-action="Index">🧰 Hàng đợi sự cố</a>
-                                </li>
-                                @if (User.IsInRole("Technician"))
-                                {
-                                    <li class="nav-item">
-                                        <a class="nav-link text-primary" asp-controller="Visitors" asp-action="Index">🚶 Khách ra vào</a>
-                                    </li>
-                                }
                             }
                             @if (User.IsInRole("Accountant") || User.IsInRole("BuildingManager") || User.IsInRole("SuperAdmin"))
                             {

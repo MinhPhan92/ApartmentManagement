@@ -49,7 +49,6 @@ builder.Services.AddScoped<IResidentService, ResidentService>();
 builder.Services.AddScoped<IAccountManagementService, AccountManagementService>();
 builder.Services.AddScoped<IOccupancyService, OccupancyService>();
 builder.Services.AddScoped<IContractService, ContractService>();
-builder.Services.AddScoped<IIncidentTicketService, IncidentTicketService>();
 builder.Services.AddScoped<IBillingService, BillingService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddSingleton<IVietQrCodeGenerator, VietQrCodeGenerator>();
@@ -126,8 +125,6 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(AppPolicies.RequireSuperAdmin, policy =>
         policy.RequireRole(AppRoles.SuperAdmin));
 
-    options.AddPolicy(AppPolicies.RequireTicketStaff, policy =>
-        policy.RequireRole(AppRoles.SuperAdmin, AppRoles.BuildingManager, AppRoles.Technician));
 });
 
 builder.Services.AddControllersWithViews();
@@ -155,7 +152,7 @@ app.MapControllerRoute(
 
 app.MapRazorPages();
 
-await IdentityDataSeeder.InitializeAsync(app.Services, app.Configuration);
+await IdentityDataSeeder.InitializeAsync(app.Services, app.Configuration, app.Environment);
 
 app.Run();
 
