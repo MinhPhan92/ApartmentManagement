@@ -92,7 +92,12 @@
             <div class="card border-0 shadow-sm rounded-4 h-100">
                 <div class="card-header bg-white py-3 px-4 border-0 d-flex justify-content-between align-items-center">
                     <h5 class="fw-bold mb-0">👥 Danh Sách Cư Dân Lưu Trú</h5>
-                    <span class="badge bg-light text-muted border">@Model.ApartmentResidents.Count người</span>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-light text-muted border">@Model.ApartmentResidents.Count người</span>
+                        <a asp-controller="Occupancies" asp-action="Create" asp-route-apartmentId="@Model.ApartmentId" class="btn btn-sm btn-primary">
+                            ➕ Gán cư dân
+                        </a>
+                    </div>
                 </div>
                 <div class="card-body p-0">
                     @if (Model.ApartmentResidents != null && Model.ApartmentResidents.Any())
@@ -106,6 +111,7 @@
                                         <th>CCCD / CMND</th>
                                         <th>Ngày Vào Ở</th>
                                         <th>Vai Trò</th>
+                                        <th class="text-end pe-4">Thao tác</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -128,6 +134,9 @@
                                                     <span class="badge bg-light text-dark border">Thành viên</span>
                                                 }
                                             </td>
+                                            <td class="text-end pe-4">
+                                                <a asp-controller="Occupancies" asp-action="Edit" asp-route-id="@ar.ApartmentResidentId" class="btn btn-sm btn-outline-warning">Sửa</a>
+                                            </td>
                                         </tr>
                                     }
                                 </tbody>
@@ -139,7 +148,9 @@
                         <div class="text-center py-5 text-muted">
                             <span class="fs-1 d-block mb-2">👤</span>
                             <p class="mb-1 fw-semibold">Căn hộ hiện chưa có cư dân nào đăng ký lưu trú.</p>
-                            <small class="text-muted">Bạn có thể thêm và gán cư dân vào căn hộ này trong module <strong>Resident Management</strong> (bước kế tiếp).</small>
+                            <a asp-controller="Occupancies" asp-action="Create" asp-route-apartmentId="@Model.ApartmentId" class="btn btn-primary btn-sm mt-2">
+                                ➕ Làm thủ tục chuyển vào
+                            </a>
                         </div>
                     }
                 </div>

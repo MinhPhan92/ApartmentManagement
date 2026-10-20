@@ -78,3 +78,39 @@ public sealed class ResidentEditViewModel
     [Display(Name = "Liên hệ khẩn cấp")]
     public string? EmergencyContact { get; set; }
 }
+
+public sealed class ResidentProfileEditViewModel
+{
+    [Display(Name = "Họ và tên")]
+    public string FullName { get; set; } = string.Empty;
+
+    [Display(Name = "Email")]
+    public string Email { get; set; } = string.Empty;
+
+    [Display(Name = "CCCD/CMND")]
+    public string CitizenId { get; set; } = string.Empty;
+
+    [DataType(DataType.Date), ValidDateOfBirth]
+    [Display(Name = "Ngày sinh")]
+    public DateTime? DateOfBirth { get; set; }
+
+    [StringLength(ResidentValidation.GenderMaxLength)]
+    [Display(Name = "Giới tính")]
+    public string? Gender { get; set; }
+
+    [StringLength(ResidentValidation.AddressMaxLength)]
+    [Display(Name = "Địa chỉ liên lạc")]
+    public string? Address { get; set; }
+
+    [StringLength(ResidentValidation.PhoneMaxLength)]
+    [RegularExpression(ResidentValidation.PhonePattern, ErrorMessage = "Số điện thoại phải gồm 9-15 chữ số và có thể bắt đầu bằng dấu +.")]
+    [Display(Name = "Liên hệ khẩn cấp")]
+    public string? EmergencyContact { get; set; }
+}
+
+public sealed class ResidentHouseholdViewModel
+{
+    public Resident Resident { get; set; } = null!;
+    public Apartment? ActiveApartment { get; set; }
+    public List<ApartmentResident> HouseholdMembers { get; set; } = new();
+}

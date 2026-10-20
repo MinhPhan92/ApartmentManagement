@@ -5,6 +5,21 @@
 }
 
 <div class="container py-4">
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show rounded-3 mb-4" role="alert">
+            <i class="bi bi-check-circle-fill me-2"></i>@TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show rounded-3 mb-4" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>@TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
     <div class="row g-4">
         <!-- Resident profile header -->
         <div class="col-12">
@@ -28,11 +43,14 @@
             </div>
         </div>
 
-        <!-- Details -->
-        <div class="col-12 col-md-5">
+        <!-- Personal Details -->
+        <div class="col-12 col-lg-5">
             <div class="card border-0 shadow-sm rounded-4 h-100">
-                <div class="card-header bg-white py-3 border-0">
+                <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
                     <h5 class="fw-bold mb-0">Thông Tin Cá Nhân</h5>
+                    <a asp-action="EditProfile" class="btn btn-sm btn-outline-primary fw-semibold">
+                        ✏️ Chỉnh sửa
+                    </a>
                 </div>
                 <div class="card-body">
                     @if (Model != null)
@@ -68,31 +86,113 @@
             </div>
         </div>
 
-        <div class="col-12 col-md-7">
+        <!-- Active Apartment & Household Members -->
+        <div class="col-12 col-lg-7">
             <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold mb-0">👥 Căn Hộ & Thành Viên Hộ Gia Đình</h5>
+                    @if (ViewBag.ActiveApartment != null)
+                    {
+                        <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-1">
+                            @ViewBag.ActiveApartment.ApartmentCode (@ViewBag.ActiveApartment.Building?.BuildingName)
+                        </span>
+                    }
+                </div>
+                <div class="card-body">
+                    @if (ViewBag.ActiveApartment != null)
+                    {
+                        <div class="p-3 bg-light rounded-3 mb-3">
+                            <div class="row g-2 small text-muted">
+                                <div class="col-6 col-sm-3">Mã phòng: <strong class="text-dark">@ViewBag.ActiveApartment.ApartmentCode</strong></div>
+                                <div class="col-6 col-sm-3">Tầng: <strong class="text-dark">@ViewBag.ActiveApartment.Floor</strong></div>
+                                <div class="col-6 col-sm-3">Diện tích: <strong class="text-dark">@ViewBag.ActiveApartment.Area m²</strong></div>
+                                <div class="col-6 col-sm-3">Trạng thái: <strong class="text-success">@ViewBag.ActiveApartment.Status</strong></div>
+                            </div>
+                        </div>
+
+                        var members = (List<ApartmentManagement.Models.ApartmentResident>?)ViewBag.HouseholdMembers;
+                        if (members != null && members.Any())
+                        {
+                            <h6 class="fw-bold text-muted small mb-2">DANH SÁCH THÀNH VIÊN ĐÃ ĐƯỢC XÁC NHẬN</h6>
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0 small">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Thành viên</th>
+                                            <th>Quan hệ</th>
+                                            <th>Ngày vào ở</th>
+                                            <th class="text-end">Vai trò</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var m in members)
+                                        {
+                                            <tr>
+                                                <td class="fw-semibold">
+                                                    @(m.Resident?.User?.FullName ?? "N/A")
+                                                    @if (m.Resident?.UserId == Model?.UserId)
+                                                    {
+                                                        <span class="badge bg-info-subtle text-info ms-1">Bạn</span>
+                                                    }
+                                                </td>
+                                                <td>@m.Relationship</td>
+                                                <td>@m.MoveInDate.ToString("dd/MM/yyyy")</td>
+                                                <td class="text-end">
+                                                    @if (m.IsOwner)
+                                                    {
+                                                        <span class="badge bg-primary">Chủ Hộ</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="badge bg-light text-dark border">Thành viên</span>
+                                                    }
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="text-center py-4 text-muted">
+                            <span class="fs-1 d-block mb-2">🔑</span>
+                            <p class="mb-0">Bạn hiện chưa được liên kết với căn hộ nào đang hoạt động. Vui lòng liên hệ Ban Quản Lý.</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Occupancy History -->
+        <div class="col-12">
+            <div class="card border-0 shadow-sm rounded-4">
                 <div class="card-header bg-white py-3 border-0">
-                    <h5 class="fw-bold mb-0">Lịch Sử Cư Trú</h5>
+                    <h5 class="fw-bold mb-0">📜 Lịch Sử Cư Trú</h5>
                 </div>
                 <div class="card-body">
                     @if (Model?.ApartmentResidents != null && Model.ApartmentResidents.Any())
                     {
-                        <div class="list-group">
+                        <div class="row row-cols-1 row-cols-md-2 g-3">
                             @foreach (var ar in Model.ApartmentResidents)
                             {
-                                <div class="list-group-item list-group-item-action rounded-3 mb-2 border p-3">
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <h6 class="fw-bold mb-0 text-primary">Căn hộ @ar.Apartment?.ApartmentCode - Tòa @ar.Apartment?.Building?.BuildingName</h6>
-                                        <span class="badge @(ar.MoveOutDate == null ? "bg-success" : "bg-secondary")">
-                                            @(ar.MoveOutDate == null ? "Đang cư trú" : "Đã chuyển đi")
-                                        </span>
-                                    </div>
-                                    <div class="row g-2 text-muted small">
-                                        <div class="col-6">Tầng: <strong class="text-dark">@ar.Apartment?.Floor</strong></div>
-                                        <div class="col-6">Diện tích: <strong class="text-dark">@ar.Apartment?.Area m²</strong></div>
-                                        <div class="col-6">Ngày vào ở: <strong class="text-dark">@ar.MoveInDate.ToString("dd/MM/yyyy")</strong></div>
-                                        <div class="col-6">Quan hệ: <strong class="text-dark">@ar.Relationship</strong></div>
-                                        <div class="col-6">Ngày chuyển đi: <strong class="text-dark">@(ar.MoveOutDate?.ToString("dd/MM/yyyy") ?? "Hiện tại")</strong></div>
-                                        <div class="col-6">Vai trò: <strong class="text-dark">@(ar.IsOwner ? "Chủ hộ" : "Thành viên")</strong></div>
+                                <div class="col">
+                                    <div class="border rounded-3 p-3 h-100">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <h6 class="fw-bold mb-0 text-primary">Căn hộ @ar.Apartment?.ApartmentCode - Tòa @ar.Apartment?.Building?.BuildingName</h6>
+                                            <span class="badge @(ar.MoveOutDate == null ? "bg-success" : "bg-secondary")">
+                                                @(ar.MoveOutDate == null ? "Đang cư trú" : "Đã chuyển đi")
+                                            </span>
+                                        </div>
+                                        <div class="row g-2 text-muted small">
+                                            <div class="col-6">Tầng: <strong class="text-dark">@ar.Apartment?.Floor</strong></div>
+                                            <div class="col-6">Diện tích: <strong class="text-dark">@ar.Apartment?.Area m²</strong></div>
+                                            <div class="col-6">Ngày vào ở: <strong class="text-dark">@ar.MoveInDate.ToString("dd/MM/yyyy")</strong></div>
+                                            <div class="col-6">Quan hệ: <strong class="text-dark">@ar.Relationship</strong></div>
+                                            <div class="col-6">Ngày chuyển đi: <strong class="text-dark">@(ar.MoveOutDate?.ToString("dd/MM/yyyy") ?? "Hiện tại")</strong></div>
+                                            <div class="col-6">Vai trò: <strong class="text-dark">@(ar.IsOwner ? "Chủ hộ" : "Thành viên")</strong></div>
+                                        </div>
                                     </div>
                                 </div>
                             }
@@ -100,9 +200,8 @@
                     }
                     else
                     {
-                        <div class="text-center py-4 text-muted">
-                            <span class="fs-1 d-block mb-2">🔑</span>
-                            <p class="mb-0">Bạn hiện chưa được gán vào căn hộ nào. Vui lòng gửi yêu cầu tới Ban Quản Lý tòa nhà.</p>
+                        <div class="text-center py-3 text-muted">
+                            <p class="mb-0">Chưa có lịch sử cư trú.</p>
                         </div>
                     }
                 </div>

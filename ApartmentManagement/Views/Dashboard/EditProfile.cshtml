@@ -1,0 +1,81 @@
+@model ApartmentManagement.Models.ResidentProfileEditViewModel
+@{
+    ViewData["Title"] = "Chỉnh sửa thông tin cá nhân";
+}
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <div class="card-header bg-primary text-white p-4">
+                    <h4 class="mb-1">✏️ Chỉnh Sửa Thông Tin Cá Nhân</h4>
+                    <p class="mb-0 text-white-50">Cập nhật thông tin liên hệ và hồ sơ cá nhân của cư dân</p>
+                </div>
+                <div class="card-body p-4">
+                    <form method="post">
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+
+                        <!-- Read-only administrative fields -->
+                        <div class="bg-light p-3 rounded-3 mb-4">
+                            <h6 class="fw-bold text-muted mb-2"><i class="bi bi-shield-lock me-1"></i>Thông tin do Ban Quản Lý quản lý (Không thể tự chỉnh sửa)</h6>
+                            <div class="row g-2 small">
+                                <div class="col-md-4">
+                                    <span class="text-muted">Họ và tên:</span>
+                                    <strong class="d-block text-dark">@Model.FullName</strong>
+                                </div>
+                                <div class="col-md-4">
+                                    <span class="text-muted">Email đăng nhập:</span>
+                                    <strong class="d-block text-dark">@Model.Email</strong>
+                                </div>
+                                <div class="col-md-4">
+                                    <span class="text-muted">Số CCCD / CMND:</span>
+                                    <strong class="d-block text-dark">@Model.CitizenId</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Editable contact and personal fields -->
+                        <h6 class="fw-bold text-primary mb-3"><i class="bi bi-person-lines-fill me-1"></i>Thông tin cá nhân được phép cập nhật</h6>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label asp-for="DateOfBirth" class="form-label fw-semibold"></label>
+                                <input asp-for="DateOfBirth" class="form-control" type="date" />
+                                <span asp-validation-for="DateOfBirth" class="text-danger small"></span>
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="Gender" class="form-label fw-semibold"></label>
+                                <select asp-for="Gender" class="form-select">
+                                    <option value="">-- Chọn giới tính --</option>
+                                    <option value="Nam">Nam</option>
+                                    <option value="Nữ">Nữ</option>
+                                    <option value="Khác">Khác</option>
+                                </select>
+                                <span asp-validation-for="Gender" class="text-danger small"></span>
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="EmergencyContact" class="form-label fw-semibold"></label>
+                                <input asp-for="EmergencyContact" class="form-control" placeholder="Số điện thoại liên hệ khẩn cấp" />
+                                <span asp-validation-for="EmergencyContact" class="text-danger small"></span>
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="Address" class="form-label fw-semibold"></label>
+                                <input asp-for="Address" class="form-control" placeholder="Địa chỉ thường trú / quê quán" />
+                                <span asp-validation-for="Address" class="text-danger small"></span>
+                            </div>
+                        </div>
+
+                        <hr class="my-4" />
+                        <div class="text-end">
+                            <a asp-action="Resident" class="btn btn-outline-secondary me-2">Hủy</a>
+                            <button type="submit" class="btn btn-primary fw-semibold px-4">💾 Lưu thông tin</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

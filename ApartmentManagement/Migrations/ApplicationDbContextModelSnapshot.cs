@@ -470,6 +470,11 @@ namespace ApartmentManagement.Migrations
 
                     b.HasKey("ApartmentResidentId");
 
+                    b.HasIndex("ApartmentId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ApartmentResidents_ActiveOwner")
+                        .HasFilter("[MoveOutDate] IS NULL AND [IsOwner] = 1");
+
                     b.HasIndex("ResidentId");
 
                     b.HasIndex("ApartmentId", "ResidentId")

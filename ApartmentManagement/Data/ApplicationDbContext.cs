@@ -141,6 +141,12 @@ namespace ApartmentManagement.Data
                 .HasFilter("[MoveOutDate] IS NULL")
                 .HasDatabaseName("UX_ApartmentResidents_ActiveAssignment");
 
+            builder.Entity<ApartmentResident>()
+                .HasIndex(x => x.ApartmentId)
+                .IsUnique()
+                .HasFilter("[MoveOutDate] IS NULL AND [IsOwner] = 1")
+                .HasDatabaseName("UX_ApartmentResidents_ActiveOwner");
+
             builder.Entity<ApartmentResident>().ToTable(table => table.HasCheckConstraint(
                 "CK_ApartmentResidents_MoveOutDate",
                 "[MoveOutDate] IS NULL OR [MoveOutDate] >= [MoveInDate]"));
