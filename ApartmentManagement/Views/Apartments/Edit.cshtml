@@ -74,9 +74,10 @@
                                     Trạng Thái Căn Hộ <span class="text-danger">*</span>
                                 </label>
                                 <select asp-for="Status" class="form-select">
-                                    <option value="Đang sử dụng">Đang sử dụng</option>
-                                    <option value="Đang trống">Đang trống</option>
-                                    <option value="Đang bảo trì">Đang bảo trì</option>
+                                    <option value="@ApartmentStatus.Vacant">@ApartmentStatus.Vacant</option>
+                                    <option value="@ApartmentStatus.Occupied">@ApartmentStatus.Occupied</option>
+                                    <option value="@ApartmentStatus.Maintenance">@ApartmentStatus.Maintenance</option>
+                                    <option value="@ApartmentStatus.Inactive">@ApartmentStatus.Inactive</option>
                                 </select>
                                 <span asp-validation-for="Status" class="text-danger small"></span>
                             </div>

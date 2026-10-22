@@ -74,8 +74,11 @@ public sealed class OccupancyService : IOccupancyService
     {
         var apartment = await _context.Apartments.FindAsync(model.ApartmentId);
         if (apartment == null) return (false, "Căn hộ không tồn tại.", null);
-        if (string.Equals(apartment.Status, "Bảo trì", StringComparison.OrdinalIgnoreCase))
+        var normalizedStatus = ApartmentStatus.Normalize(apartment.Status);
+        if (normalizedStatus == ApartmentStatus.Maintenance)
             return (false, "Căn hộ đang trong trạng thái bảo trì, không thể làm thủ tục chuyển vào.", null);
+        if (normalizedStatus == ApartmentStatus.Inactive)
+            return (false, "Căn hộ đã ngừng sử dụng (không hoạt động), không thể làm thủ tục chuyển vào.", null);
 
         var residentExists = await _context.Residents.AnyAsync(x => x.ResidentId == model.ResidentId);
         if (!residentExists) return (false, "Cư dân không tồn tại.", null);
@@ -102,7 +105,7 @@ public sealed class OccupancyService : IOccupancyService
             IsOwner = model.IsOwner
         };
         _context.ApartmentResidents.Add(occupancy);
-        apartment.Status = "Đang sử dụng";
+        apartment.Status = ApartmentStatus.Occupied;
         try
         {
             await _context.SaveChangesAsync();
@@ -179,7 +182,14 @@ public sealed class OccupancyService : IOccupancyService
             x.ApartmentId == occupancy.ApartmentId &&
             x.ApartmentResidentId != occupancy.ApartmentResidentId &&
             x.MoveOutDate == null);
-        if (!hasOtherActiveOccupancy) occupancy.Apartment.Status = "Trống";
+        if (!hasOtherActiveOccupancy)
+        {
+            var currentNormalized = ApartmentStatus.Normalize(occupancy.Apartment.Status);
+            if (currentNormalized != ApartmentStatus.Inactive)
+            {
+                occupancy.Apartment.Status = ApartmentStatus.Vacant;
+            }
+        }
 
         try
         {

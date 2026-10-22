@@ -27,7 +27,7 @@ namespace ApartmentManagement.Models
         [Required(ErrorMessage = "Vui lòng chọn trạng thái.")]
         [StringLength(50)]
         [Display(Name = "Trạng thái")]
-        public string Status { get; set; } = "Đang sử dụng";
+        public string Status { get; set; } = ApartmentStatus.Vacant;
 
         public Building? Building { get; set; }
 

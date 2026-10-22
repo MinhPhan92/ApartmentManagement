@@ -54,30 +54,28 @@ namespace ApartmentManagement.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> Create()
+        public async Task<IActionResult> Create(int? buildingId)
         {
             ViewBag.Buildings =
                 await _buildingService.GetAllBuildingsAsync();
 
-            return View();
+            var model = new Apartment
+            {
+                BuildingId = buildingId ?? 0,
+                Status = ApartmentStatus.Vacant,
+                Floor = 1
+            };
+
+            return View(model);
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(
-    Apartment apartment)
+            [Bind("BuildingId,ApartmentCode,Floor,Area,Status")] Apartment apartment)
         {
             if (!ModelState.IsValid)
             {
-                foreach (var error in ModelState)
-                {
-                    foreach (var message in error.Value.Errors)
-                    {
-                        Console.WriteLine(
-                            $"ModelState Error - {error.Key}: {message.ErrorMessage}");
-                    }
-                }
-
                 ViewBag.Buildings =
                     await _buildingService.GetAllBuildingsAsync();
 
@@ -127,7 +125,7 @@ namespace ApartmentManagement.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(
             int id,
-            Apartment apartment)
+            [Bind("ApartmentId,BuildingId,ApartmentCode,Floor,Area,Status")] Apartment apartment)
         {
             if (id != apartment.ApartmentId)
             {
@@ -200,6 +198,27 @@ namespace ApartmentManagement.Controllers
                 "Xóa căn hộ thành công.";
 
             return RedirectToAction(nameof(Index));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Deactivate(int id)
+        {
+            var result =
+                await _apartmentService.DeactivateApartmentAsync(id);
+
+            if (!result.Success)
+            {
+                TempData["ErrorMessage"] =
+                    result.ErrorMessage;
+            }
+            else
+            {
+                TempData["SuccessMessage"] =
+                    "Đã chuyển trạng thái căn hộ sang 'Không hoạt động'.";
+            }
+
+            return RedirectToAction(nameof(Details), new { id });
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿using ApartmentManagement.Models;
+using ApartmentManagement.Models;
 
 namespace ApartmentManagement.Services
 {
@@ -24,6 +24,9 @@ namespace ApartmentManagement.Services
             Apartment apartment);
 
         Task<(bool Success, string? ErrorMessage)> DeleteApartmentAsync(
+            int id);
+
+        Task<(bool Success, string? ErrorMessage)> DeactivateApartmentAsync(
             int id);
     }
 }
