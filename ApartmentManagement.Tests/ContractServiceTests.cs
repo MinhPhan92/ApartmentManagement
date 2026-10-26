@@ -347,6 +347,36 @@ public sealed class ContractServiceTests
         Assert.Equal("resident-one", result[0].ContractCode);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task GetByIdAsync_ReturnsNull_ForNonPositiveId(int id)
+    {
+        using var fixture = await CreateFixtureAsync();
+        var result = await fixture.Service.GetByIdAsync(id);
+        Assert.Null(result);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task GetForResidentUserAsync_ReturnsEmpty_ForNullOrWhitespaceUserId(string? userId)
+    {
+        using var fixture = await CreateFixtureAsync();
+        var result = await fixture.Service.GetForResidentUserAsync(userId!);
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task UpdateDraftAsync_ReturnsError_WhenContractNotFound()
+    {
+        using var fixture = await CreateFixtureAsync();
+        var result = await fixture.Service.UpdateDraftAsync(999, ValidDraft(), "admin", [1]);
+        Assert.False(result.Success);
+        Assert.Equal("Không tìm thấy hợp đồng.", result.ErrorMessage);
+    }
+
     private static async Task<ApartmentContract> CreateActiveAsync(Fixture fixture, string code)
     {
         var draft = await fixture.Service.CreateDraftAsync(ValidDraft(code), "admin");

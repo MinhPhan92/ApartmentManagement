@@ -43,7 +43,7 @@ public sealed class ResidentService : IResidentService
     }
 
     public Task<Resident?> GetByIdAsync(int id) =>
-        ResidentQuery().FirstOrDefaultAsync(x => x.ResidentId == id);
+        id <= 0 ? Task.FromResult<Resident?>(null) : ResidentQuery().FirstOrDefaultAsync(x => x.ResidentId == id);
 
     public Task<Resident?> GetByUserIdAsync(string userId) =>
         ResidentQuery().FirstOrDefaultAsync(x => x.UserId == userId);
@@ -120,6 +120,11 @@ public sealed class ResidentService : IResidentService
         catch (DbUpdateException exception)
         {
             _logger.LogError(exception, "Lỗi toàn vẹn dữ liệu khi tạo cư dân cho {Email}", email);
+            if (exception.InnerException?.Message.Contains("IX_Residents_CitizenId", StringComparison.OrdinalIgnoreCase) == true ||
+                exception.Message.Contains("IX_Residents_CitizenId", StringComparison.OrdinalIgnoreCase))
+            {
+                return (false, "Số CCCD/CMND đã tồn tại.", null);
+            }
             return (false, "Không thể lưu hồ sơ cư dân vì dữ liệu bị trùng hoặc không hợp lệ.", null);
         }
         if (transaction != null) await transaction.CommitAsync();
@@ -129,6 +134,8 @@ public sealed class ResidentService : IResidentService
 
     public async Task<(bool Success, string? ErrorMessage)> UpdateAsync(ResidentEditViewModel model)
     {
+        if (model.ResidentId <= 0) return (false, "Không tìm thấy cư dân.");
+
         var resident = await _context.Residents.Include(x => x.User)
             .FirstOrDefaultAsync(x => x.ResidentId == model.ResidentId);
         if (resident == null) return (false, "Không tìm thấy cư dân.");
@@ -165,6 +172,11 @@ public sealed class ResidentService : IResidentService
         catch (DbUpdateException exception)
         {
             _logger.LogError(exception, "Lỗi toàn vẹn dữ liệu khi cập nhật cư dân {ResidentId}", model.ResidentId);
+            if (exception.InnerException?.Message.Contains("IX_Residents_CitizenId", StringComparison.OrdinalIgnoreCase) == true ||
+                exception.Message.Contains("IX_Residents_CitizenId", StringComparison.OrdinalIgnoreCase))
+            {
+                return (false, "Số CCCD/CMND đã tồn tại.");
+            }
             return (false, "Không thể cập nhật vì dữ liệu bị trùng hoặc không hợp lệ.");
         }
         if (transaction != null) await transaction.CommitAsync();
@@ -173,6 +185,8 @@ public sealed class ResidentService : IResidentService
 
     public async Task<(bool Success, string? ErrorMessage)> DeleteAsync(int id)
     {
+        if (id <= 0) return (false, "Không tìm thấy cư dân.");
+
         var resident = await _context.Residents.Include(x => x.User)
             .Include(x => x.ApartmentResidents)
             .FirstOrDefaultAsync(x => x.ResidentId == id);
@@ -180,9 +194,37 @@ public sealed class ResidentService : IResidentService
         if (resident.ApartmentResidents.Count > 0)
             return (false, "Không thể xóa cư dân đang có lịch sử cư trú. Hãy xử lý hồ sơ cư trú trước.");
 
-        var result = await _userManager.DeleteAsync(resident.User);
-        if (!result.Succeeded) return (false, IdentityErrors(result));
-        return (true, null);
+        var hasLinkedData = await _context.ContractParties.AnyAsync(x => x.ResidentId == id)
+            || await _context.ApartmentInvoices.AnyAsync(x => x.ResidentId == id)
+            || await _context.Vehicles.AnyAsync(x => x.ResidentId == id)
+            || await _context.Complaints.AnyAsync(x => x.ResidentId == id)
+            || await _context.AmenityBookings.AnyAsync(x => x.ResidentId == id)
+            || await _context.VisitorPasses.AnyAsync(x => x.ResidentId == id);
+
+        if (hasLinkedData)
+        {
+            return (false, "Không thể xóa cư dân đã phát sinh dữ liệu liên kết (hợp đồng, hóa đơn, phương tiện, phản ánh, tiện ích hoặc thẻ khách).");
+        }
+
+        try
+        {
+            if (resident.User != null)
+            {
+                var result = await _userManager.DeleteAsync(resident.User);
+                if (!result.Succeeded) return (false, IdentityErrors(result));
+            }
+            else
+            {
+                _context.Residents.Remove(resident);
+                await _context.SaveChangesAsync();
+            }
+            return (true, null);
+        }
+        catch (DbUpdateException ex)
+        {
+            _logger.LogError(ex, "Lỗi toàn vẹn dữ liệu khi xóa cư dân ID {ResidentId}", id);
+            return (false, "Không thể xóa cư dân do có dữ liệu liên kết trong hệ thống.");
+        }
     }
 
     public async Task<List<Apartment>> GetApartmentsForCurrentResidentAsync()

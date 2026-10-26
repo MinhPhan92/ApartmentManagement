@@ -28,6 +28,7 @@ public sealed class MyContractsController : Controller
     [HttpGet]
     public async Task<IActionResult> Details(int id)
     {
+        if (id <= 0) return NotFound();
         var userId = CurrentUserId();
         if (userId == null) return Forbid();
 

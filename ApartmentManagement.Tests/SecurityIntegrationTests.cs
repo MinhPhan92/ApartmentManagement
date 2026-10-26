@@ -903,6 +903,86 @@ public sealed class SecurityIntegrationTests : IClassFixture<CustomWebApplicatio
         Assert.Equal(HttpStatusCode.OK, mgrBuildingTwo.StatusCode);
     }
 
+    [Fact]
+    public async Task Anonymous_ContractsPage_RedirectsToLogin()
+    {
+        using var client = CreateClient();
+        using var response = await client.GetAsync("/Contracts");
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal("/Identity/Account/Login", response.Headers.Location?.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task Resident_ContractsPage_ReturnsForbidden()
+    {
+        using var client = CreateAuthenticatedClient(AppRoles.Resident, ResidentOneUserId);
+        using var response = await client.GetAsync("/Contracts");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task SuperAdmin_ContractsPage_ReturnsSuccess()
+    {
+        using var client = CreateAuthenticatedClient(AppRoles.SuperAdmin, "superadmin-user");
+        using var response = await client.GetAsync("/Contracts");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Resident_MyContractsPage_ReturnsSuccess()
+    {
+        using var client = CreateAuthenticatedClient(AppRoles.Resident, ResidentOneUserId);
+        using var response = await client.GetAsync("/MyContracts");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task Resident_MyContractsDetails_ZeroOrNegativeId_ReturnsNotFound(int id)
+    {
+        using var client = CreateAuthenticatedClient(AppRoles.Resident, ResidentOneUserId);
+        using var response = await client.GetAsync($"/MyContracts/Details/{id}");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Resident_MyContractsDetails_NonExistentId_ReturnsNotFound()
+    {
+        using var client = CreateAuthenticatedClient(AppRoles.Resident, ResidentOneUserId);
+        using var response = await client.GetAsync("/MyContracts/Details/999999");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Resident_MyContractsDetails_OwnContract_ReturnsSuccess()
+    {
+        var contract1Id = GetContractId("PORTAL-R1");
+        using var client = CreateAuthenticatedClient(AppRoles.Resident, ResidentOneUserId);
+        using var response = await client.GetAsync($"/MyContracts/Details/{contract1Id}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var content = await response.Content.ReadAsStringAsync();
+        Assert.Contains("PORTAL-R1", content);
+    }
+
+    [Fact]
+    public async Task Resident_MyContractsDetails_OtherResidentContract_ReturnsNotFound()
+    {
+        var contract1Id = GetContractId("PORTAL-R1");
+        // ResidentTwo attempts to access ResidentOne's contract
+        using var client = CreateAuthenticatedClient(AppRoles.Resident, ResidentTwoUserId);
+        using var response = await client.GetAsync($"/MyContracts/Details/{contract1Id}");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
     private int GetContractId(string contractCode)
     {
         using var scope = _factory.Services.CreateScope();
@@ -1011,6 +1091,7 @@ public sealed class SecurityIntegrationTests : IClassFixture<CustomWebApplicatio
         var firstUser = CreateUser(ResidentOneUserId, "resident1@test.local", "Nguyễn Văn A");
         var secondUser = CreateUser(ResidentTwoUserId, "resident2@test.local", "Trần Thị B");
         var thirdUser = CreateUser("user-resident-3", "resident3@test.local", "Lê Văn C");
+        var contractLesseeUser = CreateUser("user-contract-lessee", "lessee@test.local", "Người Thuê Hợp Đồng");
         var firstResident = new Resident
         {
             ResidentId = 1,
@@ -1032,11 +1113,18 @@ public sealed class SecurityIntegrationTests : IClassFixture<CustomWebApplicatio
             User = thirdUser,
             CitizenId = "000000000003"
         };
+        var contractLesseeResident = new Resident
+        {
+            ResidentId = 99,
+            UserId = contractLesseeUser.Id,
+            User = contractLesseeUser,
+            CitizenId = "000000000099"
+        };
 
         context.AddRange(
             building, apartment,
-            firstUser, secondUser, thirdUser,
-            firstResident, secondResident, thirdResident);
+            firstUser, secondUser, thirdUser, contractLesseeUser,
+            firstResident, secondResident, thirdResident, contractLesseeResident);
         context.ApartmentResidents.AddRange(
             new ApartmentResident
             {
@@ -1079,7 +1167,7 @@ public sealed class SecurityIntegrationTests : IClassFixture<CustomWebApplicatio
             Parties =
             [
                 new ApartmentManagement.Services.ContractPartyInput(firstResident.ResidentId, ContractPartyRole.Lessor),
-                new ApartmentManagement.Services.ContractPartyInput(thirdResident.ResidentId, ContractPartyRole.Lessee)
+                new ApartmentManagement.Services.ContractPartyInput(contractLesseeResident.ResidentId, ContractPartyRole.Lessee)
             ]
         }, admin.Id).GetAwaiter().GetResult();
         Assert.True(firstContract.Success, firstContract.ErrorMessage);
@@ -1094,7 +1182,7 @@ public sealed class SecurityIntegrationTests : IClassFixture<CustomWebApplicatio
             Parties =
             [
                 new ApartmentManagement.Services.ContractPartyInput(secondResident.ResidentId, ContractPartyRole.Lessor),
-                new ApartmentManagement.Services.ContractPartyInput(thirdResident.ResidentId, ContractPartyRole.Lessee)
+                new ApartmentManagement.Services.ContractPartyInput(contractLesseeResident.ResidentId, ContractPartyRole.Lessee)
             ]
         }, admin.Id).GetAwaiter().GetResult();
         Assert.True(secondContract.Success, secondContract.ErrorMessage);

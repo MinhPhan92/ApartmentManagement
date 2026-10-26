@@ -42,6 +42,7 @@ public sealed class MyInvoicesController : Controller
     [HttpGet]
     public async Task<IActionResult> Details(int id)
     {
+        if (id <= 0) return NotFound();
         var userId = CurrentUserId();
         if (userId == null) return Forbid();
         var invoice = await _billingService.GetResidentInvoiceAsync(userId, id);
@@ -60,6 +61,7 @@ public sealed class MyInvoicesController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateSimulatedPayment(int id)
     {
+        if (id <= 0) return NotFound();
         var userId = CurrentUserId();
         if (userId == null) return Forbid();
         if (!_vietQrOptions.IsConfigured)
@@ -80,6 +82,7 @@ public sealed class MyInvoicesController : Controller
     [HttpGet]
     public async Task<IActionResult> PaymentQr(int id)
     {
+        if (id <= 0) return NotFound();
         var userId = CurrentUserId();
         if (userId == null) return Forbid();
         if (!_vietQrOptions.IsConfigured) return NotFound();

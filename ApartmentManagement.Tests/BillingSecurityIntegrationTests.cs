@@ -68,6 +68,26 @@ public sealed class BillingSecurityIntegrationTests : IClassFixture<CustomWebApp
     }
 
     [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task Resident_MyInvoicesDetails_ZeroOrNegativeId_ReturnsNotFound(int id)
+    {
+        using var client = CreateAuthenticatedClient(AppRoles.Resident, ResidentOneId);
+        using var response = await client.GetAsync($"/MyInvoices/Details/{id}");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task Billing_Details_ZeroOrNegativeId_ReturnsNotFound(int id)
+    {
+        using var client = CreateAuthenticatedClient(AppRoles.Accountant, "billing-accountant");
+        using var response = await client.GetAsync($"/Billing/Details/{id}");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Theory]
     [InlineData(AppRoles.Accountant)]
     [InlineData(AppRoles.BuildingManager)]
     [InlineData(AppRoles.SuperAdmin)]

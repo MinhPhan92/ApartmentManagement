@@ -456,5 +456,364 @@ namespace ApartmentManagement.Tests
             Assert.Contains("SystemAdmin", authAttr.Roles);
             Assert.DoesNotContain("Resident", authAttr.Roles);
         }
+
+        // 11. SuperAdmin và BuildingManager (AppRoles) có thể xem và xử lý phản ánh
+        [Fact]
+        public async Task Test11_SuperAdmin_And_BuildingManager_CanViewAndProcessComplaints()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (_, _, _, _, cA, _) = await SeedDataAsync(context);
+
+            // Test SuperAdmin
+            var superAdminMock = new Mock<ICurrentUserService>();
+            superAdminMock.Setup(s => s.UserId).Returns("superadmin-id");
+            superAdminMock.Setup(s => s.IsInRole(ApartmentManagement.Common.Security.AppRoles.SuperAdmin)).Returns(true);
+
+            var superAdminService = new ComplaintService(context, superAdminMock.Object);
+            var superAdminList = await superAdminService.GetComplaintsAsync();
+            Assert.Equal(2, superAdminList.Count);
+
+            var superAdminComplaint = await superAdminService.GetComplaintByIdAsync(cA.ComplaintId);
+            Assert.NotNull(superAdminComplaint);
+
+            // Test BuildingManager
+            var bldMgrMock = new Mock<ICurrentUserService>();
+            bldMgrMock.Setup(s => s.UserId).Returns("bldmgr-id");
+            bldMgrMock.Setup(s => s.IsInRole(ApartmentManagement.Common.Security.AppRoles.BuildingManager)).Returns(true);
+
+            var bldMgrService = new ComplaintService(context, bldMgrMock.Object);
+            var bldMgrList = await bldMgrService.GetComplaintsAsync();
+            Assert.Equal(2, bldMgrList.Count);
+
+            var processResult = await bldMgrService.ProcessComplaintAsync(new ComplaintProcessViewModel
+            {
+                ComplaintId = cA.ComplaintId,
+                TargetStatus = "Đang xử lý"
+            });
+            Assert.True(processResult.Success);
+        }
+
+        // 12. GetComplaintByIdAsync với ID <= 0 trả về null
+        [Theory]
+        [InlineData(0)]
+        [InlineData(-1)]
+        public async Task Test12_GetComplaintByIdAsync_ZeroOrNegativeId_ReturnsNull(int id)
+        {
+            using var context = CreateInMemoryDbContext();
+            await SeedDataAsync(context);
+
+            var currentUserServiceMock = new Mock<ICurrentUserService>();
+            currentUserServiceMock.Setup(s => s.UserId).Returns("user-a");
+
+            var service = new ComplaintService(context, currentUserServiceMock.Object);
+            var result = await service.GetComplaintByIdAsync(id);
+            Assert.Null(result);
+        }
+
+        // 13. CancelComplaintAsync với ID <= 0 trả về lỗi không tìm thấy
+        [Theory]
+        [InlineData(0)]
+        [InlineData(-5)]
+        public async Task Test13_CancelComplaintAsync_ZeroOrNegativeId_ReturnsNotFound(int id)
+        {
+            using var context = CreateInMemoryDbContext();
+            await SeedDataAsync(context);
+
+            var currentUserServiceMock = new Mock<ICurrentUserService>();
+            currentUserServiceMock.Setup(s => s.UserId).Returns("user-a");
+
+            var service = new ComplaintService(context, currentUserServiceMock.Object);
+            var (success, error) = await service.CancelComplaintAsync(id);
+            Assert.False(success);
+            Assert.Equal("Không tìm thấy phản ánh.", error);
+        }
+
+        // 14. Controller Details với ID <= 0 trả về NotFound
+        [Theory]
+        [InlineData(0)]
+        [InlineData(-1)]
+        public async Task Test14_Controller_Details_ZeroOrNegativeId_ReturnsNotFound(int id)
+        {
+            var complaintServiceMock = new Mock<IComplaintService>();
+            var residentServiceMock = new Mock<IResidentService>();
+
+            var controller = new ComplaintController(complaintServiceMock.Object, residentServiceMock.Object);
+            var result = await controller.Details(id);
+
+            Assert.IsType<NotFoundResult>(result);
+            complaintServiceMock.Verify(s => s.GetComplaintByIdAsync(It.IsAny<int>()), Times.Never);
+        }
+
+        // 15. Controller Process (GET) với ID <= 0 trả về NotFound
+        [Theory]
+        [InlineData(0)]
+        [InlineData(-2)]
+        public async Task Test15_Controller_Process_Get_ZeroOrNegativeId_ReturnsNotFound(int id)
+        {
+            var complaintServiceMock = new Mock<IComplaintService>();
+            var residentServiceMock = new Mock<IResidentService>();
+
+            var controller = new ComplaintController(complaintServiceMock.Object, residentServiceMock.Object);
+            var result = await controller.Process(id);
+
+            Assert.IsType<NotFoundResult>(result);
+            complaintServiceMock.Verify(s => s.GetComplaintByIdAsync(It.IsAny<int>()), Times.Never);
+        }
+
+        // 16. Controller Cancel với ID <= 0 hoặc không tồn tại trả về NotFound
+        [Fact]
+        public async Task Test16_Controller_Cancel_ZeroOrNonExistent_ReturnsNotFound()
+        {
+            var complaintServiceMock = new Mock<IComplaintService>();
+            var residentServiceMock = new Mock<IResidentService>();
+
+            complaintServiceMock.Setup(s => s.CancelComplaintAsync(999))
+                .ReturnsAsync((false, "Không tìm thấy phản ánh."));
+
+            var controller = new ComplaintController(complaintServiceMock.Object, residentServiceMock.Object);
+
+            // Zero ID
+            var zeroResult = await controller.Cancel(0);
+            Assert.IsType<NotFoundResult>(zeroResult);
+
+            // Non-existent ID
+            var notFoundResult = await controller.Cancel(999);
+            Assert.IsType<NotFoundResult>(notFoundResult);
+        }
+
+        // 17. Controller Create (POST) với null model trả về BadRequest
+        [Fact]
+        public async Task Test17_Controller_Create_NullModel_ReturnsBadRequest()
+        {
+            var complaintServiceMock = new Mock<IComplaintService>();
+            var residentServiceMock = new Mock<IResidentService>();
+
+            var controller = new ComplaintController(complaintServiceMock.Object, residentServiceMock.Object);
+            var result = await controller.Create((ComplaintCreateViewModel)null!);
+
+            Assert.IsType<BadRequestResult>(result);
+        }
+
+        // 18. Controller Create (POST) khi ModelState không hợp lệ nạp lại ViewBag.MyApartments
+        [Fact]
+        public async Task Test18_Controller_Create_InvalidModelState_RepopulatesViewBagAndReturnsView()
+        {
+            var complaintServiceMock = new Mock<IComplaintService>();
+            var residentServiceMock = new Mock<IResidentService>();
+
+            var dummyApartments = new List<Apartment> { new Apartment { ApartmentId = 1, ApartmentCode = "A101" } };
+            residentServiceMock.Setup(r => r.GetApartmentsForCurrentResidentAsync())
+                .ReturnsAsync(dummyApartments);
+
+            var controller = new ComplaintController(complaintServiceMock.Object, residentServiceMock.Object);
+            controller.ModelState.AddModelError("Title", "Tiêu đề bắt buộc");
+
+            var model = new ComplaintCreateViewModel();
+            var result = await controller.Create(model);
+
+            var viewResult = Assert.IsType<ViewResult>(result);
+            Assert.Same(model, viewResult.Model);
+            Assert.Equal(dummyApartments, controller.ViewBag.MyApartments);
+        }
+
+        // 19. Controller Process (POST) với model null hoặc ComplaintId <= 0 trả về NotFound
+        [Fact]
+        public async Task Test19_Controller_Process_Post_NullOrNegativeId_ReturnsNotFound()
+        {
+            var complaintServiceMock = new Mock<IComplaintService>();
+            var residentServiceMock = new Mock<IResidentService>();
+
+            var controller = new ComplaintController(complaintServiceMock.Object, residentServiceMock.Object);
+
+            var nullResult = await controller.Process((ComplaintProcessViewModel)null!);
+            Assert.IsType<NotFoundResult>(nullResult);
+
+            var zeroResult = await controller.Process(new ComplaintProcessViewModel { ComplaintId = 0 });
+            Assert.IsType<NotFoundResult>(zeroResult);
+        }
+
+        // 20. Controller Process (POST) khi phản ánh không tồn tại trả về NotFound
+        [Fact]
+        public async Task Test20_Controller_Process_Post_NonExistentComplaint_ReturnsNotFound()
+        {
+            var complaintServiceMock = new Mock<IComplaintService>();
+            var residentServiceMock = new Mock<IResidentService>();
+
+            complaintServiceMock.Setup(s => s.ProcessComplaintAsync(It.IsAny<ComplaintProcessViewModel>()))
+                .ReturnsAsync((false, "Không tìm thấy phản ánh."));
+
+            var controller = new ComplaintController(complaintServiceMock.Object, residentServiceMock.Object);
+            var model = new ComplaintProcessViewModel { ComplaintId = 999 };
+
+            var result = await controller.Process(model);
+            Assert.IsType<NotFoundResult>(result);
+        }
+
+        // 21. Controller Process (POST) khi ModelState không hợp lệ nạp lại model từ database
+        [Fact]
+        public async Task Test21_Controller_Process_Post_InvalidModelState_RepopulatesModelAndReturnsView()
+        {
+            var complaintServiceMock = new Mock<IComplaintService>();
+            var residentServiceMock = new Mock<IResidentService>();
+
+            var existingComplaint = new Complaint
+            {
+                ComplaintId = 10,
+                Title = "Tiêu đề gốc",
+                Content = "Nội dung gốc",
+                Category = "Vệ sinh",
+                Status = "Chờ tiếp nhận"
+            };
+
+            complaintServiceMock.Setup(s => s.GetComplaintByIdAsync(10))
+                .ReturnsAsync(existingComplaint);
+
+            var controller = new ComplaintController(complaintServiceMock.Object, residentServiceMock.Object);
+            controller.ModelState.AddModelError("TargetStatus", "Trạng thái bắt buộc");
+
+            var postModel = new ComplaintProcessViewModel { ComplaintId = 10 };
+            var result = await controller.Process(postModel);
+
+            var viewResult = Assert.IsType<ViewResult>(result);
+            Assert.Same(postModel, viewResult.Model);
+            Assert.Equal("Tiêu đề gốc", postModel.Title);
+            Assert.Equal("Nội dung gốc", postModel.Content);
+        }
+
+        // 22. CreateComplaintAsync kiểm tra dữ liệu đầu vào và các trường hợp biên
+        [Fact]
+        public async Task Test22_CreateComplaintAsync_EdgeCases()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (resA, _, apt101, _, _, _) = await SeedDataAsync(context);
+
+            var currentUserServiceMock = new Mock<ICurrentUserService>();
+            currentUserServiceMock.Setup(s => s.UserId).Returns("user-a");
+
+            var service = new ComplaintService(context, currentUserServiceMock.Object);
+
+            // Null model
+            var (nullSuccess, nullErr) = await service.CreateComplaintAsync(null!);
+            Assert.False(nullSuccess);
+            Assert.Equal("Dữ liệu không hợp lệ.", nullErr);
+
+            // Empty title
+            var (noTitleSuccess, noTitleErr) = await service.CreateComplaintAsync(new ComplaintCreateViewModel
+            {
+                Title = "   ",
+                Content = "Nội dung hợp lệ",
+                Category = "Vệ sinh"
+            });
+            Assert.False(noTitleSuccess);
+            Assert.Equal("Vui lòng nhập tiêu đề phản ánh.", noTitleErr);
+
+            // Title > 200 chars
+            var (longTitleSuccess, longTitleErr) = await service.CreateComplaintAsync(new ComplaintCreateViewModel
+            {
+                Title = new string('A', 201),
+                Content = "Nội dung hợp lệ",
+                Category = "Vệ sinh"
+            });
+            Assert.False(longTitleSuccess);
+            Assert.Equal("Tiêu đề không quá 200 ký tự.", longTitleErr);
+
+            // Empty content
+            var (noContentSuccess, noContentErr) = await service.CreateComplaintAsync(new ComplaintCreateViewModel
+            {
+                Title = "Tiêu đề hợp lệ",
+                Content = "  ",
+                Category = "Vệ sinh"
+            });
+            Assert.False(noContentSuccess);
+            Assert.Equal("Vui lòng nhập nội dung chi tiết phản ánh.", noContentErr);
+
+            // Invalid category
+            var (badCatSuccess, badCatErr) = await service.CreateComplaintAsync(new ComplaintCreateViewModel
+            {
+                Title = "Tiêu đề",
+                Content = "Nội dung",
+                Category = "Hacker Category"
+            });
+            Assert.False(badCatSuccess);
+            Assert.Equal("Danh mục phản ánh không hợp lệ.", badCatErr);
+
+            // ApartmentId <= 0
+            var (negAptSuccess, negAptErr) = await service.CreateComplaintAsync(new ComplaintCreateViewModel
+            {
+                Title = "Tiêu đề",
+                Content = "Nội dung",
+                Category = "Vệ sinh",
+                ApartmentId = 0
+            });
+            Assert.False(negAptSuccess);
+            Assert.Equal("Căn hộ không hợp lệ.", negAptErr);
+        }
+
+        // 23. ProcessComplaintAsync vòng đời trạng thái và ResolvedAt
+        [Fact]
+        public async Task Test23_ProcessComplaintAsync_StatusLifecycle_ResolvedAtReset()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (_, _, _, _, cA, _) = await SeedDataAsync(context);
+
+            var currentUserServiceMock = new Mock<ICurrentUserService>();
+            currentUserServiceMock.Setup(s => s.UserId).Returns("manager-id");
+            currentUserServiceMock.Setup(s => s.IsInRole(ApartmentManagement.Common.Security.AppRoles.BuildingManager)).Returns(true);
+
+            var service = new ComplaintService(context, currentUserServiceMock.Object);
+
+            // 1. Chuyển sang 'Đã xử lý' -> ResolvedAt có giá trị
+            var (resSuccess, _) = await service.ProcessComplaintAsync(new ComplaintProcessViewModel
+            {
+                ComplaintId = cA.ComplaintId,
+                TargetStatus = "Đã xử lý",
+                ResponseNotes = "Đã giải quyết xong rác thải."
+            });
+            Assert.True(resSuccess);
+
+            var resolvedItem = await context.Complaints.FindAsync(cA.ComplaintId);
+            Assert.NotNull(resolvedItem);
+            Assert.NotNull(resolvedItem.ResolvedAt);
+
+            // 2. Chuyển lại về 'Đang xử lý' -> ResolvedAt được reset về null
+            var (reopenSuccess, _) = await service.ProcessComplaintAsync(new ComplaintProcessViewModel
+            {
+                ComplaintId = cA.ComplaintId,
+                TargetStatus = "Đang xử lý",
+                ResponseNotes = "Phát sinh thêm việc, tiếp tục xử lý."
+            });
+            Assert.True(reopenSuccess);
+
+            var reopenedItem = await context.Complaints.FindAsync(cA.ComplaintId);
+            Assert.NotNull(reopenedItem);
+            Assert.Null(reopenedItem.ResolvedAt);
+
+            // 3. ResponseNotes > 1000 ký tự -> Thất bại
+            var (longNotesSuccess, longNotesErr) = await service.ProcessComplaintAsync(new ComplaintProcessViewModel
+            {
+                ComplaintId = cA.ComplaintId,
+                TargetStatus = "Đang xử lý",
+                ResponseNotes = new string('X', 1001)
+            });
+            Assert.False(longNotesSuccess);
+            Assert.Equal("Nội dung phản hồi không quá 1000 ký tự.", longNotesErr);
+        }
+
+        // 24. Tất cả POST action trong ComplaintController phải có ValidateAntiForgeryTokenAttribute
+        [Fact]
+        public void Test24_AllPostActions_HaveValidateAntiForgeryTokenAttribute()
+        {
+            var postMethods = typeof(ComplaintController)
+                .GetMethods(BindingFlags.Public | BindingFlags.Instance)
+                .Where(m => m.GetCustomAttribute<HttpPostAttribute>() != null)
+                .ToList();
+
+            Assert.NotEmpty(postMethods);
+            foreach (var method in postMethods)
+            {
+                var antiForgery = method.GetCustomAttribute<ValidateAntiForgeryTokenAttribute>();
+                Assert.True(antiForgery != null, $"Action {method.Name} thiếu [ValidateAntiForgeryToken]");
+            }
+        }
     }
 }

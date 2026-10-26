@@ -106,6 +106,11 @@ namespace ApartmentManagement.Services
                 return (false, "Tầng phải lớn hơn 0.");
             }
 
+            if (apartment.Floor > 200)
+            {
+                return (false, "Tầng phải từ 1 đến 200.");
+            }
+
             if (apartment.Area <= 0)
             {
                 return (false, "Diện tích phải lớn hơn 0.");
@@ -162,6 +167,11 @@ namespace ApartmentManagement.Services
             catch (DbUpdateException ex)
             {
                 _logger?.LogError(ex, "Lỗi cơ sở dữ liệu khi tạo căn hộ {ApartmentCode}", apartment.ApartmentCode);
+                if (ex.InnerException?.Message.Contains("IX_Apartments_BuildingId_ApartmentCode") == true ||
+                    ex.Message.Contains("IX_Apartments_BuildingId_ApartmentCode"))
+                {
+                    return (false, "Mã căn hộ đã tồn tại trong tòa nhà.");
+                }
                 return (false, "Không thể lưu căn hộ do lỗi dữ liệu.");
             }
         }
@@ -182,6 +192,11 @@ namespace ApartmentManagement.Services
             if (apartment.Floor <= 0)
             {
                 return (false, "Tầng phải lớn hơn 0.");
+            }
+
+            if (apartment.Floor > 200)
+            {
+                return (false, "Tầng phải từ 1 đến 200.");
             }
 
             if (apartment.Area <= 0)
@@ -205,8 +220,8 @@ namespace ApartmentManagement.Services
                 return (false, "Không tìm thấy căn hộ.");
             }
 
-            // Disallow changing to Inactive or Vacant when active residents are living in the apartment
-            if (targetStatus == ApartmentStatus.Inactive || targetStatus == ApartmentStatus.Vacant)
+            // Disallow changing to Inactive, Vacant, or Maintenance when active residents are living in the apartment
+            if (targetStatus != ApartmentStatus.Occupied)
             {
                 var hasActiveResidents = await _context.ApartmentResidents.AnyAsync(x =>
                     x.ApartmentId == apartment.ApartmentId && x.MoveOutDate == null);
@@ -216,6 +231,21 @@ namespace ApartmentManagement.Services
                     return (
                         false,
                         $"Không thể chuyển trạng thái căn hộ sang '{targetStatus}' khi vẫn còn cư dân đang lưu trú. Vui lòng chuyển cư dân ra khỏi căn hộ trước."
+                    );
+                }
+            }
+
+            // Disallow changing BuildingId if active residents are living in the apartment
+            if (existing.BuildingId != apartment.BuildingId)
+            {
+                var hasActiveResidents = await _context.ApartmentResidents.AnyAsync(x =>
+                    x.ApartmentId == apartment.ApartmentId && x.MoveOutDate == null);
+
+                if (hasActiveResidents)
+                {
+                    return (
+                        false,
+                        "Không thể đổi tòa nhà cho căn hộ đang có cư dân lưu trú. Vui lòng chuyển cư dân ra khỏi căn hộ trước."
                     );
                 }
             }
@@ -269,6 +299,11 @@ namespace ApartmentManagement.Services
             catch (DbUpdateException ex)
             {
                 _logger?.LogError(ex, "Lỗi cơ sở dữ liệu khi cập nhật căn hộ ID {ApartmentId}", apartment.ApartmentId);
+                if (ex.InnerException?.Message.Contains("IX_Apartments_BuildingId_ApartmentCode") == true ||
+                    ex.Message.Contains("IX_Apartments_BuildingId_ApartmentCode"))
+                {
+                    return (false, "Mã căn hộ đã tồn tại trong tòa nhà.");
+                }
                 return (false, "Không thể cập nhật căn hộ do lỗi dữ liệu.");
             }
         }
@@ -276,6 +311,11 @@ namespace ApartmentManagement.Services
         public async Task<(bool Success, string? ErrorMessage)>
             DeleteApartmentAsync(int id)
         {
+            if (id <= 0)
+            {
+                return (false, "Không tìm thấy căn hộ.");
+            }
+
             var apartment = await _context.Apartments
                 .FirstOrDefaultAsync(x => x.ApartmentId == id);
 
@@ -302,7 +342,8 @@ namespace ApartmentManagement.Services
                 || await _context.ApartmentInvoices.AnyAsync(x => x.ApartmentId == id)
                 || await _context.Complaints.AnyAsync(x => x.ApartmentId == id)
                 || await _context.UtilityMeterReadings.AnyAsync(x => x.ApartmentId == id)
-                || await _context.VisitorPasses.AnyAsync(x => x.ApartmentId == id);
+                || await _context.VisitorPasses.AnyAsync(x => x.ApartmentId == id)
+                || await _context.Vehicles.AnyAsync(x => x.ApartmentId == id);
 
             if (hasHistory)
             {
@@ -331,6 +372,10 @@ namespace ApartmentManagement.Services
         public async Task<(bool Success, string? ErrorMessage)>
             DeactivateApartmentAsync(int id)
         {
+            if (id <= 0)
+            {
+                return (false, "Không tìm thấy căn hộ.");
+            }
             var apartment = await _context.Apartments
                 .FirstOrDefaultAsync(x => x.ApartmentId == id);
 

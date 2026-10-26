@@ -56,18 +56,19 @@ namespace ApartmentManagement.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("BuildingCode,BuildingName,Address,NumberOfFloors")] Building building)
         {
-            if (ModelState.IsValid)
+            if (!ModelState.IsValid)
             {
-                var result = await _buildingService.CreateBuildingAsync(building);
-                if (result.Success)
-                {
-                    TempData["SuccessMessage"] = $"Đã tạo mới tòa nhà '{building.BuildingName}' ({building.BuildingCode}) thành công.";
-                    return RedirectToAction(nameof(Index));
-                }
-
-                ModelState.AddModelError(string.Empty, result.ErrorMessage ?? "Không thể tạo tòa nhà.");
+                return View(building);
             }
 
+            var result = await _buildingService.CreateBuildingAsync(building);
+            if (result.Success)
+            {
+                TempData["SuccessMessage"] = $"Đã tạo mới tòa nhà '{building.BuildingName}' ({building.BuildingCode}) thành công.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            ModelState.AddModelError(string.Empty, result.ErrorMessage ?? "Không thể tạo tòa nhà.");
             return View(building);
         }
 
@@ -98,18 +99,24 @@ namespace ApartmentManagement.Controllers
                 return NotFound();
             }
 
-            if (ModelState.IsValid)
+            if (!ModelState.IsValid)
             {
-                var result = await _buildingService.UpdateBuildingAsync(building);
-                if (result.Success)
-                {
-                    TempData["SuccessMessage"] = $"Cập nhật tòa nhà '{building.BuildingName}' thành công.";
-                    return RedirectToAction(nameof(Index));
-                }
-
-                ModelState.AddModelError(string.Empty, result.ErrorMessage ?? "Không thể cập nhật tòa nhà.");
+                return View(building);
             }
 
+            var result = await _buildingService.UpdateBuildingAsync(building);
+            if (result.Success)
+            {
+                TempData["SuccessMessage"] = $"Cập nhật tòa nhà '{building.BuildingName}' thành công.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            if (result.ErrorMessage == "Không tìm thấy tòa nhà cần cập nhật.")
+            {
+                return NotFound();
+            }
+
+            ModelState.AddModelError(string.Empty, result.ErrorMessage ?? "Không thể cập nhật tòa nhà.");
             return View(building);
         }
 
@@ -136,6 +143,11 @@ namespace ApartmentManagement.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
+            if (id <= 0)
+            {
+                return NotFound();
+            }
+
             var result = await _buildingService.DeleteBuildingAsync(id);
             if (result.Success)
             {
@@ -143,6 +155,11 @@ namespace ApartmentManagement.Controllers
             }
             else
             {
+                if (result.ErrorMessage == "Không tìm thấy tòa nhà cần xóa.")
+                {
+                    return NotFound();
+                }
+
                 TempData["ErrorMessage"] = result.ErrorMessage;
             }
 

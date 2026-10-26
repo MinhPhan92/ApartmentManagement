@@ -37,6 +37,11 @@ namespace ApartmentManagement.Controllers
         [Authorize(Roles = "SuperAdmin,BuildingManager,SystemAdmin,Manager,Resident")]
         public async Task<IActionResult> Details(int id)
         {
+            if (id <= 0)
+            {
+                return NotFound();
+            }
+
             var complaint = await _complaintService.GetComplaintByIdAsync(id);
             if (complaint == null)
             {
@@ -62,6 +67,11 @@ namespace ApartmentManagement.Controllers
         [Authorize(Roles = "Resident")]
         public async Task<IActionResult> Create(ComplaintCreateViewModel model)
         {
+            if (model == null)
+            {
+                return BadRequest();
+            }
+
             if (!ModelState.IsValid)
             {
                 ViewBag.MyApartments = await _residentService.GetApartmentsForCurrentResidentAsync();
@@ -86,9 +96,19 @@ namespace ApartmentManagement.Controllers
         [Authorize(Roles = "Resident")]
         public async Task<IActionResult> Cancel(int id)
         {
+            if (id <= 0)
+            {
+                return NotFound();
+            }
+
             var result = await _complaintService.CancelComplaintAsync(id);
             if (!result.Success)
             {
+                if (result.ErrorMessage == "Không tìm thấy phản ánh.")
+                {
+                    return NotFound();
+                }
+
                 TempData["ErrorMessage"] = result.ErrorMessage;
             }
             else
@@ -104,6 +124,11 @@ namespace ApartmentManagement.Controllers
         [Authorize(Roles = "SuperAdmin,BuildingManager,SystemAdmin,Manager")]
         public async Task<IActionResult> Process(int id)
         {
+            if (id <= 0)
+            {
+                return NotFound();
+            }
+
             var complaint = await _complaintService.GetComplaintByIdAsync(id);
             if (complaint == null)
             {
@@ -138,20 +163,46 @@ namespace ApartmentManagement.Controllers
         [Authorize(Roles = "SuperAdmin,BuildingManager,SystemAdmin,Manager")]
         public async Task<IActionResult> Process(ComplaintProcessViewModel model)
         {
+            if (model == null || model.ComplaintId <= 0)
+            {
+                return NotFound();
+            }
+
             if (!ModelState.IsValid)
             {
+                await RepopulateProcessViewModelAsync(model);
                 return View(model);
             }
 
             var result = await _complaintService.ProcessComplaintAsync(model);
             if (!result.Success)
             {
+                if (result.ErrorMessage == "Không tìm thấy phản ánh.")
+                {
+                    return NotFound();
+                }
+
                 ModelState.AddModelError(string.Empty, result.ErrorMessage!);
+                await RepopulateProcessViewModelAsync(model);
                 return View(model);
             }
 
             TempData["SuccessMessage"] = $"Đã cập nhật trạng thái phản ánh sang '{model.TargetStatus}'.";
             return RedirectToAction(nameof(Details), new { id = model.ComplaintId });
+        }
+
+        private async Task RepopulateProcessViewModelAsync(ComplaintProcessViewModel model)
+        {
+            var complaint = await _complaintService.GetComplaintByIdAsync(model.ComplaintId);
+            if (complaint != null)
+            {
+                model.Title = complaint.Title;
+                model.Content = complaint.Content;
+                model.Category = complaint.Category;
+                model.ResidentName = complaint.Resident?.User?.FullName;
+                model.ApartmentCode = complaint.Apartment?.ApartmentCode;
+                model.CurrentStatus = complaint.Status;
+            }
         }
     }
 }

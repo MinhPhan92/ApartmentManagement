@@ -28,7 +28,7 @@ public sealed class OccupancyService : IOccupancyService
     }
 
     public Task<ApartmentResident?> GetByIdAsync(int id) =>
-        Query().FirstOrDefaultAsync(x => x.ApartmentResidentId == id);
+        id <= 0 ? Task.FromResult<ApartmentResident?>(null) : Query().FirstOrDefaultAsync(x => x.ApartmentResidentId == id);
 
     public Task<List<ApartmentResident>> GetForUserAsync(string userId) =>
         Query().Where(x => x.Resident.UserId == userId)
@@ -119,12 +119,19 @@ public sealed class OccupancyService : IOccupancyService
             {
                 return (false, "Căn hộ đã có chủ hộ đang hoạt động.", null);
             }
+            if (exception.InnerException?.Message.Contains("UX_ApartmentResidents_ActiveAssignment") == true ||
+                exception.Message.Contains("UX_ApartmentResidents_ActiveAssignment"))
+            {
+                return (false, "Cư dân đã có hồ sơ cư trú đang hoạt động tại căn hộ này.", null);
+            }
             return (false, "Không thể tạo hồ sơ cư trú vì dữ liệu trùng hoặc không hợp lệ.", null);
         }
     }
 
     public async Task<(bool Success, string? ErrorMessage)> UpdateOccupancyAsync(OccupancyEditViewModel model)
     {
+        if (model.ApartmentResidentId <= 0) return (false, "Không tìm thấy hồ sơ cư trú.");
+
         var occupancy = await _context.ApartmentResidents
             .Include(x => x.Apartment)
             .FirstOrDefaultAsync(x => x.ApartmentResidentId == model.ApartmentResidentId);
@@ -167,6 +174,8 @@ public sealed class OccupancyService : IOccupancyService
 
     public async Task<(bool Success, string? ErrorMessage)> MoveOutAsync(int id, DateTime moveOutDate)
     {
+        if (id <= 0) return (false, "Không tìm thấy hồ sơ cư trú.");
+
         var occupancy = await _context.ApartmentResidents
             .Include(x => x.Apartment)
             .FirstOrDefaultAsync(x => x.ApartmentResidentId == id);

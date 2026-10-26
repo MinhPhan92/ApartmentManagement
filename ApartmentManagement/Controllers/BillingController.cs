@@ -48,6 +48,10 @@ public sealed class BillingController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateTariff(FeeTariffEditViewModel model)
     {
+        if (model == null) return BadRequest();
+        var userId = CurrentUserId();
+        if (userId == null) return Forbid();
+
         var tiersParsed = TryParseTiers(model.TierDefinitions, out var tiers);
         if (model.ChargeType is FeeChargeType.Electricity or FeeChargeType.Water && !tiersParsed)
             ModelState.AddModelError(nameof(model.TierDefinitions),
@@ -65,7 +69,7 @@ public sealed class BillingController : Controller
             model.EffectiveFrom,
             model.EffectiveTo,
             model.MonthlyRatePerSquareMeter,
-            tiers), CurrentUserId());
+            tiers), userId);
         if (!result.Success)
         {
             ModelState.AddModelError(string.Empty, result.ErrorMessage ?? "Không thể lưu biểu phí.");
@@ -88,6 +92,10 @@ public sealed class BillingController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> RecordReading(MeterReadingEditViewModel model)
     {
+        if (model == null) return BadRequest();
+        var userId = CurrentUserId();
+        if (userId == null) return Forbid();
+
         if (!ModelState.IsValid)
         {
             await PopulateApartmentsAsync(model);
@@ -99,7 +107,7 @@ public sealed class BillingController : Controller
             model.BillingYear,
             model.BillingMonth,
             model.PreviousReading,
-            model.CurrentReading), CurrentUserId());
+            model.CurrentReading), userId);
         if (!result.Success)
         {
             ModelState.AddModelError(string.Empty, result.ErrorMessage ?? "Không thể lưu chỉ số.");
@@ -122,13 +130,17 @@ public sealed class BillingController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateInvoice(GenerateInvoiceViewModel model)
     {
+        if (model == null) return BadRequest();
+        var userId = CurrentUserId();
+        if (userId == null) return Forbid();
+
         if (!ModelState.IsValid)
         {
             await PopulateApartmentsAsync(model);
             return View(model);
         }
         var result = await _billingService.GenerateDraftAsync(
-            model.ApartmentId, model.BillingYear, model.BillingMonth, model.DueDate, CurrentUserId());
+            model.ApartmentId, model.BillingYear, model.BillingMonth, model.DueDate, userId);
         if (!result.Success)
         {
             ModelState.AddModelError(string.Empty, result.ErrorMessage ?? "Không thể lập hóa đơn.");
@@ -141,6 +153,7 @@ public sealed class BillingController : Controller
     [HttpGet]
     public async Task<IActionResult> Details(int id)
     {
+        if (id <= 0) return NotFound();
         var invoice = await _billingService.GetInvoiceAsync(id);
         return invoice == null ? NotFound() : View(invoice);
     }
@@ -149,11 +162,28 @@ public sealed class BillingController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Issue(IssueInvoiceViewModel model)
     {
+        if (model == null || model.InvoiceId <= 0) return NotFound();
+        var userId = CurrentUserId();
+        if (userId == null) return Forbid();
+
         if (!TryDecodeRowVersion(model.RowVersionToken, out var rowVersion))
-            return BadRequest();
-        var result = await _billingService.IssueAsync(model.InvoiceId, CurrentUserId(), rowVersion);
-        if (!result.Success) TempData["ErrorMessage"] = result.ErrorMessage;
-        else TempData["SuccessMessage"] = "Đã phát hành hóa đơn cho cư dân.";
+        {
+            TempData["ErrorMessage"] = "Phiên bản hóa đơn không hợp lệ. Vui lòng tải lại dữ liệu.";
+            return RedirectToAction(nameof(Details), new { id = model.InvoiceId });
+        }
+
+        var result = await _billingService.IssueAsync(model.InvoiceId, userId, rowVersion);
+        if (!result.Success)
+        {
+            if (result.ErrorMessage == "Không tìm thấy hóa đơn.")
+                return NotFound();
+
+            TempData["ErrorMessage"] = result.ErrorMessage;
+        }
+        else
+        {
+            TempData["SuccessMessage"] = "Đã phát hành hóa đơn cho cư dân.";
+        }
         return RedirectToAction(nameof(Details), new { id = model.InvoiceId });
     }
 
@@ -179,14 +209,19 @@ public sealed class BillingController : Controller
     private static SelectListItem ApartmentOption(Apartment apartment) => new(
         $"{apartment.Building?.BuildingName} — {apartment.ApartmentCode}", apartment.ApartmentId.ToString());
 
-    private string CurrentUserId() => User.FindFirstValue(ClaimTypes.NameIdentifier)
-        ?? throw new InvalidOperationException("Authenticated user has no identifier claim.");
+    private string? CurrentUserId() => User.FindFirstValue(ClaimTypes.NameIdentifier);
 
     private static bool TryDecodeRowVersion(string? token, out byte[] rowVersion)
     {
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            rowVersion = [];
+            return false;
+        }
+
         try
         {
-            rowVersion = Convert.FromBase64String(token ?? string.Empty);
+            rowVersion = Convert.FromBase64String(token.Trim());
             return rowVersion.Length > 0;
         }
         catch (FormatException)

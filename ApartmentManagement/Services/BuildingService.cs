@@ -104,6 +104,16 @@ namespace ApartmentManagement.Services
                     return (false, $"Mã tòa nhà '{building.BuildingCode}' đã được sử dụng bởi tòa nhà khác.");
                 }
 
+                var highestFloor = await _context.Apartments
+                    .Where(a => a.BuildingId == building.BuildingId)
+                    .Select(a => (int?)a.Floor)
+                    .MaxAsync() ?? 0;
+
+                if (building.NumberOfFloors < highestFloor)
+                {
+                    return (false, $"Không thể cập nhật số tầng thành {building.NumberOfFloors} vì tòa nhà đang có căn hộ ở tầng {highestFloor}. Số tầng của tòa nhà phải lớn hơn hoặc bằng tầng cao nhất hiện tại ({highestFloor}).");
+                }
+
                 existing.BuildingCode = building.BuildingCode;
                 existing.BuildingName = building.BuildingName;
                 existing.Address = building.Address;
@@ -131,7 +141,6 @@ namespace ApartmentManagement.Services
             try
             {
                 var building = await _context.Buildings
-                    .Include(b => b.Apartments)
                     .FirstOrDefaultAsync(b => b.BuildingId == id);
 
                 if (building == null)
@@ -139,10 +148,25 @@ namespace ApartmentManagement.Services
                     return (false, "Không tìm thấy tòa nhà cần xóa.");
                 }
 
-                var apartmentCount = building.Apartments.Count;
+                // 1. Chặn xóa nếu còn căn hộ trực thuộc
+                var apartmentCount = await _context.Apartments.CountAsync(a => a.BuildingId == id);
                 if (apartmentCount > 0)
                 {
                     return (false, $"Không thể xóa tòa nhà '{building.BuildingName}' ({building.BuildingCode}) vì đang có {apartmentCount} căn hộ trực thuộc. Vui lòng xóa hoặc di dời các căn hộ trước.");
+                }
+
+                // 2. Chặn xóa nếu còn biểu phí liên kết
+                var tariffCount = await _context.FeeTariffs.CountAsync(t => t.BuildingId == id);
+                if (tariffCount > 0)
+                {
+                    return (false, $"Không thể xóa tòa nhà '{building.BuildingName}' ({building.BuildingCode}) vì đang có {tariffCount} biểu phí áp dụng cho tòa nhà này. Vui lòng xóa hoặc điều chỉnh biểu phí trước.");
+                }
+
+                // 3. Chặn xóa nếu còn thông báo liên kết
+                var announcementCount = await _context.Announcements.CountAsync(a => a.BuildingId == id);
+                if (announcementCount > 0)
+                {
+                    return (false, $"Không thể xóa tòa nhà '{building.BuildingName}' ({building.BuildingCode}) vì đang có {announcementCount} thông báo liên kết trực tiếp với tòa nhà này. Vui lòng xóa hoặc gỡ liên kết thông báo trước.");
                 }
 
                 _context.Buildings.Remove(building);
@@ -150,6 +174,11 @@ namespace ApartmentManagement.Services
 
                 _logger.LogInformation("Đã xóa tòa nhà ID {BuildingId}: {BuildingCode}", id, building.BuildingCode);
                 return (true, null);
+            }
+            catch (DbUpdateException ex)
+            {
+                _logger.LogError(ex, "Lỗi toàn vẹn dữ liệu khi xóa tòa nhà ID {BuildingId}", id);
+                return (false, "Không thể xóa tòa nhà do có dữ liệu liên kết ràng buộc trong hệ thống.");
             }
             catch (Exception ex)
             {

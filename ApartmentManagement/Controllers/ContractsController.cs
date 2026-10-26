@@ -39,6 +39,7 @@ public sealed class ContractsController : Controller
     [HttpGet]
     public async Task<IActionResult> Details(int id)
     {
+        if (id <= 0) return NotFound();
         var contract = await _contractService.GetByIdAsync(id);
         if (contract == null) return NotFound();
 
@@ -82,6 +83,10 @@ public sealed class ContractsController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(ContractEditViewModel model)
     {
+        if (model == null) return BadRequest();
+        var userId = CurrentUserId();
+        if (userId == null) return Forbid();
+
         ValidateParties(model);
         if (!ModelState.IsValid)
         {
@@ -89,7 +94,7 @@ public sealed class ContractsController : Controller
             return View("Edit", model);
         }
 
-        var result = await _contractService.CreateDraftAsync(ToDraftInput(model), CurrentUserId());
+        var result = await _contractService.CreateDraftAsync(ToDraftInput(model), userId);
         if (!result.Success)
         {
             ModelState.AddModelError(string.Empty, result.ErrorMessage ?? "Không thể tạo hợp đồng.");
@@ -104,6 +109,7 @@ public sealed class ContractsController : Controller
     [HttpGet]
     public async Task<IActionResult> Edit(int id)
     {
+        if (id <= 0) return NotFound();
         var contract = await _contractService.GetByIdAsync(id);
         if (contract == null) return NotFound();
         if (contract.Status != ApartmentContractStatus.Draft)
@@ -132,7 +138,10 @@ public sealed class ContractsController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Edit(int id, ContractEditViewModel model)
     {
-        if (id <= 0) return BadRequest();
+        if (id <= 0 || model == null) return NotFound();
+        var userId = CurrentUserId();
+        if (userId == null) return Forbid();
+
         ValidateParties(model);
         if (!TryDecodeRowVersion(model.RowVersionToken, out var rowVersion))
             ModelState.AddModelError(nameof(model.RowVersionToken), "Phiên bản hợp đồng không hợp lệ. Vui lòng tải lại trang.");
@@ -143,9 +152,12 @@ public sealed class ContractsController : Controller
         }
 
         var result = await _contractService.UpdateDraftAsync(
-            id, ToDraftInput(model), CurrentUserId(), rowVersion);
+            id, ToDraftInput(model), userId, rowVersion);
         if (!result.Success)
         {
+            if (result.ErrorMessage == "Không tìm thấy hợp đồng.")
+                return NotFound();
+
             ModelState.AddModelError(string.Empty, result.ErrorMessage ?? "Không thể cập nhật hợp đồng.");
             await PopulateOptionsAsync(model);
             return View(model);
@@ -158,47 +170,58 @@ public sealed class ContractsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     public Task<IActionResult> Activate(int id, ContractActionViewModel model) =>
-        ChangeStatusAsync(id, model, (rowVersion) =>
-            _contractService.ActivateAsync(id, CurrentUserId(), rowVersion));
+        ChangeStatusAsync(id, model, (userId, rowVersion) =>
+            _contractService.ActivateAsync(id, userId, rowVersion));
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public Task<IActionResult> Cancel(int id, ContractActionViewModel model)
     {
+        if (id <= 0 || model == null) return Task.FromResult<IActionResult>(NotFound());
         ValidateReason(model);
         if (!ModelState.IsValid) return InvalidActionAsync(id, model);
-        return ChangeStatusAsync(id, model, rowVersion =>
-            _contractService.CancelAsync(id, CurrentUserId(), rowVersion, model.Reason!));
+        return ChangeStatusAsync(id, model, (userId, rowVersion) =>
+            _contractService.CancelAsync(id, userId, rowVersion, model.Reason!));
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public Task<IActionResult> Complete(int id, ContractActionViewModel model) =>
-        ChangeStatusAsync(id, model, rowVersion =>
-            _contractService.CompleteAsync(id, CurrentUserId(), rowVersion, model.Reason));
+        ChangeStatusAsync(id, model, (userId, rowVersion) =>
+            _contractService.CompleteAsync(id, userId, rowVersion, model.Reason));
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public Task<IActionResult> Terminate(int id, ContractActionViewModel model)
     {
+        if (id <= 0 || model == null) return Task.FromResult<IActionResult>(NotFound());
         ValidateReason(model);
         if (!ModelState.IsValid) return InvalidActionAsync(id, model);
-        return ChangeStatusAsync(id, model, rowVersion =>
-            _contractService.TerminateAsync(id, CurrentUserId(), rowVersion, model.Reason!));
+        return ChangeStatusAsync(id, model, (userId, rowVersion) =>
+            _contractService.TerminateAsync(id, userId, rowVersion, model.Reason!));
     }
 
     private async Task<IActionResult> ChangeStatusAsync(
         int id,
         ContractActionViewModel model,
-        Func<byte[], Task<ContractServiceResult>> operation)
+        Func<string, byte[], Task<ContractServiceResult>> operation)
     {
+        if (id <= 0 || model == null) return NotFound();
+        var userId = CurrentUserId();
+        if (userId == null) return Forbid();
+
         if (!TryDecodeRowVersion(model.RowVersionToken, out var rowVersion))
         {
             TempData["ErrorMessage"] = "Phiên bản hợp đồng không hợp lệ. Vui lòng tải lại dữ liệu.";
             return RedirectToAction(nameof(Details), new { id });
         }
 
-        var result = await operation(rowVersion);
+        var result = await operation(userId, rowVersion);
+        if (!result.Success && result.ErrorMessage == "Không tìm thấy hợp đồng.")
+        {
+            return NotFound();
+        }
+
         TempData[result.Success ? "SuccessMessage" : "ErrorMessage"] =
             result.Success ? "Đã cập nhật trạng thái hợp đồng." : result.ErrorMessage;
         return RedirectToAction(nameof(Details), new { id });
@@ -206,8 +229,7 @@ public sealed class ContractsController : Controller
 
     private async Task<IActionResult> InvalidActionAsync(int id, ContractActionViewModel model)
     {
-        var contract = await _contractService.GetByIdAsync(id);
-        if (contract == null) return NotFound();
+        if (id <= 0) return NotFound();
         var details = await Details(id);
         if (details is not ViewResult viewResult) return details;
         viewResult.ViewData["ActionErrors"] = ModelState.Values
@@ -266,23 +288,30 @@ public sealed class ContractsController : Controller
         ]
     };
 
-    private void ValidateParties(ContractEditViewModel model)
+    private void ValidateParties(ContractEditViewModel? model)
     {
+        if (model == null) return;
         if (model.LessorResidentId > 0 && model.LessorResidentId == model.LesseeResidentId)
             ModelState.AddModelError(nameof(model.LesseeResidentId), "Bên cho thuê và bên thuê phải là hai cư dân khác nhau.");
     }
 
-    private void ValidateReason(ContractActionViewModel model)
+    private void ValidateReason(ContractActionViewModel? model)
     {
-        if (string.IsNullOrWhiteSpace(model.Reason))
-            ModelState.AddModelError(nameof(model.Reason), "Vui lòng nhập lý do.");
+        if (model == null || string.IsNullOrWhiteSpace(model.Reason))
+            ModelState.AddModelError(nameof(ContractActionViewModel.Reason), "Vui lòng nhập lý do.");
     }
 
     private static bool TryDecodeRowVersion(string? token, out byte[] rowVersion)
     {
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            rowVersion = [];
+            return false;
+        }
+
         try
         {
-            rowVersion = Convert.FromBase64String(token ?? string.Empty);
+            rowVersion = Convert.FromBase64String(token.Trim());
             return rowVersion.Length > 0;
         }
         catch (FormatException)
@@ -292,7 +321,6 @@ public sealed class ContractsController : Controller
         }
     }
 
-    private string CurrentUserId() =>
-        User.FindFirstValue(ClaimTypes.NameIdentifier)
-        ?? throw new InvalidOperationException("Tài khoản đăng nhập không hợp lệ.");
+    private string? CurrentUserId() =>
+        User.FindFirstValue(ClaimTypes.NameIdentifier);
 }

@@ -40,6 +40,11 @@ namespace ApartmentManagement.Controllers
 
         public async Task<IActionResult> Details(int id)
         {
+            if (id <= 0)
+            {
+                return NotFound();
+            }
+
             var apartment =
                 await _apartmentService.GetApartmentByIdAsync(
                     id,
@@ -90,7 +95,7 @@ namespace ApartmentManagement.Controllers
             {
                 ModelState.AddModelError(
                     string.Empty,
-                    result.ErrorMessage!);
+                    result.ErrorMessage ?? "Không thể tạo căn hộ.");
 
                 ViewBag.Buildings =
                     await _buildingService.GetAllBuildingsAsync();
@@ -107,6 +112,11 @@ namespace ApartmentManagement.Controllers
         [HttpGet]
         public async Task<IActionResult> Edit(int id)
         {
+            if (id <= 0)
+            {
+                return NotFound();
+            }
+
             var apartment =
                 await _apartmentService.GetApartmentByIdAsync(id);
 
@@ -127,9 +137,9 @@ namespace ApartmentManagement.Controllers
             int id,
             [Bind("ApartmentId,BuildingId,ApartmentCode,Floor,Area,Status")] Apartment apartment)
         {
-            if (id != apartment.ApartmentId)
+            if (id <= 0 || id != apartment.ApartmentId)
             {
-                return BadRequest();
+                return NotFound();
             }
 
             if (!ModelState.IsValid)
@@ -146,9 +156,14 @@ namespace ApartmentManagement.Controllers
 
             if (!result.Success)
             {
+                if (result.ErrorMessage == "Không tìm thấy căn hộ.")
+                {
+                    return NotFound();
+                }
+
                 ModelState.AddModelError(
                     string.Empty,
-                    result.ErrorMessage!);
+                    result.ErrorMessage ?? "Không thể cập nhật căn hộ.");
 
                 ViewBag.Buildings =
                     await _buildingService.GetAllBuildingsAsync();
@@ -165,6 +180,11 @@ namespace ApartmentManagement.Controllers
         [HttpGet]
         public async Task<IActionResult> Delete(int id)
         {
+            if (id <= 0)
+            {
+                return NotFound();
+            }
+
             var apartment =
                 await _apartmentService.GetApartmentByIdAsync(
                     id,
@@ -183,11 +203,21 @@ namespace ApartmentManagement.Controllers
         public async Task<IActionResult> DeleteConfirmed(
             int id)
         {
+            if (id <= 0)
+            {
+                return NotFound();
+            }
+
             var result =
                 await _apartmentService.DeleteApartmentAsync(id);
 
             if (!result.Success)
             {
+                if (result.ErrorMessage == "Không tìm thấy căn hộ.")
+                {
+                    return NotFound();
+                }
+
                 TempData["ErrorMessage"] =
                     result.ErrorMessage;
 
@@ -204,11 +234,21 @@ namespace ApartmentManagement.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Deactivate(int id)
         {
+            if (id <= 0)
+            {
+                return NotFound();
+            }
+
             var result =
                 await _apartmentService.DeactivateApartmentAsync(id);
 
             if (!result.Success)
             {
+                if (result.ErrorMessage == "Không tìm thấy căn hộ.")
+                {
+                    return NotFound();
+                }
+
                 TempData["ErrorMessage"] =
                     result.ErrorMessage;
             }
@@ -219,6 +259,13 @@ namespace ApartmentManagement.Controllers
             }
 
             return RedirectToAction(nameof(Details), new { id });
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> CheckCodeExists(int buildingId, string apartmentCode, int? apartmentId)
+        {
+            var exists = await _apartmentService.ApartmentCodeExistsAsync(buildingId, apartmentCode, apartmentId);
+            return Json(new { exists });
         }
     }
 }

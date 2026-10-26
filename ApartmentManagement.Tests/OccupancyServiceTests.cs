@@ -441,5 +441,53 @@ namespace ApartmentManagement.Tests
             Assert.Equal(res1.ResidentId, members[0].ResidentId);
             Assert.True(members[0].IsOwner);
         }
+
+        #region Guard & Error Handling Regression Tests
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(-1)]
+        public async Task GetByIdAsync_WhenIdNonPositive_ReturnsNull(int invalidId)
+        {
+            using var context = CreateInMemoryDbContext();
+            var service = new OccupancyService(context, NullLogger<OccupancyService>.Instance);
+
+            var result = await service.GetByIdAsync(invalidId);
+            Assert.Null(result);
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(-1)]
+        public async Task UpdateOccupancyAsync_WhenIdNonPositive_ReturnsFalse(int invalidId)
+        {
+            using var context = CreateInMemoryDbContext();
+            var service = new OccupancyService(context, NullLogger<OccupancyService>.Instance);
+
+            var (success, error) = await service.UpdateOccupancyAsync(new OccupancyEditViewModel
+            {
+                ApartmentResidentId = invalidId,
+                Relationship = "Thành viên"
+            });
+
+            Assert.False(success);
+            Assert.Equal("Không tìm thấy hồ sơ cư trú.", error);
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(-1)]
+        public async Task MoveOutAsync_WhenIdNonPositive_ReturnsFalse(int invalidId)
+        {
+            using var context = CreateInMemoryDbContext();
+            var service = new OccupancyService(context, NullLogger<OccupancyService>.Instance);
+
+            var (success, error) = await service.MoveOutAsync(invalidId, DateTime.Today);
+
+            Assert.False(success);
+            Assert.Equal("Không tìm thấy hồ sơ cư trú.", error);
+        }
+
+        #endregion
     }
 }

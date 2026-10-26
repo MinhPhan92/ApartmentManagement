@@ -34,6 +34,7 @@ public sealed class OccupanciesController : Controller
 
     public async Task<IActionResult> Details(int id)
     {
+        if (id <= 0) return NotFound();
         var occupancy = await _service.GetByIdAsync(id);
         return occupancy == null ? NotFound() : View(occupancy);
     }
@@ -51,6 +52,7 @@ public sealed class OccupanciesController : Controller
     [HttpGet]
     public async Task<IActionResult> Edit(int id)
     {
+        if (id <= 0) return NotFound();
         var occupancy = await _service.GetByIdAsync(id);
         if (occupancy == null) return NotFound();
         return View(new OccupancyEditViewModel
@@ -73,7 +75,7 @@ public sealed class OccupanciesController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Edit(int id, OccupancyEditViewModel model)
     {
-        if (id != model.ApartmentResidentId) return BadRequest();
+        if (id <= 0 || model == null || id != model.ApartmentResidentId) return NotFound();
         if (!ModelState.IsValid)
         {
             await RepopulateEditDisplayAsync(model, id);
@@ -82,6 +84,10 @@ public sealed class OccupanciesController : Controller
         var result = await _service.UpdateOccupancyAsync(model);
         if (!result.Success)
         {
+            if (result.ErrorMessage == "Không tìm thấy hồ sơ cư trú.")
+            {
+                return NotFound();
+            }
             ModelState.AddModelError(string.Empty, result.ErrorMessage!);
             await RepopulateEditDisplayAsync(model, id);
             return View(model);
@@ -92,6 +98,7 @@ public sealed class OccupanciesController : Controller
 
     private async Task RepopulateEditDisplayAsync(OccupancyEditViewModel model, int id)
     {
+        if (id <= 0) return;
         var occupancy = await _service.GetByIdAsync(id);
         if (occupancy != null)
         {
@@ -127,29 +134,41 @@ public sealed class OccupanciesController : Controller
     [HttpGet]
     public async Task<IActionResult> MoveOut(int id)
     {
+        if (id <= 0) return NotFound();
         var occupancy = await _service.GetByIdAsync(id);
         if (occupancy == null) return NotFound();
         if (occupancy.MoveOutDate != null) return BadRequest();
         ViewBag.Occupancy = occupancy;
-        return View(new MoveOutViewModel { ApartmentResidentId = id });
+        return View(new MoveOutViewModel { ApartmentResidentId = id, MoveOutDate = OccupancyService.GetApplicationToday() });
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> MoveOut(MoveOutViewModel model)
     {
+        if (model == null || model.ApartmentResidentId <= 0) return NotFound();
+
+        var occupancy = await _service.GetByIdAsync(model.ApartmentResidentId);
+        if (occupancy == null) return NotFound();
+
         if (!ModelState.IsValid)
         {
-            ViewBag.Occupancy = await _service.GetByIdAsync(model.ApartmentResidentId);
+            ViewBag.Occupancy = occupancy;
             return View(model);
         }
+
         var result = await _service.MoveOutAsync(model.ApartmentResidentId, model.MoveOutDate);
         if (!result.Success)
         {
-            ModelState.AddModelError(string.Empty, result.ErrorMessage!);
-            ViewBag.Occupancy = await _service.GetByIdAsync(model.ApartmentResidentId);
+            if (result.ErrorMessage == "Không tìm thấy hồ sơ cư trú.")
+            {
+                return NotFound();
+            }
+            ModelState.AddModelError(string.Empty, result.ErrorMessage ?? "Không thể hoàn tất thủ tục chuyển đi.");
+            ViewBag.Occupancy = occupancy;
             return View(model);
         }
+
         TempData["SuccessMessage"] = "Đã hoàn tất thủ tục chuyển đi và lưu lịch sử cư trú.";
         return RedirectToAction(nameof(Details), new { id = model.ApartmentResidentId });
     }

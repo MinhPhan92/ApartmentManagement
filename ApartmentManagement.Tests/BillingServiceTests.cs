@@ -106,6 +106,116 @@ public sealed class BillingServiceTests
         Assert.True(valid.Success, valid.ErrorMessage);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task GetTariffsAsync_ReturnsEmpty_ForNonPositiveBuildingId(int buildingId)
+    {
+        await using var context = CreateContext();
+        SeedBillingData(context);
+        var service = new BillingService(context, NullLogger<BillingService>.Instance);
+
+        var tariffs = await service.GetTariffsAsync(buildingId);
+        Assert.Empty(tariffs);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task GetResidentInvoicesAsync_ReturnsEmpty_ForNullOrWhitespaceUserId(string? userId)
+    {
+        await using var context = CreateContext();
+        var service = new BillingService(context, NullLogger<BillingService>.Instance);
+
+        var invoices = await service.GetResidentInvoicesAsync(userId!);
+        Assert.Empty(invoices);
+    }
+
+    [Theory]
+    [InlineData(0, "user-resident")]
+    [InlineData(-1, "user-resident")]
+    [InlineData(1, null)]
+    [InlineData(1, "")]
+    [InlineData(1, "   ")]
+    public async Task GetResidentInvoiceAsync_ReturnsNull_ForNonPositiveIdOrNullUser(int invoiceId, string? userId)
+    {
+        await using var context = CreateContext();
+        var service = new BillingService(context, NullLogger<BillingService>.Instance);
+
+        var invoice = await service.GetResidentInvoiceAsync(userId!, invoiceId);
+        Assert.Null(invoice);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task GetInvoiceAsync_ReturnsNull_ForNonPositiveId(int invoiceId)
+    {
+        await using var context = CreateContext();
+        var service = new BillingService(context, NullLogger<BillingService>.Instance);
+
+        var invoice = await service.GetInvoiceAsync(invoiceId);
+        Assert.Null(invoice);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task GenerateDraftAsync_RejectsNonPositiveApartmentId(int apartmentId)
+    {
+        await using var context = CreateContext();
+        var service = new BillingService(context, NullLogger<BillingService>.Instance);
+
+        var result = await service.GenerateDraftAsync(apartmentId, 2026, 8, new DateTime(2026, 9, 10), "user-manager");
+        Assert.False(result.Success);
+        Assert.Equal("Vui lòng chọn căn hộ.", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task GenerateDraftAsync_RejectsZeroAreaApartment()
+    {
+        await using var context = CreateContext();
+        SeedBillingData(context);
+        var apartment = await context.Apartments.FindAsync(1);
+        apartment!.Area = 0;
+        await context.SaveChangesAsync();
+
+        var service = new BillingService(context, NullLogger<BillingService>.Instance);
+        var result = await service.GenerateDraftAsync(1, 2026, 8, new DateTime(2026, 9, 10), "user-manager");
+
+        Assert.False(result.Success);
+        Assert.Equal("Diện tích căn hộ phải lớn hơn 0 để tính phí quản lý.", result.ErrorMessage);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task RecordReadingAsync_RejectsNonPositiveApartmentId(int apartmentId)
+    {
+        await using var context = CreateContext();
+        var service = new BillingService(context, NullLogger<BillingService>.Instance);
+
+        var result = await service.RecordReadingAsync(
+            new MeterReadingInput(apartmentId, FeeChargeType.Electricity, 2026, 9, 60, 80),
+            "user-manager");
+        Assert.False(result.Success);
+        Assert.Equal("Vui lòng chọn căn hộ.", result.ErrorMessage);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task IssueAsync_ReturnsError_WhenInvoiceNotFound(int invoiceId)
+    {
+        await using var context = CreateContext();
+        var service = new BillingService(context, NullLogger<BillingService>.Instance);
+
+        var result = await service.IssueAsync(invoiceId, "user-manager", [1]);
+        Assert.False(result.Success);
+        Assert.Equal("Không tìm thấy hóa đơn.", result.ErrorMessage);
+    }
+
     private static ApplicationDbContext CreateContext()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()

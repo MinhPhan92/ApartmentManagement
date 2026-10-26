@@ -1,3 +1,4 @@
+using ApartmentManagement.Common.Security;
 using ApartmentManagement.Data;
 using ApartmentManagement.Models;
 using ApartmentManagement.ViewModels;
@@ -34,6 +35,14 @@ namespace ApartmentManagement.Services
             _currentUserService = currentUserService;
         }
 
+        private bool IsManagementUser()
+        {
+            return _currentUserService.IsInRole(AppRoles.SuperAdmin) ||
+                   _currentUserService.IsInRole(AppRoles.BuildingManager) ||
+                   _currentUserService.IsInRole("SystemAdmin") ||
+                   _currentUserService.IsInRole("Manager");
+        }
+
         public async Task<List<Complaint>> GetComplaintsAsync(string? searchTerm = null, string? status = null, string? category = null)
         {
             var userId = _currentUserService.UserId;
@@ -43,6 +52,7 @@ namespace ApartmentManagement.Services
             }
 
             var query = _context.Complaints
+                .AsNoTracking()
                 .Include(c => c.Resident)
                     .ThenInclude(r => r!.User)
                 .Include(c => c.Apartment)
@@ -50,7 +60,7 @@ namespace ApartmentManagement.Services
                 .AsQueryable();
 
             // Phân quyền dữ liệu: Cư dân chỉ xem được phản ánh của chính mình
-            if (!_currentUserService.IsInRole("SystemAdmin") && !_currentUserService.IsInRole("Manager"))
+            if (!IsManagementUser())
             {
                 query = query.Where(c => c.Resident != null && c.Resident.UserId == userId);
             }
@@ -87,6 +97,11 @@ namespace ApartmentManagement.Services
 
         public async Task<Complaint?> GetComplaintByIdAsync(int id)
         {
+            if (id <= 0)
+            {
+                return null;
+            }
+
             var userId = _currentUserService.UserId;
             if (string.IsNullOrEmpty(userId))
             {
@@ -101,7 +116,7 @@ namespace ApartmentManagement.Services
                 .AsQueryable();
 
             // Quản trị viên và Ban quản lý được xem phản ánh bất kỳ
-            if (_currentUserService.IsInRole("SystemAdmin") || _currentUserService.IsInRole("Manager"))
+            if (IsManagementUser())
             {
                 return await query.FirstOrDefaultAsync(c => c.ComplaintId == id);
             }
@@ -115,6 +130,11 @@ namespace ApartmentManagement.Services
 
         public async Task<(bool Success, string? ErrorMessage)> CreateComplaintAsync(ComplaintCreateViewModel model)
         {
+            if (model == null)
+            {
+                return (false, "Dữ liệu không hợp lệ.");
+            }
+
             var userId = _currentUserService.UserId;
             if (string.IsNullOrEmpty(userId))
             {
@@ -137,9 +157,34 @@ namespace ApartmentManagement.Services
                 return (false, "Danh mục phản ánh không hợp lệ.");
             }
 
+            var title = model.Title?.Trim();
+            if (string.IsNullOrWhiteSpace(title))
+            {
+                return (false, "Vui lòng nhập tiêu đề phản ánh.");
+            }
+            if (title.Length > 200)
+            {
+                return (false, "Tiêu đề không quá 200 ký tự.");
+            }
+
+            var content = model.Content?.Trim();
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                return (false, "Vui lòng nhập nội dung chi tiết phản ánh.");
+            }
+            if (content.Length > 2000)
+            {
+                return (false, "Nội dung không quá 2000 ký tự.");
+            }
+
             // Kiểm tra bảo vệ Apartment Spoofing: Nếu có chọn ApartmentId, phải thuộc cư trú hiện tại của Resident
             if (model.ApartmentId.HasValue)
             {
+                if (model.ApartmentId.Value <= 0)
+                {
+                    return (false, "Căn hộ không hợp lệ.");
+                }
+
                 var isResidentOfApartment = await _context.ApartmentResidents
                     .AnyAsync(ar =>
                         ar.ResidentId == resident.ResidentId &&
@@ -156,21 +201,32 @@ namespace ApartmentManagement.Services
             {
                 ResidentId = resident.ResidentId,
                 ApartmentId = model.ApartmentId,
-                Title = model.Title.Trim(),
-                Content = model.Content.Trim(),
+                Title = title,
+                Content = content,
                 Category = category,
                 Status = "Chờ tiếp nhận",
                 CreatedAt = DateTime.UtcNow
             };
 
-            _context.Complaints.Add(complaint);
-            await _context.SaveChangesAsync();
-
-            return (true, null);
+            try
+            {
+                _context.Complaints.Add(complaint);
+                await _context.SaveChangesAsync();
+                return (true, null);
+            }
+            catch (DbUpdateException)
+            {
+                return (false, "Có lỗi xảy ra khi lưu phản ánh vào hệ thống.");
+            }
         }
 
         public async Task<(bool Success, string? ErrorMessage)> CancelComplaintAsync(int complaintId)
         {
+            if (complaintId <= 0)
+            {
+                return (false, "Không tìm thấy phản ánh.");
+            }
+
             var userId = _currentUserService.UserId;
             if (string.IsNullOrEmpty(userId))
             {
@@ -201,16 +257,28 @@ namespace ApartmentManagement.Services
             complaint.Status = "Đã hủy";
             complaint.ResponseNotes = "Cư dân chủ động rút phản ánh.";
 
-            await _context.SaveChangesAsync();
-            return (true, null);
+            try
+            {
+                await _context.SaveChangesAsync();
+                return (true, null);
+            }
+            catch (DbUpdateException)
+            {
+                return (false, "Có lỗi xảy ra khi cập nhật trạng thái hủy phản ánh.");
+            }
         }
 
         public async Task<(bool Success, string? ErrorMessage)> ProcessComplaintAsync(ComplaintProcessViewModel model)
         {
             // Business Authorization: Cư dân không có quyền xử lý phản ánh
-            if (!_currentUserService.IsInRole("SystemAdmin") && !_currentUserService.IsInRole("Manager"))
+            if (!IsManagementUser())
             {
                 return (false, "Bạn không có quyền xử lý phản ánh của cư dân.");
+            }
+
+            if (model == null || model.ComplaintId <= 0)
+            {
+                return (false, "Dữ liệu xử lý phản ánh không hợp lệ.");
             }
 
             var targetStatus = model.TargetStatus?.Trim() ?? string.Empty;
@@ -230,25 +298,42 @@ namespace ApartmentManagement.Services
                 return (false, "Không thể xử lý phản ánh đã bị cư dân hủy.");
             }
 
+            var responseNotes = model.ResponseNotes?.Trim();
+            if (responseNotes != null && responseNotes.Length > 1000)
+            {
+                return (false, "Nội dung phản hồi không quá 1000 ký tự.");
+            }
+
             // Business Rule: ResponseNotes bắt buộc khi chuyển sang 'Đã xử lý' hoặc 'Từ chối'
             if (targetStatus == "Đã xử lý" || targetStatus == "Từ chối")
             {
-                if (string.IsNullOrWhiteSpace(model.ResponseNotes))
+                if (string.IsNullOrWhiteSpace(responseNotes))
                 {
                     return (false, $"Vui lòng nhập nội dung phản hồi / giải thích khi chuyển sang trạng thái '{targetStatus}'.");
                 }
             }
 
             complaint.Status = targetStatus;
-            complaint.ResponseNotes = model.ResponseNotes?.Trim();
+            complaint.ResponseNotes = responseNotes;
 
             if (targetStatus == "Đã xử lý")
             {
-                complaint.ResolvedAt = DateTime.UtcNow;
+                complaint.ResolvedAt ??= DateTime.UtcNow;
+            }
+            else
+            {
+                complaint.ResolvedAt = null;
             }
 
-            await _context.SaveChangesAsync();
-            return (true, null);
+            try
+            {
+                await _context.SaveChangesAsync();
+                return (true, null);
+            }
+            catch (DbUpdateException)
+            {
+                return (false, "Có lỗi xảy ra khi lưu trạng thái xử lý phản ánh.");
+            }
         }
     }
 }

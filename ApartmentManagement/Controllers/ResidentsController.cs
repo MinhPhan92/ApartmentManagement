@@ -20,6 +20,7 @@ public sealed class ResidentsController : Controller
 
     public async Task<IActionResult> Details(int id)
     {
+        if (id <= 0) return NotFound();
         var resident = await _residentService.GetByIdAsync(id);
         return resident == null ? NotFound() : View(resident);
     }
@@ -46,6 +47,7 @@ public sealed class ResidentsController : Controller
     [HttpGet]
     public async Task<IActionResult> Edit(int id)
     {
+        if (id <= 0) return NotFound();
         var resident = await _residentService.GetByIdAsync(id);
         if (resident == null) return NotFound();
         return View(new ResidentEditViewModel
@@ -65,11 +67,12 @@ public sealed class ResidentsController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Edit(int id, ResidentEditViewModel model)
     {
-        if (id != model.ResidentId) return BadRequest();
+        if (id <= 0 || model == null || id != model.ResidentId) return NotFound();
         if (!ModelState.IsValid) return View(model);
         var result = await _residentService.UpdateAsync(model);
         if (!result.Success)
         {
+            if (result.ErrorMessage == "Không tìm thấy cư dân.") return NotFound();
             ModelState.AddModelError(string.Empty, result.ErrorMessage!);
             return View(model);
         }
@@ -81,6 +84,7 @@ public sealed class ResidentsController : Controller
     [HttpGet]
     public async Task<IActionResult> Delete(int id)
     {
+        if (id <= 0) return NotFound();
         var resident = await _residentService.GetByIdAsync(id);
         return resident == null ? NotFound() : View(resident);
     }
@@ -89,9 +93,11 @@ public sealed class ResidentsController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteConfirmed(int id)
     {
+        if (id <= 0) return NotFound();
         var result = await _residentService.DeleteAsync(id);
         if (!result.Success)
         {
+            if (result.ErrorMessage == "Không tìm thấy cư dân.") return NotFound();
             TempData["ErrorMessage"] = result.ErrorMessage;
             return RedirectToAction(nameof(Delete), new { id });
         }

@@ -26,6 +26,7 @@ public sealed class PaymentsController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Confirm(ConfirmPaymentViewModel model)
     {
+        if (model == null || model.PaymentTransactionId <= 0) return NotFound();
         if (!TryDecodeRowVersion(model.RowVersionToken, out var rowVersion))
             return BadRequest();
 
@@ -46,9 +47,15 @@ public sealed class PaymentsController : Controller
 
     private static bool TryDecodeRowVersion(string? token, out byte[] rowVersion)
     {
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            rowVersion = [];
+            return false;
+        }
+
         try
         {
-            rowVersion = Convert.FromBase64String(token ?? string.Empty);
+            rowVersion = Convert.FromBase64String(token.Trim());
             return rowVersion.Length > 0;
         }
         catch (FormatException)

@@ -582,5 +582,460 @@ namespace ApartmentManagement.Tests
 
             Assert.Equal(3, listAll.Count);
         }
+
+        [Fact]
+        public async Task CreateApartment_Fails_WhenBuildingDoesNotExist()
+        {
+            using var context = CreateInMemoryDbContext();
+            var service = new ApartmentService(context, NullLogger<ApartmentService>.Instance);
+
+            var apartment = new Apartment
+            {
+                BuildingId = 9999,
+                ApartmentCode = "X-101",
+                Floor = 1,
+                Area = 60m
+            };
+
+            var (success, error) = await service.CreateApartmentAsync(apartment);
+
+            Assert.False(success);
+            Assert.Equal("Tòa nhà không tồn tại.", error);
+        }
+
+        [Fact]
+        public async Task CreateApartment_Fails_WhenFloorIsZeroOrNegative()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (buildingA, _) = await SeedBuildingsAsync(context);
+            var service = new ApartmentService(context, NullLogger<ApartmentService>.Instance);
+
+            var aptZero = new Apartment
+            {
+                BuildingId = buildingA.BuildingId,
+                ApartmentCode = "A-ZERO",
+                Floor = 0,
+                Area = 60m
+            };
+
+            var (success, error) = await service.CreateApartmentAsync(aptZero);
+
+            Assert.False(success);
+            Assert.Equal("Tầng phải lớn hơn 0.", error);
+        }
+
+        [Fact]
+        public async Task CreateApartment_Fails_WhenFloorExceeds200()
+        {
+            using var context = CreateInMemoryDbContext();
+            var service = new ApartmentService(context, NullLogger<ApartmentService>.Instance);
+
+            var aptHigh = new Apartment
+            {
+                BuildingId = 1,
+                ApartmentCode = "A-HIGH",
+                Floor = 201,
+                Area = 60m
+            };
+
+            var (success, error) = await service.CreateApartmentAsync(aptHigh);
+
+            Assert.False(success);
+            Assert.Equal("Tầng phải từ 1 đến 200.", error);
+        }
+
+        [Fact]
+        public async Task UpdateApartment_Success_ValidFloorAndBuilding()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (buildingA, _) = await SeedBuildingsAsync(context);
+            var service = new ApartmentService(context, NullLogger<ApartmentService>.Instance);
+
+            var apt = new Apartment
+            {
+                BuildingId = buildingA.BuildingId,
+                ApartmentCode = "A-UPD",
+                Floor = 1,
+                Area = 60m,
+                Status = ApartmentStatus.Vacant
+            };
+            context.Apartments.Add(apt);
+            await context.SaveChangesAsync();
+
+            var updateModel = new Apartment
+            {
+                ApartmentId = apt.ApartmentId,
+                BuildingId = buildingA.BuildingId,
+                ApartmentCode = "A-UPD-NEW",
+                Floor = 5,
+                Area = 75m,
+                Status = ApartmentStatus.Vacant
+            };
+
+            var (success, error) = await service.UpdateApartmentAsync(updateModel);
+
+            Assert.True(success, error);
+            var refreshed = await context.Apartments.FindAsync(apt.ApartmentId);
+            Assert.NotNull(refreshed);
+            Assert.Equal("A-UPD-NEW", refreshed.ApartmentCode);
+            Assert.Equal(5, refreshed.Floor);
+            Assert.Equal(75m, refreshed.Area);
+        }
+
+        [Fact]
+        public async Task UpdateApartment_Fails_WhenBuildingDoesNotExist()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (buildingA, _) = await SeedBuildingsAsync(context);
+            var service = new ApartmentService(context, NullLogger<ApartmentService>.Instance);
+
+            var apt = new Apartment
+            {
+                BuildingId = buildingA.BuildingId,
+                ApartmentCode = "A-NOBLD",
+                Floor = 1,
+                Area = 60m,
+                Status = ApartmentStatus.Vacant
+            };
+            context.Apartments.Add(apt);
+            await context.SaveChangesAsync();
+
+            var updateModel = new Apartment
+            {
+                ApartmentId = apt.ApartmentId,
+                BuildingId = 9999,
+                ApartmentCode = "A-NOBLD",
+                Floor = 1,
+                Area = 60m,
+                Status = ApartmentStatus.Vacant
+            };
+
+            var (success, error) = await service.UpdateApartmentAsync(updateModel);
+
+            Assert.False(success);
+            Assert.Equal("Tòa nhà không tồn tại.", error);
+        }
+
+        [Fact]
+        public async Task UpdateApartment_Fails_WhenNewBuildingFloorsExceeded()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (buildingA, buildingB) = await SeedBuildingsAsync(context);
+            // buildingA has 15 floors, buildingB has 20 floors
+            // Let's create buildingC with 3 floors
+            var buildingC = new Building { BuildingCode = "BLD-C", BuildingName = "Tòa C", NumberOfFloors = 3 };
+            context.Buildings.Add(buildingC);
+            await context.SaveChangesAsync();
+
+            var service = new ApartmentService(context, NullLogger<ApartmentService>.Instance);
+
+            var apt = new Apartment
+            {
+                BuildingId = buildingA.BuildingId,
+                ApartmentCode = "A-EXCEED",
+                Floor = 10,
+                Area = 60m,
+                Status = ApartmentStatus.Vacant
+            };
+            context.Apartments.Add(apt);
+            await context.SaveChangesAsync();
+
+            // Try to move to buildingC where Floor 10 exceeds buildingC's 3 floors
+            var updateModel = new Apartment
+            {
+                ApartmentId = apt.ApartmentId,
+                BuildingId = buildingC.BuildingId,
+                ApartmentCode = "A-EXCEED",
+                Floor = 10,
+                Area = 60m,
+                Status = ApartmentStatus.Vacant
+            };
+
+            var (success, error) = await service.UpdateApartmentAsync(updateModel);
+
+            Assert.False(success);
+            Assert.Contains("không được vượt quá 3", error);
+        }
+
+        [Fact]
+        public async Task UpdateApartment_Fails_WhenChangingBuilding_WhileActiveResidentsExist()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (buildingA, buildingB) = await SeedBuildingsAsync(context);
+            var service = new ApartmentService(context, NullLogger<ApartmentService>.Instance);
+
+            var apt = new Apartment
+            {
+                BuildingId = buildingA.BuildingId,
+                ApartmentCode = "A-MOVEBLD",
+                Floor = 1,
+                Area = 60m,
+                Status = ApartmentStatus.Occupied
+            };
+            context.Apartments.Add(apt);
+            await context.SaveChangesAsync();
+
+            var resident = new Resident { CitizenId = "012345678990", UserId = "user-movebld" };
+            context.Residents.Add(resident);
+            await context.SaveChangesAsync();
+
+            context.ApartmentResidents.Add(new ApartmentResident
+            {
+                ApartmentId = apt.ApartmentId,
+                ResidentId = resident.ResidentId,
+                Relationship = "Chủ hộ",
+                MoveInDate = DateTime.Today,
+                MoveOutDate = null
+            });
+            await context.SaveChangesAsync();
+
+            var updateModel = new Apartment
+            {
+                ApartmentId = apt.ApartmentId,
+                BuildingId = buildingB.BuildingId, // Change to building B
+                ApartmentCode = "A-MOVEBLD",
+                Floor = 1,
+                Area = 60m,
+                Status = ApartmentStatus.Occupied
+            };
+
+            var (success, error) = await service.UpdateApartmentAsync(updateModel);
+
+            Assert.False(success);
+            Assert.Contains("Không thể đổi tòa nhà cho căn hộ đang có cư dân lưu trú", error);
+        }
+
+        [Fact]
+        public async Task UpdateApartment_Fails_WhenDuplicateCodeInSameBuilding()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (buildingA, _) = await SeedBuildingsAsync(context);
+            var service = new ApartmentService(context, NullLogger<ApartmentService>.Instance);
+
+            var apt1 = new Apartment { BuildingId = buildingA.BuildingId, ApartmentCode = "A-101", Floor = 1, Area = 50m, Status = ApartmentStatus.Vacant };
+            var apt2 = new Apartment { BuildingId = buildingA.BuildingId, ApartmentCode = "A-102", Floor = 1, Area = 50m, Status = ApartmentStatus.Vacant };
+            context.Apartments.AddRange(apt1, apt2);
+            await context.SaveChangesAsync();
+
+            var updateModel = new Apartment
+            {
+                ApartmentId = apt2.ApartmentId,
+                BuildingId = buildingA.BuildingId,
+                ApartmentCode = "A-101", // duplicate
+                Floor = 1,
+                Area = 50m,
+                Status = ApartmentStatus.Vacant
+            };
+
+            var (success, error) = await service.UpdateApartmentAsync(updateModel);
+
+            Assert.False(success);
+            Assert.Contains("Mã căn hộ đã tồn tại trong tòa nhà", error);
+        }
+
+        [Fact]
+        public async Task UpdateApartment_Success_WhenSameCodeInDifferentBuilding()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (buildingA, buildingB) = await SeedBuildingsAsync(context);
+            var service = new ApartmentService(context, NullLogger<ApartmentService>.Instance);
+
+            var aptA = new Apartment { BuildingId = buildingA.BuildingId, ApartmentCode = "DUP-CODE", Floor = 1, Area = 50m, Status = ApartmentStatus.Vacant };
+            var aptB = new Apartment { BuildingId = buildingB.BuildingId, ApartmentCode = "OTHER-CODE", Floor = 1, Area = 50m, Status = ApartmentStatus.Vacant };
+            context.Apartments.AddRange(aptA, aptB);
+            await context.SaveChangesAsync();
+
+            var updateModel = new Apartment
+            {
+                ApartmentId = aptB.ApartmentId,
+                BuildingId = buildingB.BuildingId,
+                ApartmentCode = "DUP-CODE", // same code as building A, but in building B
+                Floor = 1,
+                Area = 50m,
+                Status = ApartmentStatus.Vacant
+            };
+
+            var (success, error) = await service.UpdateApartmentAsync(updateModel);
+
+            Assert.True(success, error);
+            var refreshed = await context.Apartments.FindAsync(aptB.ApartmentId);
+            Assert.NotNull(refreshed);
+            Assert.Equal("DUP-CODE", refreshed.ApartmentCode);
+        }
+
+        [Fact]
+        public async Task UpdateApartment_Fails_WhenChangingStatusToMaintenance_WhileActiveResidentsExist()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (buildingA, _) = await SeedBuildingsAsync(context);
+            var service = new ApartmentService(context, NullLogger<ApartmentService>.Instance);
+
+            var apt = new Apartment
+            {
+                BuildingId = buildingA.BuildingId,
+                ApartmentCode = "A-MAINT-TEST",
+                Floor = 1,
+                Area = 60m,
+                Status = ApartmentStatus.Occupied
+            };
+            context.Apartments.Add(apt);
+            await context.SaveChangesAsync();
+
+            var res = new Resident { CitizenId = "012345678991", UserId = "user-maint-test" };
+            context.Residents.Add(res);
+            await context.SaveChangesAsync();
+
+            context.ApartmentResidents.Add(new ApartmentResident
+            {
+                ApartmentId = apt.ApartmentId,
+                ResidentId = res.ResidentId,
+                Relationship = "Chủ hộ",
+                MoveInDate = DateTime.Today,
+                MoveOutDate = null
+            });
+            await context.SaveChangesAsync();
+
+            var updateModel = new Apartment
+            {
+                ApartmentId = apt.ApartmentId,
+                BuildingId = buildingA.BuildingId,
+                ApartmentCode = "A-MAINT-TEST",
+                Floor = 1,
+                Area = 60m,
+                Status = ApartmentStatus.Maintenance
+            };
+
+            var (success, error) = await service.UpdateApartmentAsync(updateModel);
+
+            Assert.False(success);
+            Assert.Contains("vẫn còn cư dân đang lưu trú", error);
+        }
+
+        [Fact]
+        public async Task DeleteApartment_Fails_WhenVehiclesExist()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (buildingA, _) = await SeedBuildingsAsync(context);
+            var service = new ApartmentService(context, NullLogger<ApartmentService>.Instance);
+
+            var apt = new Apartment
+            {
+                BuildingId = buildingA.BuildingId,
+                ApartmentCode = "A-VEHICLE",
+                Floor = 1,
+                Area = 60m,
+                Status = ApartmentStatus.Vacant
+            };
+            context.Apartments.Add(apt);
+            await context.SaveChangesAsync();
+
+            var res = new Resident { CitizenId = "012345678992", UserId = "user-veh" };
+            context.Residents.Add(res);
+            await context.SaveChangesAsync();
+
+            context.Vehicles.Add(new Vehicle
+            {
+                ApartmentId = apt.ApartmentId,
+                ResidentId = res.ResidentId,
+                VehicleType = "Xe máy",
+                LicensePlate = "29A1-12345"
+            });
+            await context.SaveChangesAsync();
+
+            var (success, error) = await service.DeleteApartmentAsync(apt.ApartmentId);
+
+            Assert.False(success);
+            Assert.Contains("Không thể xóa căn hộ đã phát sinh dữ liệu lịch sử", error);
+        }
+
+        [Fact]
+        public async Task DeleteApartment_Fails_WhenComplaintsExist()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (buildingA, _) = await SeedBuildingsAsync(context);
+            var service = new ApartmentService(context, NullLogger<ApartmentService>.Instance);
+
+            var apt = new Apartment
+            {
+                BuildingId = buildingA.BuildingId,
+                ApartmentCode = "A-COMPLAINT",
+                Floor = 1,
+                Area = 60m,
+                Status = ApartmentStatus.Vacant
+            };
+            context.Apartments.Add(apt);
+            await context.SaveChangesAsync();
+
+            var res = new Resident { CitizenId = "012345678993", UserId = "user-comp" };
+            context.Residents.Add(res);
+            await context.SaveChangesAsync();
+
+            context.Complaints.Add(new Complaint
+            {
+                ApartmentId = apt.ApartmentId,
+                ResidentId = res.ResidentId,
+                Title = "Phản ánh tiếng ồn",
+                Content = "Tiếng ồn ban đêm",
+                Status = "Chờ tiếp nhận"
+            });
+            await context.SaveChangesAsync();
+
+            var (success, error) = await service.DeleteApartmentAsync(apt.ApartmentId);
+
+            Assert.False(success);
+            Assert.Contains("Không thể xóa căn hộ đã phát sinh dữ liệu lịch sử", error);
+        }
+
+        [Fact]
+        public async Task DeleteApartment_Fails_WhenContractsExist()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (buildingA, _) = await SeedBuildingsAsync(context);
+            var service = new ApartmentService(context, NullLogger<ApartmentService>.Instance);
+
+            var apt = new Apartment
+            {
+                BuildingId = buildingA.BuildingId,
+                ApartmentCode = "A-CONTRACT",
+                Floor = 1,
+                Area = 60m,
+                Status = ApartmentStatus.Vacant
+            };
+            context.Apartments.Add(apt);
+
+            var user = new ApplicationUser { Id = "creator-contract", UserName = "admin_c", FullName = "Admin" };
+            context.Users.Add(user);
+            await context.SaveChangesAsync();
+
+            var contract = new ApartmentContract
+            {
+                ApartmentId = apt.ApartmentId,
+                StartDate = DateTime.Today,
+                MonthlyRent = 10000000m,
+                DepositAmount = 20000000m,
+                Status = ApartmentContractStatus.Active,
+                CreatedAtUtc = DateTime.UtcNow,
+                CreatedByUserId = user.Id
+            };
+            context.ApartmentContracts.Add(contract);
+            await context.SaveChangesAsync();
+
+            var (success, error) = await service.DeleteApartmentAsync(apt.ApartmentId);
+
+            Assert.False(success);
+            Assert.Contains("Không thể xóa căn hộ đã phát sinh dữ liệu lịch sử", error);
+        }
+
+        [Fact]
+        public async Task DeleteApartment_ReturnsNotFound_WhenApartmentDoesNotExist()
+        {
+            using var context = CreateInMemoryDbContext();
+            var service = new ApartmentService(context, NullLogger<ApartmentService>.Instance);
+
+            var (success, error) = await service.DeleteApartmentAsync(9999);
+
+            Assert.False(success);
+            Assert.Equal("Không tìm thấy căn hộ.", error);
+        }
     }
 }

@@ -17,6 +17,9 @@ public sealed class BillingService : IBillingService
 
     public Task<List<FeeTariff>> GetTariffsAsync(int? buildingId = null)
     {
+        if (buildingId.HasValue && buildingId.Value <= 0)
+            return Task.FromResult(new List<FeeTariff>());
+
         var query = _context.FeeTariffs.AsNoTracking()
             .Include(x => x.Building)
             .Include(x => x.Tiers)
@@ -35,26 +38,44 @@ public sealed class BillingService : IBillingService
             .ThenBy(x => x.Apartment.ApartmentCode)
             .ToListAsync();
 
-    public Task<List<ApartmentInvoice>> GetResidentInvoicesAsync(string userId) =>
-        InvoiceQuery().Where(x => x.Resident.UserId == userId &&
+    public Task<List<ApartmentInvoice>> GetResidentInvoicesAsync(string userId)
+    {
+        if (string.IsNullOrWhiteSpace(userId))
+            return Task.FromResult(new List<ApartmentInvoice>());
+
+        return InvoiceQuery().Where(x => x.Resident.UserId == userId &&
                 x.Status == ApartmentInvoiceStatus.Issued)
             .OrderByDescending(x => x.BillingYear)
             .ThenByDescending(x => x.BillingMonth)
             .ToListAsync();
+    }
 
-    public Task<ApartmentInvoice?> GetResidentInvoiceAsync(string userId, int invoiceId) =>
-        InvoiceQuery().FirstOrDefaultAsync(x =>
+    public Task<ApartmentInvoice?> GetResidentInvoiceAsync(string userId, int invoiceId)
+    {
+        if (invoiceId <= 0 || string.IsNullOrWhiteSpace(userId))
+            return Task.FromResult<ApartmentInvoice?>(null);
+
+        return InvoiceQuery().FirstOrDefaultAsync(x =>
             x.ApartmentInvoiceId == invoiceId &&
             x.Resident.UserId == userId &&
             x.Status == ApartmentInvoiceStatus.Issued);
+    }
 
-    public Task<ApartmentInvoice?> GetInvoiceAsync(int invoiceId) =>
-        InvoiceQuery().FirstOrDefaultAsync(x => x.ApartmentInvoiceId == invoiceId);
+    public Task<ApartmentInvoice?> GetInvoiceAsync(int invoiceId)
+    {
+        if (invoiceId <= 0)
+            return Task.FromResult<ApartmentInvoice?>(null);
+
+        return InvoiceQuery().FirstOrDefaultAsync(x => x.ApartmentInvoiceId == invoiceId);
+    }
 
     public async Task<BillingOperationResult> CreateTariffAsync(
         FeeTariffInput input,
         string actorUserId)
     {
+        if (input == null) return Failure("Dữ liệu biểu phí không hợp lệ.");
+        if (string.IsNullOrWhiteSpace(actorUserId)) return Failure("Người thực hiện không hợp lệ.");
+
         var error = ValidateTariff(input);
         if (error != null) return Failure(error);
         if (!await _context.Buildings.AnyAsync(x => x.BuildingId == input.BuildingId))
@@ -94,6 +115,11 @@ public sealed class BillingService : IBillingService
         catch (DbUpdateException exception)
         {
             _logger.LogError(exception, "Không thể lưu biểu phí cho tòa nhà {BuildingId}", input.BuildingId);
+            if (exception.InnerException?.Message.Contains("IX_FeeTariffs_BuildingId_ChargeType_EffectiveFrom", StringComparison.OrdinalIgnoreCase) == true ||
+                exception.Message.Contains("IX_FeeTariffs_BuildingId_ChargeType_EffectiveFrom", StringComparison.OrdinalIgnoreCase))
+            {
+                return Failure("Thời hạn biểu phí bị trùng với cấu hình hiện có.");
+            }
             return Failure("Không thể lưu biểu phí. Kiểm tra dữ liệu và thử lại.");
         }
     }
@@ -102,6 +128,9 @@ public sealed class BillingService : IBillingService
         MeterReadingInput input,
         string actorUserId)
     {
+        if (input == null) return Failure("Dữ liệu chỉ số không hợp lệ.");
+        if (string.IsNullOrWhiteSpace(actorUserId)) return Failure("Người thực hiện không hợp lệ.");
+        if (input.ApartmentId <= 0) return Failure("Vui lòng chọn căn hộ.");
         if (input.UtilityType is not (FeeChargeType.Electricity or FeeChargeType.Water))
             return Failure("Chỉ ghi nhận chỉ số điện hoặc nước.");
         if (input.BillingYear is < 2000 or > 2200 || input.BillingMonth is < 1 or > 12)
@@ -163,6 +192,11 @@ public sealed class BillingService : IBillingService
         catch (DbUpdateException exception)
         {
             _logger.LogError(exception, "Không thể lưu chỉ số căn hộ {ApartmentId}", input.ApartmentId);
+            if (exception.InnerException?.Message.Contains("IX_UtilityMeterReadings_ApartmentId_UtilityType_BillingYear_BillingMonth", StringComparison.OrdinalIgnoreCase) == true ||
+                exception.Message.Contains("IX_UtilityMeterReadings_ApartmentId_UtilityType_BillingYear_BillingMonth", StringComparison.OrdinalIgnoreCase))
+            {
+                return Failure("Kỳ này đã có chỉ số. Không thể ghi trùng.");
+            }
             return Failure("Không thể lưu chỉ số. Có thể chỉ số kỳ này vừa được ghi đồng thời.");
         }
     }
@@ -174,6 +208,10 @@ public sealed class BillingService : IBillingService
         DateTime dueDate,
         string actorUserId)
     {
+        if (apartmentId <= 0)
+            return Failure("Vui lòng chọn căn hộ.");
+        if (string.IsNullOrWhiteSpace(actorUserId))
+            return Failure("Người thực hiện không hợp lệ.");
         if (year is < 2000 or > 2200 || month is < 1 or > 12)
             return Failure("Kỳ hóa đơn không hợp lệ.");
         if (dueDate.Date < new DateTime(year, month, 1).AddMonths(1))
@@ -189,6 +227,7 @@ public sealed class BillingService : IBillingService
             .Include(x => x.Building)
             .FirstOrDefaultAsync(x => x.ApartmentId == apartmentId);
         if (apartment == null) return Failure("Không tìm thấy căn hộ.");
+        if (apartment.Area <= 0) return Failure("Diện tích căn hộ phải lớn hơn 0 để tính phí quản lý.");
 
         var activeOwners = await _context.ApartmentResidents
             .Where(x => x.ApartmentId == apartmentId && x.IsOwner &&
@@ -221,8 +260,8 @@ public sealed class BillingService : IBillingService
         var readings = await _context.UtilityMeterReadings.Where(x =>
                 x.ApartmentId == apartmentId && x.BillingYear == year && x.BillingMonth == month)
             .ToListAsync();
-        var electricityReading = readings.SingleOrDefault(x => x.UtilityType == FeeChargeType.Electricity);
-        var waterReading = readings.SingleOrDefault(x => x.UtilityType == FeeChargeType.Water);
+        var electricityReading = readings.FirstOrDefault(x => x.UtilityType == FeeChargeType.Electricity);
+        var waterReading = readings.FirstOrDefault(x => x.UtilityType == FeeChargeType.Water);
         if (electricityReading == null || waterReading == null)
             return Failure("Cần ghi đủ chỉ số điện và nước trước khi lập hóa đơn.");
 
@@ -313,6 +352,11 @@ public sealed class BillingService : IBillingService
         catch (DbUpdateException exception)
         {
             _logger.LogError(exception, "Không thể lập hóa đơn căn hộ {ApartmentId}, kỳ {Year}-{Month}", apartmentId, year, month);
+            if (exception.InnerException?.Message.Contains("IX_ApartmentInvoices_ApartmentId_BillingYear_BillingMonth", StringComparison.OrdinalIgnoreCase) == true ||
+                exception.Message.Contains("IX_ApartmentInvoices_ApartmentId_BillingYear_BillingMonth", StringComparison.OrdinalIgnoreCase))
+            {
+                return Failure("Căn hộ đã có hóa đơn trong kỳ này.");
+            }
             return Failure("Không thể lập hóa đơn. Có thể hóa đơn kỳ này vừa được tạo đồng thời.");
         }
     }
@@ -322,6 +366,9 @@ public sealed class BillingService : IBillingService
         string actorUserId,
         byte[] rowVersion)
     {
+        if (invoiceId <= 0) return Failure("Không tìm thấy hóa đơn.");
+        if (string.IsNullOrWhiteSpace(actorUserId)) return Failure("Người thực hiện không hợp lệ.");
+
         var invoice = await _context.ApartmentInvoices
             .FirstOrDefaultAsync(x => x.ApartmentInvoiceId == invoiceId);
         if (invoice == null) return Failure("Không tìm thấy hóa đơn.");

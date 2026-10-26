@@ -51,13 +51,15 @@ public sealed class ContractService : IContractService
     }
 
     public Task<ApartmentContract?> GetByIdAsync(int id) =>
-        ContractQuery().FirstOrDefaultAsync(x => x.ApartmentContractId == id);
+        id <= 0 ? Task.FromResult<ApartmentContract?>(null) : ContractQuery().FirstOrDefaultAsync(x => x.ApartmentContractId == id);
 
     public Task<List<ApartmentContract>> GetForResidentUserAsync(string userId) =>
-        ContractQuery()
-            .Where(x => x.Parties.Any(p => p.Resident.UserId == userId))
-            .OrderByDescending(x => x.StartDate)
-            .ToListAsync();
+        string.IsNullOrWhiteSpace(userId)
+            ? Task.FromResult(new List<ApartmentContract>())
+            : ContractQuery()
+                .Where(x => x.Parties.Any(p => p.Resident.UserId == userId))
+                .OrderByDescending(x => x.StartDate)
+                .ToListAsync();
 
     public async Task<ContractServiceResult> CreateDraftAsync(
         ContractDraftInput input,
@@ -92,6 +94,11 @@ public sealed class ContractService : IContractService
         catch (DbUpdateException exception)
         {
             _logger.LogError(exception, "Lỗi dữ liệu khi tạo hợp đồng thuê {ContractCode}", contract.ContractCode);
+            if (exception.InnerException?.Message.Contains("UX_ApartmentContracts_ContractCodeNormalized", StringComparison.OrdinalIgnoreCase) == true ||
+                exception.Message.Contains("UX_ApartmentContracts_ContractCodeNormalized", StringComparison.OrdinalIgnoreCase))
+            {
+                return Failure("Mã hợp đồng đã tồn tại.");
+            }
             return Failure("Không thể tạo hợp đồng vì dữ liệu bị trùng hoặc không hợp lệ.");
         }
     }
@@ -398,6 +405,11 @@ public sealed class ContractService : IContractService
         catch (DbUpdateException exception)
         {
             _logger.LogError(exception, "Lỗi toàn vẹn dữ liệu hợp đồng {ContractId}", contract.ApartmentContractId);
+            if (exception.InnerException?.Message.Contains("UX_ApartmentContracts_ContractCodeNormalized", StringComparison.OrdinalIgnoreCase) == true ||
+                exception.Message.Contains("UX_ApartmentContracts_ContractCodeNormalized", StringComparison.OrdinalIgnoreCase))
+            {
+                return Failure("Mã hợp đồng đã tồn tại.");
+            }
             return Failure(dataErrorMessage);
         }
     }
