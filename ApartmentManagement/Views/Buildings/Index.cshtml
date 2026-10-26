@@ -102,9 +102,11 @@
                                     </span>
                                 </td>
                                 <td>
-                                    <span class="badge @(item.Apartments.Any() ? "bg-success" : "bg-secondary")">
-                                        🚪 @item.Apartments.Count căn
-                                    </span>
+                                    <a asp-controller="Apartments" asp-action="Index" asp-route-buildingId="@item.BuildingId" class="text-decoration-none" title="Xem danh sách căn hộ tòa này">
+                                        <span class="badge @(item.Apartments.Any() ? "bg-success" : "bg-secondary")">
+                                            🚪 @item.Apartments.Count căn
+                                        </span>
+                                    </a>
                                 </td>
                                 <td class="text-muted small">
                                     @(item.Address ?? "Chưa thiết lập")

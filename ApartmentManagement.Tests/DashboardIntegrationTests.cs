@@ -68,6 +68,10 @@ public sealed class DashboardIntegrationTests : IClassFixture<CustomWebApplicati
         // Resident data isolation: Resident 2's info must not appear on Resident 1's dashboard
         Assert.DoesNotContain("100000000002", content);
         Assert.DoesNotContain("B-201", content);
+        Assert.DoesNotContain("Resident Two Private", content);
+        Assert.DoesNotContain("resident2@test.local", content);
+        Assert.DoesNotContain("09000000002", content);
+        Assert.DoesNotContain("TP HCM", content);
     }
 
     [Fact]
@@ -131,7 +135,6 @@ public sealed class DashboardIntegrationTests : IClassFixture<CustomWebApplicati
         Assert.Equal(2, viewResult.ViewData["TotalResidents"]);
         Assert.Equal(1, viewResult.ViewData["OccupiedApartments"]);
         Assert.Equal(2, viewResult.ViewData["VacantApartments"]);
-        Assert.Equal(2, viewResult.ViewData["PendingTickets"]);
         Assert.Equal(2, viewResult.ViewData["PendingComplaints"]);
         Assert.Equal(1, viewResult.ViewData["PendingVehicles"]);
         Assert.Equal(1, viewResult.ViewData["ActiveAmenities"]);
@@ -192,7 +195,6 @@ public sealed class DashboardIntegrationTests : IClassFixture<CustomWebApplicati
         Assert.Equal(0, viewResult.ViewData["TotalResidents"]);
         Assert.Equal(0, viewResult.ViewData["OccupiedApartments"]);
         Assert.Equal(0, viewResult.ViewData["VacantApartments"]);
-        Assert.Equal(0, viewResult.ViewData["PendingTickets"]);
         Assert.Equal(0, viewResult.ViewData["PendingComplaints"]);
         Assert.Equal(0, viewResult.ViewData["PendingVehicles"]);
         Assert.Equal(0, viewResult.ViewData["ActiveAmenities"]);
@@ -260,7 +262,8 @@ public sealed class DashboardIntegrationTests : IClassFixture<CustomWebApplicati
         var adminUser = CreateUser(AdminUserId, "admin@test.local", "Admin User");
         var managerUser = CreateUser(ManagerUserId, "manager@test.local", "Manager User");
         var residentOneUser = CreateUser(ResidentOneUserId, "resident1@test.local", "Resident One");
-        var residentTwoUser = CreateUser(ResidentTwoUserId, "resident2@test.local", "Resident Two");
+        var residentTwoUser = CreateUser(ResidentTwoUserId, "resident2@test.local", "Resident Two Private");
+        residentTwoUser.PhoneNumber = "09000000002";
         context.Users.AddRange(adminUser, managerUser, residentOneUser, residentTwoUser);
 
         // 3. Buildings (2 total)
@@ -355,48 +358,7 @@ public sealed class DashboardIntegrationTests : IClassFixture<CustomWebApplicati
             }
         );
 
-        // 7. Incident Tickets: 1 Submitted, 1 InProgress, 1 Completed -> Pending = 2
-        context.IncidentTickets.AddRange(
-            new IncidentTicket
-            {
-                IncidentTicketId = 1,
-                TicketCode = "INC-001",
-                ApartmentId = 1,
-                ResidentId = 1,
-                Category = IncidentCategory.Water,
-                Title = "Rò nước",
-                Description = "Ống nước rò rỉ",
-                Status = IncidentTicketStatus.Submitted,
-                CreatedAtUtc = DateTime.UtcNow.AddDays(-2)
-            },
-            new IncidentTicket
-            {
-                IncidentTicketId = 2,
-                TicketCode = "INC-002",
-                ApartmentId = 1,
-                ResidentId = 1,
-                Category = IncidentCategory.Electricity,
-                Title = "Cháy bóng đèn",
-                Description = "Đèn phòng khách hỏng",
-                Status = IncidentTicketStatus.InProgress,
-                CreatedAtUtc = DateTime.UtcNow.AddDays(-1)
-            },
-            new IncidentTicket
-            {
-                IncidentTicketId = 3,
-                TicketCode = "INC-003",
-                ApartmentId = 1,
-                ResidentId = 1,
-                Category = IncidentCategory.Other,
-                Title = "Khóa cửa kẹt",
-                Description = "Đã sửa xong",
-                Status = IncidentTicketStatus.Completed,
-                CreatedAtUtc = DateTime.UtcNow.AddDays(-5),
-                CompletedAtUtc = DateTime.UtcNow.AddDays(-3)
-            }
-        );
-
-        // 8. Complaints: 1 "Chờ tiếp nhận", 1 "Đang xử lý", 1 "Đã giải quyết" -> Pending = 2
+        // 7. Complaints: 1 "Chờ tiếp nhận", 1 "Đang xử lý", 1 "Đã giải quyết" -> Pending = 2
         context.Complaints.AddRange(
             new Complaint
             {
@@ -434,7 +396,7 @@ public sealed class DashboardIntegrationTests : IClassFixture<CustomWebApplicati
             }
         );
 
-        // 9. Vehicles: 1 "Chờ duyệt", 1 "Đã duyệt", 1 "Từ chối" -> Pending = 1
+        // 8. Vehicles: 1 "Chờ duyệt", 1 "Đã duyệt", 1 "Từ chối" -> Pending = 1
         context.Vehicles.AddRange(
             new Vehicle
             {
@@ -467,7 +429,7 @@ public sealed class DashboardIntegrationTests : IClassFixture<CustomWebApplicati
             }
         );
 
-        // 10. Amenities: 1 Active, 1 Inactive -> Active = 1
+        // 9. Amenities: 1 Active, 1 Inactive -> Active = 1
         context.Amenities.AddRange(
             new Amenity
             {
@@ -491,7 +453,7 @@ public sealed class DashboardIntegrationTests : IClassFixture<CustomWebApplicati
             }
         );
 
-        // 11. Invoices: 1 Issued with no confirmed payment, 1 Issued with confirmed payment -> Unpaid = 1
+        // 10. Invoices: 1 Issued with no confirmed payment, 1 Issued with confirmed payment -> Unpaid = 1
         var unpaidInvoice = new ApartmentInvoice
         {
             ApartmentInvoiceId = 1,

@@ -167,6 +167,54 @@ public sealed class SqlServerMigrationTests
     }
 
     [SqlServerFact]
+    public async Task ConcurrentMoveIn_ActiveOwnerConstraint_RejectsSecondOwner()
+    {
+        await using var database = SqlServerTestDatabase.Create();
+        int apartmentId;
+        int residentId1;
+        int residentId2;
+
+        await using (var setup = database.CreateContext())
+        {
+            await setup.Database.MigrateAsync();
+            var building = new Building { BuildingCode = "T-OWN", BuildingName = "Tòa Owner", NumberOfFloors = 5 };
+            var apartment = new Apartment { Building = building, ApartmentCode = "201", Floor = 2, Area = 70, Status = "Trống" };
+            var user1 = new ApplicationUser { Id = "concurrent-owner-1", UserName = "owner1@test.local", FullName = "Chủ hộ 1", IsActive = true };
+            var user2 = new ApplicationUser { Id = "concurrent-owner-2", UserName = "owner2@test.local", FullName = "Chủ hộ 2", IsActive = true };
+            var resident1 = new Resident { User = user1, UserId = user1.Id, CitizenId = "000000000055" };
+            var resident2 = new Resident { User = user2, UserId = user2.Id, CitizenId = "000000000066" };
+            setup.AddRange(building, apartment, user1, user2, resident1, resident2);
+            await setup.SaveChangesAsync();
+
+            apartmentId = apartment.ApartmentId;
+            residentId1 = resident1.ResidentId;
+            residentId2 = resident2.ResidentId;
+        }
+
+        async Task<(bool Success, string? ErrorMessage)> AttemptOwnerMoveInAsync(int residentId)
+        {
+            await using var context = database.CreateContext();
+            var service = new OccupancyService(context, NullLogger<OccupancyService>.Instance);
+            var result = await service.MoveInAsync(new MoveInViewModel
+            {
+                ApartmentId = apartmentId,
+                ResidentId = residentId,
+                Relationship = "Chủ hộ",
+                MoveInDate = DateTime.Today,
+                IsOwner = true
+            });
+            return (result.Success, result.ErrorMessage);
+        }
+
+        var results = await Task.WhenAll(AttemptOwnerMoveInAsync(residentId1), AttemptOwnerMoveInAsync(residentId2));
+        await using var verify = database.CreateContext();
+        var activeOwners = await verify.ApartmentResidents.Where(x => x.ApartmentId == apartmentId && x.IsOwner && x.MoveOutDate == null).ToListAsync();
+        Assert.Single(activeOwners);
+        Assert.Single(results, x => x.Success);
+        Assert.Single(results, x => !x.Success && x.ErrorMessage!.Contains("chủ hộ"));
+    }
+
+    [SqlServerFact]
     public async Task Rollback_IsRejectedAfterRepeatedOccupancyHistoryExists()
     {
         await using var database = SqlServerTestDatabase.Create();

@@ -45,6 +45,34 @@ public sealed class ResidentService : IResidentService
     public Task<Resident?> GetByIdAsync(int id) =>
         ResidentQuery().FirstOrDefaultAsync(x => x.ResidentId == id);
 
+    public Task<Resident?> GetByUserIdAsync(string userId) =>
+        ResidentQuery().FirstOrDefaultAsync(x => x.UserId == userId);
+
+    public async Task<(bool Success, string? ErrorMessage)> UpdateProfileAsync(
+        string userId, ResidentProfileEditViewModel model)
+    {
+        var resident = await _context.Residents
+            .Include(x => x.User)
+            .FirstOrDefaultAsync(x => x.UserId == userId);
+        if (resident == null) return (false, "Không tìm thấy hồ sơ cư dân.");
+
+        resident.DateOfBirth = model.DateOfBirth;
+        resident.Gender = Clean(model.Gender);
+        resident.Address = Clean(model.Address);
+        resident.EmergencyContact = Clean(model.EmergencyContact);
+
+        try
+        {
+            await _context.SaveChangesAsync();
+            return (true, null);
+        }
+        catch (DbUpdateException exception)
+        {
+            _logger.LogError(exception, "Lỗi toàn vẹn dữ liệu khi cư dân {UserId} tự cập nhật hồ sơ", userId);
+            return (false, "Không thể cập nhật hồ sơ vì dữ liệu không hợp lệ.");
+        }
+    }
+
     public async Task<(bool Success, string? ErrorMessage, Resident? Resident)> CreateAsync(
         ResidentCreateViewModel model)
     {

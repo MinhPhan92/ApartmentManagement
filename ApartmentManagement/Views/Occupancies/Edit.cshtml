@@ -1,0 +1,66 @@
+@model ApartmentManagement.Models.OccupancyEditViewModel
+@{
+    ViewData["Title"] = "Chỉnh sửa hồ sơ cư trú";
+}
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <div class="card-header bg-primary text-white p-4">
+                    <h4 class="mb-1">✏️ Chỉnh Sửa Quan Hệ & Hồ Sơ Cư Trú</h4>
+                    <p class="mb-0 text-white-50">Căn hộ @Model.ApartmentCode · Cư dân: @Model.ResidentName</p>
+                </div>
+                <div class="card-body p-4">
+                    <form method="post">
+                        <input type="hidden" asp-for="ApartmentResidentId" />
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+
+                        <div class="bg-light p-3 rounded-3 mb-4">
+                            <div class="row g-2 small">
+                                <div class="col-md-6"><strong>Căn hộ:</strong> @Model.ApartmentCode (@Model.BuildingName)</div>
+                                <div class="col-md-6"><strong>Cư dân:</strong> @Model.ResidentName</div>
+                                <div class="col-md-6"><strong>CCCD/CMND:</strong> @Model.CitizenId</div>
+                                <div class="col-md-6"><strong>Ngày chuyển vào:</strong> @Model.MoveInDate.ToString("dd/MM/yyyy")</div>
+                                @if (Model.MoveOutDate != null)
+                                {
+                                    <div class="col-md-6"><strong>Ngày chuyển đi:</strong> @Model.MoveOutDate.Value.ToString("dd/MM/yyyy")</div>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label asp-for="Relationship" class="form-label fw-semibold"></label>
+                                <input asp-for="Relationship" class="form-control" placeholder="Chủ hộ, Vợ, Con, Khách thuê..." />
+                                <span asp-validation-for="Relationship" class="text-danger small"></span>
+                            </div>
+                            <div class="col-md-6 d-flex align-items-center pt-4">
+                                <div class="form-check form-switch fs-5">
+                                    <input asp-for="IsOwner" class="form-check-input" type="checkbox" id="isOwnerSwitch" />
+                                    <label class="form-check-label fs-6 fw-semibold" for="isOwnerSwitch">
+                                        Đại diện Chủ hộ
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-text mt-2 text-muted">
+                            Lưu ý: Mỗi căn hộ chỉ có thể có tối đa một Chủ hộ đang hoạt động cùng một thời điểm.
+                        </div>
+
+                        <hr class="my-4" />
+                        <div class="text-end">
+                            <a asp-action="Details" asp-route-id="@Model.ApartmentResidentId" class="btn btn-outline-secondary me-2">Hủy</a>
+                            <button type="submit" class="btn btn-primary fw-semibold">💾 Lưu thay đổi</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

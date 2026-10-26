@@ -39,10 +39,69 @@ public sealed class OccupanciesController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> Create()
+    public async Task<IActionResult> Create(int? apartmentId, int? residentId)
     {
         await PopulateSelectionsAsync();
-        return View(new MoveInViewModel());
+        var model = new MoveInViewModel();
+        if (apartmentId.HasValue && apartmentId.Value > 0) model.ApartmentId = apartmentId.Value;
+        if (residentId.HasValue && residentId.Value > 0) model.ResidentId = residentId.Value;
+        return View(model);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Edit(int id)
+    {
+        var occupancy = await _service.GetByIdAsync(id);
+        if (occupancy == null) return NotFound();
+        return View(new OccupancyEditViewModel
+        {
+            ApartmentResidentId = occupancy.ApartmentResidentId,
+            ApartmentId = occupancy.ApartmentId,
+            ApartmentCode = occupancy.Apartment.ApartmentCode,
+            BuildingName = occupancy.Apartment.Building?.BuildingName,
+            ResidentId = occupancy.ResidentId,
+            ResidentName = occupancy.Resident.User.FullName,
+            CitizenId = occupancy.Resident.CitizenId,
+            Relationship = occupancy.Relationship,
+            IsOwner = occupancy.IsOwner,
+            MoveInDate = occupancy.MoveInDate,
+            MoveOutDate = occupancy.MoveOutDate
+        });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Edit(int id, OccupancyEditViewModel model)
+    {
+        if (id != model.ApartmentResidentId) return BadRequest();
+        if (!ModelState.IsValid)
+        {
+            await RepopulateEditDisplayAsync(model, id);
+            return View(model);
+        }
+        var result = await _service.UpdateOccupancyAsync(model);
+        if (!result.Success)
+        {
+            ModelState.AddModelError(string.Empty, result.ErrorMessage!);
+            await RepopulateEditDisplayAsync(model, id);
+            return View(model);
+        }
+        TempData["SuccessMessage"] = "Đã cập nhật quan hệ và thông tin cư trú.";
+        return RedirectToAction(nameof(Details), new { id });
+    }
+
+    private async Task RepopulateEditDisplayAsync(OccupancyEditViewModel model, int id)
+    {
+        var occupancy = await _service.GetByIdAsync(id);
+        if (occupancy != null)
+        {
+            model.ApartmentCode = occupancy.Apartment.ApartmentCode;
+            model.BuildingName = occupancy.Apartment.Building?.BuildingName;
+            model.ResidentName = occupancy.Resident.User.FullName;
+            model.CitizenId = occupancy.Resident.CitizenId;
+            model.MoveInDate = occupancy.MoveInDate;
+            model.MoveOutDate = occupancy.MoveOutDate;
+        }
     }
 
     [HttpPost]

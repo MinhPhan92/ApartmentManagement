@@ -3,37 +3,62 @@
 @inject SignInManager<ApplicationUser> SignInManager
 @inject UserManager<ApplicationUser> UserManager
 
-<ul class="navbar-nav align-items-center">
-    @if (SignInManager.IsSignedIn(User))
-    {
-        var currentUser = await UserManager.GetUserAsync(User);
-        var roles = currentUser != null ? await UserManager.GetRolesAsync(currentUser) : new List<string>();
-        var roleName = roles.FirstOrDefault() ?? "Người dùng";
+@if (SignInManager.IsSignedIn(User))
+{
+    var currentUser = await UserManager.GetUserAsync(User);
+    var roles = currentUser != null ? await UserManager.GetRolesAsync(currentUser) : new List<string>();
+    var roleName = roles.FirstOrDefault() ?? "Người dùng";
+    var initials = !string.IsNullOrWhiteSpace(currentUser?.FullName)
+        ? string.Join("", currentUser.FullName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(s => s[0])).ToUpper()
+        : "U";
 
-        <li class="nav-item me-2">
-            <span class="badge bg-light text-primary border px-2 py-1">
-                @roleName
-            </span>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link text-dark fw-semibold" asp-area="Identity" asp-page="/Account/Manage/Index" title="Quản lý tài khoản">
-                👤 @(currentUser?.FullName ?? User.Identity?.Name)
-            </a>
-        </li>
-        <li class="nav-item ms-2">
-            <form class="form-inline" asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="@Url.Action("Index", "Home", new { area = "" })" method="post">
-                <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-3">
-                    Đăng xuất
-                </button>
-            </form>
-        </li>
-    }
-    else
-    {
-        <li class="nav-item ms-2">
-            <a class="btn btn-primary btn-sm rounded-pill px-3 fw-semibold shadow-sm" asp-area="Identity" asp-page="/Account/Login">
-                Đăng nhập
-            </a>
-        </li>
-    }
-</ul>
+    <div class="dropdown">
+        <button class="user-profile-button dropdown-toggle border-0" type="button" id="userMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
+            <div class="user-avatar-circle">
+                @initials
+            </div>
+            <div class="text-start d-none d-md-block pe-1">
+                <div class="fw-bold small text-dark lh-1">@(currentUser?.FullName ?? User.Identity?.Name)</div>
+                <span class="badge-brand mt-1" style="font-size: 0.68rem; padding: 0.15rem 0.45rem;">@roleName</span>
+            </div>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 py-2 mt-2" aria-labelledby="userMenuButton" style="min-width: 230px; border-radius: 12px; border: 1px solid var(--border-subtle) !important;">
+            <li class="px-3 py-2 border-bottom mb-1">
+                <div class="fw-bold text-dark">@(currentUser?.FullName ?? "Tài khoản")</div>
+                <div class="small text-muted text-truncate">@(currentUser?.Email ?? "")</div>
+            </li>
+            @if (User.IsInRole("Resident"))
+            {
+                <li>
+                    <a class="dropdown-item py-2 d-flex align-items-center gap-2" asp-controller="Dashboard" asp-action="Resident">
+                        <i class="bi bi-person-vcard text-muted"></i>
+                        <span>Hồ sơ cư dân</span>
+                    </a>
+                </li>
+            }
+            <li>
+                <a class="dropdown-item py-2 d-flex align-items-center gap-2" asp-area="Identity" asp-page="/Account/Manage/Index">
+                    <i class="bi bi-gear text-muted"></i>
+                    <span>Cài đặt tài khoản</span>
+                </a>
+            </li>
+            <li><hr class="dropdown-divider my-1"></li>
+            <li class="px-2 pt-1">
+                <form asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="@Url.Action("Index", "Home", new { area = "" })" method="post">
+                    <button type="submit" class="btn btn-sm btn-outline-danger w-100 d-flex align-items-center justify-content-center gap-2 py-1 rounded-2">
+                        <i class="bi bi-box-arrow-right"></i>
+                        <span>Đăng xuất</span>
+                    </button>
+                </form>
+            </li>
+        </ul>
+    </div>
+}
+else
+{
+    <div class="d-flex align-items-center gap-2">
+        <a class="btn btn-brand-outline btn-sm" asp-area="Identity" asp-page="/Account/Login">
+            <i class="bi bi-box-arrow-in-right"></i> Đăng nhập
+        </a>
+    </div>
+}

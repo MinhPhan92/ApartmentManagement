@@ -80,10 +80,90 @@ namespace ApartmentManagement.Controllers
                 .Include(r => r.Complaints)
                 .FirstOrDefaultAsync(r => r.UserId == user.Id);
 
+            var activeOccupancy = residentProfile?.ApartmentResidents
+                .FirstOrDefault(ar => ar.MoveOutDate == null);
+
+            List<ApartmentResident> householdMembers = new();
+            if (activeOccupancy != null)
+            {
+                householdMembers = await _context.ApartmentResidents
+                    .Include(ar => ar.Resident)
+                        .ThenInclude(r => r.User)
+                    .Where(ar => ar.ApartmentId == activeOccupancy.ApartmentId && ar.MoveOutDate == null)
+                    .OrderByDescending(ar => ar.IsOwner)
+                    .ThenBy(ar => ar.MoveInDate)
+                    .ToListAsync();
+            }
+
             ViewBag.UserFullName = user.FullName;
             ViewBag.UserEmail = user.Email;
+            ViewBag.ActiveApartment = activeOccupancy?.Apartment;
+            ViewBag.HouseholdMembers = householdMembers;
 
             return View(residentProfile);
+        }
+
+        [HttpGet]
+        [Authorize(Policy = AppPolicies.RequireResident)]
+        public async Task<IActionResult> EditProfile()
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return Challenge();
+
+            var resident = await _context.Residents
+                .FirstOrDefaultAsync(r => r.UserId == user.Id);
+            if (resident == null) return NotFound();
+
+            var model = new ResidentProfileEditViewModel
+            {
+                FullName = user.FullName,
+                Email = user.Email ?? string.Empty,
+                CitizenId = resident.CitizenId,
+                DateOfBirth = resident.DateOfBirth,
+                Gender = resident.Gender,
+                Address = resident.Address,
+                EmergencyContact = resident.EmergencyContact
+            };
+
+            return View(model);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Policy = AppPolicies.RequireResident)]
+        public async Task<IActionResult> EditProfile(ResidentProfileEditViewModel model)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return Challenge();
+
+            var resident = await _context.Residents.FirstOrDefaultAsync(r => r.UserId == user.Id);
+            if (resident == null) return NotFound();
+
+            model.FullName = user.FullName;
+            model.Email = user.Email ?? string.Empty;
+            model.CitizenId = resident.CitizenId;
+
+            if (!ModelState.IsValid)
+            {
+                return View(model);
+            }
+
+            resident.DateOfBirth = model.DateOfBirth;
+            resident.Gender = string.IsNullOrWhiteSpace(model.Gender) ? null : model.Gender.Trim();
+            resident.Address = string.IsNullOrWhiteSpace(model.Address) ? null : model.Address.Trim();
+            resident.EmergencyContact = string.IsNullOrWhiteSpace(model.EmergencyContact) ? null : model.EmergencyContact.Trim();
+
+            try
+            {
+                await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = "Cập nhật thông tin thành công.";
+                return RedirectToAction(nameof(Resident));
+            }
+            catch (DbUpdateException)
+            {
+                ModelState.AddModelError(string.Empty, "Không thể cập nhật thông tin do dữ liệu không hợp lệ.");
+                return View(model);
+            }
         }
     }
 }

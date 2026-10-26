@@ -62,11 +62,24 @@ public sealed class OccupancyService : IOccupancyService
         return vnDate > localDate ? vnDate : localDate;
     }
 
+    public Task<List<ApartmentResident>> GetActiveHouseholdMembersAsync(int apartmentId) =>
+        Query()
+            .Where(x => x.ApartmentId == apartmentId && x.MoveOutDate == null)
+            .OrderByDescending(x => x.IsOwner)
+            .ThenBy(x => x.MoveInDate)
+            .ToListAsync();
+
     public async Task<(bool Success, string? ErrorMessage, ApartmentResident? Occupancy)> MoveInAsync(
         MoveInViewModel model)
     {
         var apartment = await _context.Apartments.FindAsync(model.ApartmentId);
         if (apartment == null) return (false, "Căn hộ không tồn tại.", null);
+        var normalizedStatus = ApartmentStatus.Normalize(apartment.Status);
+        if (normalizedStatus == ApartmentStatus.Maintenance)
+            return (false, "Căn hộ đang trong trạng thái bảo trì, không thể làm thủ tục chuyển vào.", null);
+        if (normalizedStatus == ApartmentStatus.Inactive)
+            return (false, "Căn hộ đã ngừng sử dụng (không hoạt động), không thể làm thủ tục chuyển vào.", null);
+
         var residentExists = await _context.Residents.AnyAsync(x => x.ResidentId == model.ResidentId);
         if (!residentExists) return (false, "Cư dân không tồn tại.", null);
         if (string.IsNullOrWhiteSpace(model.Relationship) ||
@@ -79,6 +92,9 @@ public sealed class OccupancyService : IOccupancyService
         if (await _context.ApartmentResidents.AnyAsync(x =>
                 x.ApartmentId == model.ApartmentId && x.ResidentId == model.ResidentId && x.MoveOutDate == null))
             return (false, "Cư dân đã có hồ sơ cư trú đang hoạt động tại căn hộ này.", null);
+        if (model.IsOwner && await _context.ApartmentResidents.AnyAsync(x =>
+                x.ApartmentId == model.ApartmentId && x.IsOwner && x.MoveOutDate == null))
+            return (false, "Căn hộ đã có chủ hộ đang hoạt động.", null);
 
         var occupancy = new ApartmentResident
         {
@@ -89,7 +105,7 @@ public sealed class OccupancyService : IOccupancyService
             IsOwner = model.IsOwner
         };
         _context.ApartmentResidents.Add(occupancy);
-        apartment.Status = "Đang sử dụng";
+        apartment.Status = ApartmentStatus.Occupied;
         try
         {
             await _context.SaveChangesAsync();
@@ -98,7 +114,54 @@ public sealed class OccupancyService : IOccupancyService
         catch (DbUpdateException exception)
         {
             _logger.LogError(exception, "Lỗi dữ liệu khi move-in cư dân {ResidentId} vào căn hộ {ApartmentId}", model.ResidentId, model.ApartmentId);
+            if (exception.InnerException?.Message.Contains("UX_ApartmentResidents_ActiveOwner") == true ||
+                exception.Message.Contains("UX_ApartmentResidents_ActiveOwner"))
+            {
+                return (false, "Căn hộ đã có chủ hộ đang hoạt động.", null);
+            }
             return (false, "Không thể tạo hồ sơ cư trú vì dữ liệu trùng hoặc không hợp lệ.", null);
+        }
+    }
+
+    public async Task<(bool Success, string? ErrorMessage)> UpdateOccupancyAsync(OccupancyEditViewModel model)
+    {
+        var occupancy = await _context.ApartmentResidents
+            .Include(x => x.Apartment)
+            .FirstOrDefaultAsync(x => x.ApartmentResidentId == model.ApartmentResidentId);
+        if (occupancy == null) return (false, "Không tìm thấy hồ sơ cư trú.");
+
+        if (string.IsNullOrWhiteSpace(model.Relationship) ||
+            model.Relationship.Trim().Length > ResidentValidation.RelationshipMaxLength)
+            return (false, "Quan hệ cư trú là bắt buộc và không được vượt quá 100 ký tự.");
+
+        if (model.IsOwner && occupancy.MoveOutDate == null)
+        {
+            var hasOtherActiveOwner = await _context.ApartmentResidents.AnyAsync(x =>
+                x.ApartmentId == occupancy.ApartmentId &&
+                x.ApartmentResidentId != occupancy.ApartmentResidentId &&
+                x.IsOwner &&
+                x.MoveOutDate == null);
+            if (hasOtherActiveOwner)
+                return (false, "Căn hộ đã có chủ hộ đang hoạt động.");
+        }
+
+        occupancy.Relationship = model.Relationship.Trim();
+        occupancy.IsOwner = model.IsOwner;
+
+        try
+        {
+            await _context.SaveChangesAsync();
+            return (true, null);
+        }
+        catch (DbUpdateException exception)
+        {
+            _logger.LogError(exception, "Lỗi dữ liệu khi cập nhật hồ sơ cư trú {OccupancyId}", model.ApartmentResidentId);
+            if (exception.InnerException?.Message.Contains("UX_ApartmentResidents_ActiveOwner") == true ||
+                exception.Message.Contains("UX_ApartmentResidents_ActiveOwner"))
+            {
+                return (false, "Căn hộ đã có chủ hộ đang hoạt động.");
+            }
+            return (false, "Không thể cập nhật hồ sơ cư trú vì dữ liệu không hợp lệ.");
         }
     }
 
@@ -119,7 +182,14 @@ public sealed class OccupancyService : IOccupancyService
             x.ApartmentId == occupancy.ApartmentId &&
             x.ApartmentResidentId != occupancy.ApartmentResidentId &&
             x.MoveOutDate == null);
-        if (!hasOtherActiveOccupancy) occupancy.Apartment.Status = "Trống";
+        if (!hasOtherActiveOccupancy)
+        {
+            var currentNormalized = ApartmentStatus.Normalize(occupancy.Apartment.Status);
+            if (currentNormalized != ApartmentStatus.Inactive)
+            {
+                occupancy.Apartment.Status = ApartmentStatus.Vacant;
+            }
+        }
 
         try
         {

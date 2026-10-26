@@ -2,6 +2,8 @@
 
 @{
     ViewData["Title"] = "Chi Tiết Căn Hộ: " + Model.ApartmentCode;
+    var activeResidentCount = Model.ApartmentResidents?.Count(ar => ar.MoveOutDate == null) ?? 0;
+    var totalResidentCount = Model.ApartmentResidents?.Count ?? 0;
 }
 
 <div class="container py-4">
@@ -13,6 +15,29 @@
             <li class="breadcrumb-item active" aria-current="page">Chi tiết: @Model.ApartmentCode</li>
         </ol>
     </nav>
+
+    <!-- Alerts -->
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm rounded-3 mb-4" role="alert">
+            <div class="d-flex align-items-center gap-2">
+                <span>✅</span>
+                <strong>@TempData["SuccessMessage"]</strong>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm rounded-3 mb-4" role="alert">
+            <div class="d-flex align-items-center gap-2">
+                <span>⚠️</span>
+                <strong>@TempData["ErrorMessage"]</strong>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
 
     <div class="row g-4">
         <!-- Apartment Overview Card -->
@@ -51,31 +76,52 @@
                         </li>
                         <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
                             <span class="text-muted">Trạng thái hiện tại:</span>
-                            @if (Model.Status == "Đang sử dụng")
+                            @if (Model.Status == ApartmentStatus.Occupied)
                             {
                                 <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
                                     ● @Model.Status
                                 </span>
                             }
-                            else if (Model.Status == "Đang trống")
+                            else if (Model.Status == ApartmentStatus.Vacant || Model.Status == ApartmentStatus.LegacyVacant)
+                            {
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">
+                                    ○ @Model.Status
+                                </span>
+                            }
+                            else if (Model.Status == ApartmentStatus.Maintenance || Model.Status == ApartmentStatus.LegacyMaintenance)
                             {
                                 <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1">
-                                    ○ @Model.Status
+                                    🛠️ @Model.Status
+                                </span>
+                            }
+                            else if (Model.Status == ApartmentStatus.Inactive)
+                            {
+                                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1">
+                                    🚫 @Model.Status
                                 </span>
                             }
                             else
                             {
-                                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1">
-                                    🛠️ @Model.Status
+                                <span class="badge bg-light text-dark border px-2 py-1">
+                                    @Model.Status
                                 </span>
                             }
                         </li>
                     </ul>
 
-                    <div class="mt-4 pt-3 border-top d-flex gap-2">
+                    <div class="mt-4 pt-3 border-top d-flex flex-wrap gap-2">
                         <a asp-action="Edit" asp-route-id="@Model.ApartmentId" class="btn btn-warning flex-grow-1 fw-semibold shadow-sm">
                             ✏️ Chỉnh Sửa
                         </a>
+                        @if (Model.Status != ApartmentStatus.Inactive)
+                        {
+                            <form asp-action="Deactivate" asp-route-id="@Model.ApartmentId" method="post" class="d-inline" onsubmit="return confirm('Bạn có chắc chắn muốn chuyển trạng thái căn hộ sang Không hoạt động?');">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn-outline-secondary px-3" title="Ngừng sử dụng căn hộ để bảo toàn lịch sử">
+                                    🚫 Ngừng sử dụng
+                                </button>
+                            </form>
+                        }
                         <a asp-action="Delete" asp-route-id="@Model.ApartmentId" class="btn btn-outline-danger px-3" title="Xóa căn hộ">
                             🗑️ Xóa
                         </a>
@@ -91,8 +137,15 @@
         <div class="col-12 col-lg-7">
             <div class="card border-0 shadow-sm rounded-4 h-100">
                 <div class="card-header bg-white py-3 px-4 border-0 d-flex justify-content-between align-items-center">
-                    <h5 class="fw-bold mb-0">👥 Danh Sách Cư Dân Lưu Trú</h5>
-                    <span class="badge bg-light text-muted border">@Model.ApartmentResidents.Count người</span>
+                    <div>
+                        <h5 class="fw-bold mb-0">👥 Danh Sách Cư Dân Lưu Trú</h5>
+                        <small class="text-muted">Đang ở: <strong>@activeResidentCount</strong> / Tổng hồ sơ: <strong>@totalResidentCount</strong></small>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <a asp-controller="Occupancies" asp-action="Create" asp-route-apartmentId="@Model.ApartmentId" class="btn btn-sm btn-primary">
+                            ➕ Gán cư dân
+                        </a>
+                    </div>
                 </div>
                 <div class="card-body p-0">
                     @if (Model.ApartmentResidents != null && Model.ApartmentResidents.Any())
@@ -105,11 +158,13 @@
                                         <th>Quan Hệ</th>
                                         <th>CCCD / CMND</th>
                                         <th>Ngày Vào Ở</th>
+                                        <th>Tình Trạng</th>
                                         <th>Vai Trò</th>
+                                        <th class="text-end pe-4">Thao tác</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach (var ar in Model.ApartmentResidents)
+                                    @foreach (var ar in Model.ApartmentResidents.OrderByDescending(x => x.MoveOutDate == null).ThenByDescending(x => x.IsOwner))
                                     {
                                         <tr>
                                             <td class="ps-4 fw-semibold text-primary">
@@ -119,6 +174,20 @@
                                             <td>@(ar.Resident?.CitizenId ?? "N/A")</td>
                                             <td>@ar.MoveInDate.ToString("dd/MM/yyyy")</td>
                                             <td>
+                                                @if (ar.MoveOutDate == null)
+                                                {
+                                                    <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                                        Đang ở
+                                                    </span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
+                                                        Đã ra (@ar.MoveOutDate.Value.ToString("dd/MM/yyyy"))
+                                                    </span>
+                                                }
+                                            </td>
+                                            <td>
                                                 @if (ar.IsOwner)
                                                 {
                                                     <span class="badge bg-primary">Chủ Hộ</span>
@@ -127,6 +196,9 @@
                                                 {
                                                     <span class="badge bg-light text-dark border">Thành viên</span>
                                                 }
+                                            </td>
+                                            <td class="text-end pe-4">
+                                                <a asp-controller="Occupancies" asp-action="Edit" asp-route-id="@ar.ApartmentResidentId" class="btn btn-sm btn-outline-warning">Sửa</a>
                                             </td>
                                         </tr>
                                     }
@@ -139,7 +211,7 @@
                         <div class="text-center py-5 text-muted">
                             <span class="fs-1 d-block mb-2">👤</span>
                             <p class="mb-1 fw-semibold">Căn hộ hiện chưa có cư dân nào đăng ký lưu trú.</p>
-                            <small class="text-muted">Bạn có thể thêm và gán cư dân vào căn hộ này trong module <strong>Resident Management</strong> (bước kế tiếp).</small>
+                            <small class="text-muted">Nhấn "Gán cư dân" để tiếp nhận cư dân vào căn hộ này.</small>
                         </div>
                     }
                 </div>

@@ -65,9 +65,19 @@
         <!-- Apartments in this building -->
         <div class="col-12 col-lg-7">
             <div class="card border-0 shadow-sm rounded-4 h-100">
-                <div class="card-header bg-white py-3 px-4 border-0 d-flex justify-content-between align-items-center">
-                    <h5 class="fw-bold mb-0">🚪 Danh Sách Căn Hộ Trực Thuộc</h5>
-                    <span class="badge bg-light text-muted border">@Model.Apartments.Count căn</span>
+                <div class="card-header bg-white py-3 px-4 border-0 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div>
+                        <h5 class="fw-bold mb-0">🚪 Danh Sách Căn Hộ Trực Thuộc</h5>
+                        <small class="text-muted">Tổng số: <strong>@Model.Apartments.Count</strong> căn hộ</small>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <a asp-controller="Apartments" asp-action="Index" asp-route-buildingId="@Model.BuildingId" class="btn btn-sm btn-outline-primary shadow-sm">
+                            🔍 Xem trên danh mục
+                        </a>
+                        <a asp-controller="Apartments" asp-action="Create" asp-route-buildingId="@Model.BuildingId" class="btn btn-sm btn-primary shadow-sm">
+                            ➕ Thêm căn hộ
+                        </a>
+                    </div>
                 </div>
                 <div class="card-body p-0">
                     @if (Model.Apartments != null && Model.Apartments.Any())
@@ -80,19 +90,61 @@
                                         <th>Tầng</th>
                                         <th>Diện Tích</th>
                                         <th>Trạng Thái</th>
+                                        <th class="text-end pe-4">Thao Tác</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach (var apt in Model.Apartments)
+                                    @foreach (var apt in Model.Apartments.OrderBy(x => x.Floor).ThenBy(x => x.ApartmentCode))
                                     {
                                         <tr>
-                                            <td class="ps-4 fw-bold">@apt.ApartmentCode</td>
+                                            <td class="ps-4 fw-bold">
+                                                <a asp-controller="Apartments" asp-action="Details" asp-route-id="@apt.ApartmentId" class="text-decoration-none">
+                                                    🚪 @apt.ApartmentCode
+                                                </a>
+                                            </td>
                                             <td>Tầng @apt.Floor</td>
-                                            <td>@apt.Area m²</td>
+                                            <td>@apt.Area.ToString("N1") m²</td>
                                             <td>
-                                                <span class="badge @(apt.Status == "Đang sử dụng" ? "bg-success" : "bg-warning text-dark")">
-                                                    @apt.Status
-                                                </span>
+                                                @if (apt.Status == ApartmentStatus.Occupied)
+                                                {
+                                                    <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                                        ● @apt.Status
+                                                    </span>
+                                                }
+                                                else if (apt.Status == ApartmentStatus.Vacant || apt.Status == ApartmentStatus.LegacyVacant)
+                                                {
+                                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                                                        ○ @apt.Status
+                                                    </span>
+                                                }
+                                                else if (apt.Status == ApartmentStatus.Maintenance || apt.Status == ApartmentStatus.LegacyMaintenance)
+                                                {
+                                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
+                                                        🛠️ @apt.Status
+                                                    </span>
+                                                }
+                                                else if (apt.Status == ApartmentStatus.Inactive)
+                                                {
+                                                    <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
+                                                        🚫 @apt.Status
+                                                    </span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-light text-dark border">
+                                                        @apt.Status
+                                                    </span>
+                                                }
+                                            </td>
+                                            <td class="text-end pe-4">
+                                                <div class="btn-group btn-group-sm">
+                                                    <a asp-controller="Apartments" asp-action="Details" asp-route-id="@apt.ApartmentId" class="btn btn-outline-info" title="Xem chi tiết">
+                                                        Chi tiết
+                                                    </a>
+                                                    <a asp-controller="Apartments" asp-action="Edit" asp-route-id="@apt.ApartmentId" class="btn btn-outline-warning" title="Chỉnh sửa">
+                                                        Sửa
+                                                    </a>
+                                                </div>
                                             </td>
                                         </tr>
                                     }
@@ -105,7 +157,9 @@
                         <div class="text-center py-5 text-muted">
                             <span class="fs-1 d-block mb-2">🚪</span>
                             <p class="mb-1 fw-semibold">Chưa có căn hộ nào trong tòa nhà này.</p>
-                            <small class="text-muted">Căn hộ sẽ được tạo và liên kết trong module Apartment (bước kế tiếp).</small>
+                            <a asp-controller="Apartments" asp-action="Create" asp-route-buildingId="@Model.BuildingId" class="btn btn-sm btn-primary mt-2">
+                                ➕ Thêm căn hộ đầu tiên
+                            </a>
                         </div>
                     }
                 </div>

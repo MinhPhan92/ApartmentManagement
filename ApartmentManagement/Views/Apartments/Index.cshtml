@@ -138,22 +138,34 @@
                                         <span class="text-secondary">@item.Area.ToString("N1") m²</span>
                                     </td>
                                     <td>
-                                        @if (item.Status == "Đang sử dụng")
+                                        @if (item.Status == ApartmentStatus.Occupied)
                                         {
                                             <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
                                                 ● @item.Status
                                             </span>
                                         }
-                                        else if (item.Status == "Đang trống")
+                                        else if (item.Status == ApartmentStatus.Vacant || item.Status == ApartmentStatus.LegacyVacant)
+                                        {
+                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">
+                                                ○ @item.Status
+                                            </span>
+                                        }
+                                        else if (item.Status == ApartmentStatus.Maintenance || item.Status == ApartmentStatus.LegacyMaintenance)
                                         {
                                             <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1">
-                                                ○ @item.Status
+                                                🛠️ @item.Status
+                                            </span>
+                                        }
+                                        else if (item.Status == ApartmentStatus.Inactive)
+                                        {
+                                            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1">
+                                                🚫 @item.Status
                                             </span>
                                         }
                                         else
                                         {
-                                            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1">
-                                                🛠️ @item.Status
+                                            <span class="badge bg-light text-dark border px-2 py-1">
+                                                @item.Status
                                             </span>
                                         }
                                     </td>
