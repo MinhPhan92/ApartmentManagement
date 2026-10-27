@@ -2,25 +2,76 @@
 @{
     ViewData["Title"] = "Ghi chỉ số công tơ";
 }
+
 <div class="container py-4">
     <div class="card border-0 shadow-sm rounded-4 mx-auto" style="max-width: 700px">
         <div class="card-body p-4 p-md-5">
-            <h1 class="h3 fw-bold">Ghi chỉ số công tơ</h1>
-            <p class="text-muted">Mỗi căn hộ, loại công tơ và kỳ chỉ được ghi một lần; chỉ số hiện tại không được nhỏ hơn chỉ số trước.</p>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-2">
+                    <li class="breadcrumb-item"><a asp-action="Index">Phí & Hóa đơn</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Ghi chỉ số</li>
+                </ol>
+            </nav>
+            <h1 class="h3 fw-bold mb-2">Ghi chỉ số công tơ điện / nước</h1>
+            <p class="text-muted small mb-4">Ghi nhận chỉ số tiêu thụ theo từng căn hộ và kỳ tính phí. Chỉ số đầu kỳ phải khớp với chỉ số cuối kỳ trước đó.</p>
+
             <form asp-action="RecordReading" method="post">
-                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
-                <div class="mb-3"><label asp-for="ApartmentId" class="form-label">Căn hộ</label><select asp-for="ApartmentId" asp-items="Model.ApartmentOptions" class="form-select"><option value="">-- Chọn căn hộ --</option></select><span asp-validation-for="ApartmentId" class="text-danger"></span></div>
-                <div class="mb-3"><label asp-for="UtilityType" class="form-label">Loại công tơ</label><select asp-for="UtilityType" class="form-select"><option value="@FeeChargeType.Electricity">Điện</option><option value="@FeeChargeType.Water">Nước</option></select></div>
-                <div class="row">
-                    <div class="col-md-6 mb-3"><label asp-for="BillingMonth" class="form-label">Tháng</label><input asp-for="BillingMonth" class="form-control" /></div>
-                    <div class="col-md-6 mb-3"><label asp-for="BillingYear" class="form-label">Năm</label><input asp-for="BillingYear" class="form-control" /></div>
-                    <div class="col-md-6 mb-3"><label asp-for="PreviousReading" class="form-label">Chỉ số đầu kỳ</label><input asp-for="PreviousReading" class="form-control" /><span asp-validation-for="PreviousReading" class="text-danger"></span></div>
-                    <div class="col-md-6 mb-3"><label asp-for="CurrentReading" class="form-label">Chỉ số cuối kỳ</label><input asp-for="CurrentReading" class="form-control" /><span asp-validation-for="CurrentReading" class="text-danger"></span></div>
+                <div asp-validation-summary="ModelOnly" class="alert alert-danger rounded-3 mb-3"></div>
+
+                <div class="mb-3">
+                    <label asp-for="ApartmentId" class="form-label fw-semibold">Căn hộ <span class="text-danger">*</span></label>
+                    <select asp-for="ApartmentId" asp-items="Model.ApartmentOptions" class="form-select form-select-lg">
+                        <option value="">-- Chọn căn hộ --</option>
+                    </select>
+                    <span asp-validation-for="ApartmentId" class="text-danger small"></span>
                 </div>
-                <button type="submit" class="btn btn-primary">Lưu chỉ số</button>
-                <a asp-action="Index" class="btn btn-outline-secondary ms-2">Hủy</a>
+
+                <div class="mb-3">
+                    <label asp-for="UtilityType" class="form-label fw-semibold">Loại công tơ dịch vụ <span class="text-danger">*</span></label>
+                    <select asp-for="UtilityType" class="form-select">
+                        <option value="@FeeChargeType.Electricity">⚡ Điện sinh hoạt (kWh)</option>
+                        <option value="@FeeChargeType.Water">💧 Nước sinh hoạt (m³)</option>
+                    </select>
+                    <span asp-validation-for="UtilityType" class="text-danger small"></span>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label asp-for="BillingMonth" class="form-label fw-semibold">Tháng ghi chỉ số <span class="text-danger">*</span></label>
+                        <input asp-for="BillingMonth" class="form-control" type="number" min="1" max="12" />
+                        <span asp-validation-for="BillingMonth" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="BillingYear" class="form-label fw-semibold">Năm ghi chỉ số <span class="text-danger">*</span></label>
+                        <input asp-for="BillingYear" class="form-control" type="number" min="2000" max="2200" />
+                        <span asp-validation-for="BillingYear" class="text-danger small"></span>
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label asp-for="PreviousReading" class="form-label fw-semibold">Chỉ số đầu kỳ <span class="text-danger">*</span></label>
+                        <input asp-for="PreviousReading" class="form-control font-monospace" type="number" step="0.0001" min="0" placeholder="0.00" />
+                        <span asp-validation-for="PreviousReading" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="CurrentReading" class="form-label fw-semibold">Chỉ số cuối kỳ <span class="text-danger">*</span></label>
+                        <input asp-for="CurrentReading" class="form-control font-monospace" type="number" step="0.0001" min="0" placeholder="0.00" />
+                        <span asp-validation-for="CurrentReading" class="text-danger small"></span>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary d-inline-flex align-items-center gap-1">
+                        <i class="bi bi-save2"></i> Lưu chỉ số công tơ
+                    </button>
+                    <a asp-action="Index" class="btn btn-outline-secondary">Hủy bỏ</a>
+                </div>
             </form>
         </div>
     </div>
 </div>
-@section Scripts { <partial name="_ValidationScriptsPartial" /> }
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

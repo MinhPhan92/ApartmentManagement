@@ -1,26 +1,104 @@
 @model FeeTariffEditViewModel
 @{
-    ViewData["Title"] = "Thêm biểu phí";
+    ViewData["Title"] = "Thêm biểu phí dịch vụ";
 }
+
 <div class="container py-4">
     <div class="card border-0 shadow-sm rounded-4 mx-auto" style="max-width: 760px">
         <div class="card-body p-4 p-md-5">
-            <h1 class="h3 fw-bold">Thêm biểu phí</h1>
-            <p class="text-muted">Biểu phí đã lưu chỉ áp dụng theo thời hạn; nhập đơn giá bậc theo VND/kWh hoặc VND/m³.</p>
-            <form asp-action="CreateTariff" method="post">
-                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
-                <div class="mb-3"><label asp-for="BuildingId" class="form-label">Tòa nhà</label><select asp-for="BuildingId" asp-items="Model.BuildingOptions" class="form-select"><option value="">-- Chọn tòa nhà --</option></select><span asp-validation-for="BuildingId" class="text-danger"></span></div>
-                <div class="mb-3"><label asp-for="ChargeType" class="form-label">Loại phí</label><select asp-for="ChargeType" asp-items="Html.GetEnumSelectList<FeeChargeType>()" class="form-select"></select></div>
-                <div class="row">
-                    <div class="col-md-6 mb-3"><label asp-for="EffectiveFrom" class="form-label">Hiệu lực từ</label><input asp-for="EffectiveFrom" class="form-control" /><span asp-validation-for="EffectiveFrom" class="text-danger"></span></div>
-                    <div class="col-md-6 mb-3"><label asp-for="EffectiveTo" class="form-label">Hiệu lực đến (tùy chọn)</label><input asp-for="EffectiveTo" class="form-control" /><span asp-validation-for="EffectiveTo" class="text-danger"></span></div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-2">
+                    <li class="breadcrumb-item"><a asp-action="Index">Phí & Hóa đơn</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Thêm biểu phí</li>
+                </ol>
+            </nav>
+            <h1 class="h3 fw-bold mb-2">Thêm biểu phí dịch vụ</h1>
+            <p class="text-muted small mb-4">Biểu phí đã lưu sẽ được áp dụng cho tòa nhà trong khoảng thời gian có hiệu lực. Hãy kiểm tra kỹ đơn giá trước khi lưu.</p>
+
+            <form asp-action="CreateTariff" method="post" id="tariffForm">
+                <div asp-validation-summary="ModelOnly" class="alert alert-danger rounded-3 mb-3"></div>
+
+                <div class="mb-3">
+                    <label asp-for="BuildingId" class="form-label fw-semibold">Tòa nhà <span class="text-danger">*</span></label>
+                    <select asp-for="BuildingId" asp-items="Model.BuildingOptions" class="form-select form-select-lg">
+                        <option value="">-- Chọn tòa nhà áp dụng --</option>
+                    </select>
+                    <span asp-validation-for="BuildingId" class="text-danger small"></span>
                 </div>
-                <div class="mb-3"><label asp-for="MonthlyRatePerSquareMeter" class="form-label">Phí quản lý (VND/m²/tháng)</label><input asp-for="MonthlyRatePerSquareMeter" class="form-control" /><span asp-validation-for="MonthlyRatePerSquareMeter" class="text-danger"></span><div class="form-text">Chỉ nhập cho loại Phí quản lý; phí quản lý tính đủ tháng.</div></div>
-                <div class="mb-4"><label asp-for="TierDefinitions" class="form-label">Bậc giá điện/nước</label><textarea asp-for="TierDefinitions" class="form-control font-monospace" rows="5" placeholder="50|2000&#10;100|2500&#10;*|3000"></textarea><span asp-validation-for="TierDefinitions" class="text-danger"></span><div class="form-text">Mỗi dòng: ngưỡng tiêu thụ tích lũy|đơn giá. Ví dụ trên: 0–50, 50–100, trên 100; dấu * chỉ dùng ở bậc cuối. Với Phí quản lý để trống.</div></div>
-                <button type="submit" class="btn btn-primary">Lưu biểu phí</button>
-                <a asp-action="Index" class="btn btn-outline-secondary ms-2">Hủy</a>
+
+                <div class="mb-3">
+                    <label asp-for="ChargeType" class="form-label fw-semibold">Loại phí <span class="text-danger">*</span></label>
+                    <select asp-for="ChargeType" asp-items="Html.GetEnumSelectList<FeeChargeType>()" class="form-select" id="chargeTypeSelect"></select>
+                    <span asp-validation-for="ChargeType" class="text-danger small"></span>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label asp-for="EffectiveFrom" class="form-label fw-semibold">Hiệu lực từ ngày <span class="text-danger">*</span></label>
+                        <input asp-for="EffectiveFrom" class="form-control" type="date" />
+                        <span asp-validation-for="EffectiveFrom" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="EffectiveTo" class="form-label fw-semibold">Hiệu lực đến ngày <small class="text-muted">(tùy chọn)</small></label>
+                        <input asp-for="EffectiveTo" class="form-control" type="date" />
+                        <span asp-validation-for="EffectiveTo" class="text-danger small"></span>
+                    </div>
+                </div>
+
+                <!-- Management Fee Rate Block -->
+                <div class="mb-3 p-3 bg-light rounded-3" id="managementBlock">
+                    <label asp-for="MonthlyRatePerSquareMeter" class="form-label fw-semibold">Đơn giá quản lý (VND/m²/tháng) <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <input asp-for="MonthlyRatePerSquareMeter" class="form-control" type="number" step="0.0001" min="0" placeholder="Ví dụ: 10000" />
+                        <span class="input-group-text">VND/m²/tháng</span>
+                    </div>
+                    <span asp-validation-for="MonthlyRatePerSquareMeter" class="text-danger small"></span>
+                    <div class="form-text small">Phí quản lý được tính đủ tháng theo diện tích căn hộ. Với Điện và Nước, trường này phải để bằng 0.</div>
+                </div>
+
+                <!-- Utility Tiers Block -->
+                <div class="mb-4 p-3 bg-light rounded-3" id="utilityTiersBlock">
+                    <label asp-for="TierDefinitions" class="form-label fw-semibold">Bậc giá lũy tiến (Điện/Nước)</label>
+                    <textarea asp-for="TierDefinitions" class="form-control font-monospace" rows="5" placeholder="50|2000&#10;100|2500&#10;*|3000"></textarea>
+                    <span asp-validation-for="TierDefinitions" class="text-danger small"></span>
+                    <div class="form-text small mt-2">
+                        Nhập mỗi bậc trên 1 dòng theo cú pháp: <code>ngưỡng_tích_lũy|đơn_giá</code>. Bậc cuối cùng dùng dấu <code>*</code> để chỉ không giới hạn.
+                        <br />Ví dụ: <code>50|2000</code> (bậc 0–50), <code>100|2500</code> (bậc 50–100), <code>*|3000</code> (trên 100).
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary d-inline-flex align-items-center gap-1">
+                        <i class="bi bi-check2-circle"></i> Lưu biểu phí
+                    </button>
+                    <a asp-action="Index" class="btn btn-outline-secondary">Hủy bỏ</a>
+                </div>
             </form>
         </div>
     </div>
 </div>
-@section Scripts { <partial name="_ValidationScriptsPartial" /> }
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            var select = document.getElementById("chargeTypeSelect");
+            var mgmtBlock = document.getElementById("managementBlock");
+            var tiersBlock = document.getElementById("utilityTiersBlock");
+
+            function toggleFields() {
+                var val = select.value;
+                if (val === "0" || val === "Management") {
+                    mgmtBlock.style.display = "block";
+                    tiersBlock.style.display = "none";
+                } else {
+                    mgmtBlock.style.display = "none";
+                    tiersBlock.style.display = "block";
+                }
+            }
+
+            select.addEventListener("change", toggleFields);
+            toggleFields();
+        });
+    </script>
+}

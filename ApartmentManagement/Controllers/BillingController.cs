@@ -27,14 +27,69 @@ public sealed class BillingController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> Index()
+    public async Task<IActionResult> Index(
+        int? buildingId = null,
+        int? year = null,
+        int? month = null,
+        ApartmentInvoiceStatus? status = null,
+        string? paymentStatus = null,
+        string? searchTerm = null)
     {
+        bool? isPaid = paymentStatus switch
+        {
+            "Paid" => true,
+            "Unpaid" => false,
+            _ => null
+        };
+
+        var criteria = new InvoiceFilterCriteria(
+            BuildingId: buildingId,
+            Year: year,
+            Month: month,
+            Status: status,
+            IsPaid: isPaid,
+            SearchTerm: searchTerm);
+
+        var invoices = await _billingService.GetInvoicesAsync(criteria);
+        var tariffs = await _billingService.GetTariffsAsync(buildingId);
+        var summary = await _billingService.GetBillingSummaryAsync(buildingId, year, month);
+
+        var buildings = await _buildingService.GetAllBuildingsAsync();
+        var buildingOptions = buildings.Select(b => new SelectListItem(
+            b.BuildingName, b.BuildingId.ToString(), b.BuildingId == buildingId)).ToList();
+
+        var statusOptions = new List<SelectListItem>
+        {
+            new("Tất cả trạng thái", ""),
+            new("Nháp", ApartmentInvoiceStatus.Draft.ToString(), status == ApartmentInvoiceStatus.Draft),
+            new("Đã phát hành", ApartmentInvoiceStatus.Issued.ToString(), status == ApartmentInvoiceStatus.Issued),
+            new("Đã hủy", ApartmentInvoiceStatus.Void.ToString(), status == ApartmentInvoiceStatus.Void)
+        };
+
+        var paymentStatusOptions = new List<SelectListItem>
+        {
+            new("Tất cả thanh toán", ""),
+            new("Đã thanh toán", "Paid", paymentStatus == "Paid"),
+            new("Chưa thanh toán", "Unpaid", paymentStatus == "Unpaid")
+        };
+
         return View(new BillingIndexViewModel
         {
-            Invoices = await _billingService.GetInvoicesAsync(),
-            Tariffs = await _billingService.GetTariffsAsync()
+            Invoices = invoices,
+            Tariffs = tariffs,
+            Summary = summary,
+            BuildingId = buildingId,
+            BillingYear = year,
+            BillingMonth = month,
+            Status = status,
+            PaymentStatus = paymentStatus,
+            SearchTerm = searchTerm,
+            BuildingOptions = buildingOptions,
+            StatusOptions = statusOptions,
+            PaymentStatusOptions = paymentStatusOptions
         });
     }
+
 
     [HttpGet]
     public async Task<IActionResult> CreateTariff()
@@ -186,6 +241,97 @@ public sealed class BillingController : Controller
         }
         return RedirectToAction(nameof(Details), new { id = model.InvoiceId });
     }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Void(VoidInvoiceViewModel model)
+    {
+        if (model == null || model.InvoiceId <= 0) return NotFound();
+        var userId = CurrentUserId();
+        if (userId == null) return Forbid();
+
+        if (!TryDecodeRowVersion(model.RowVersionToken, out var rowVersion))
+        {
+            TempData["ErrorMessage"] = "Phiên bản hóa đơn không hợp lệ. Vui lòng tải lại dữ liệu.";
+            return RedirectToAction(nameof(Details), new { id = model.InvoiceId });
+        }
+
+        var result = await _billingService.VoidAsync(model.InvoiceId, userId, rowVersion, model.Reason);
+        if (!result.Success)
+        {
+            if (result.ErrorMessage == "Không tìm thấy hóa đơn.")
+                return NotFound();
+
+            TempData["ErrorMessage"] = result.ErrorMessage;
+        }
+        else
+        {
+            TempData["SuccessMessage"] = "Đã hủy hóa đơn thành công.";
+        }
+        return RedirectToAction(nameof(Details), new { id = model.InvoiceId });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> TariffDetails(int id)
+    {
+        if (id <= 0) return NotFound();
+        var tariff = await _billingService.GetTariffAsync(id);
+        if (tariff == null) return NotFound();
+
+        var today = DateTime.Today;
+        var isActive = tariff.EffectiveFrom.Date <= today && (!tariff.EffectiveTo.HasValue || tariff.EffectiveTo.Value >= today);
+        var canClose = !tariff.EffectiveTo.HasValue || tariff.EffectiveTo.Value >= today;
+
+        return View(new FeeTariffDetailsViewModel
+        {
+            Tariff = tariff,
+            InvoicesCount = tariff.InvoiceLines.Count,
+            IsActive = isActive,
+            CanClose = canClose
+        });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> CloseTariff(int id)
+    {
+        if (id <= 0) return NotFound();
+        var tariff = await _billingService.GetTariffAsync(id);
+        if (tariff == null) return NotFound();
+
+        return View(new CloseTariffViewModel
+        {
+            FeeTariffId = tariff.FeeTariffId,
+            BuildingName = tariff.Building?.BuildingName ?? "Chung cư",
+            ChargeType = tariff.ChargeType,
+            EffectiveFrom = tariff.EffectiveFrom,
+            EffectiveTo = tariff.EffectiveTo ?? DateTime.Today
+        });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CloseTariff(CloseTariffViewModel model)
+    {
+        if (model == null || model.FeeTariffId <= 0) return NotFound();
+        var userId = CurrentUserId();
+        if (userId == null) return Forbid();
+
+        if (!ModelState.IsValid)
+        {
+            return View(model);
+        }
+
+        var result = await _billingService.CloseTariffAsync(model.FeeTariffId, model.EffectiveTo, userId);
+        if (!result.Success)
+        {
+            ModelState.AddModelError(string.Empty, result.ErrorMessage ?? "Không thể cập nhật biểu phí.");
+            return View(model);
+        }
+
+        TempData["SuccessMessage"] = "Đã cập nhật thời hạn kết thúc biểu phí.";
+        return RedirectToAction(nameof(TariffDetails), new { id = model.FeeTariffId });
+    }
+
 
     private async Task PopulateBuildingsAsync(FeeTariffEditViewModel model)
     {

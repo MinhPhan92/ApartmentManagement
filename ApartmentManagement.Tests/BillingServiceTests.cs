@@ -216,6 +216,262 @@ public sealed class BillingServiceTests
         Assert.Equal("Không tìm thấy hóa đơn.", result.ErrorMessage);
     }
 
+    [Fact]
+    public async Task VoidAsync_DraftInvoice_Succeeds()
+    {
+        await using var context = CreateContext();
+        SeedBillingData(context);
+        var service = new BillingService(context, NullLogger<BillingService>.Instance);
+
+        var draft = await service.GenerateDraftAsync(1, 2026, 8, new DateTime(2026, 9, 10), "user-manager");
+        Assert.True(draft.Success);
+
+        var voidResult = await service.VoidAsync(draft.Invoice!.ApartmentInvoiceId, "user-manager", draft.Invoice.RowVersion);
+        Assert.True(voidResult.Success, voidResult.ErrorMessage);
+        Assert.Equal(ApartmentInvoiceStatus.Void, voidResult.Invoice!.Status);
+
+        var fetched = await service.GetInvoiceAsync(draft.Invoice.ApartmentInvoiceId);
+        Assert.NotNull(fetched);
+        Assert.Equal(ApartmentInvoiceStatus.Void, fetched.Status);
+    }
+
+    [Fact]
+    public async Task VoidAsync_IssuedInvoice_WithoutPayment_Succeeds()
+    {
+        await using var context = CreateContext();
+        SeedBillingData(context);
+        var service = new BillingService(context, NullLogger<BillingService>.Instance);
+
+        var draft = await service.GenerateDraftAsync(1, 2026, 8, new DateTime(2026, 9, 10), "user-manager");
+        var issue = await service.IssueAsync(draft.Invoice!.ApartmentInvoiceId, "user-manager", draft.Invoice.RowVersion);
+        Assert.True(issue.Success);
+
+        var voidResult = await service.VoidAsync(draft.Invoice.ApartmentInvoiceId, "user-manager", issue.Invoice!.RowVersion);
+        Assert.True(voidResult.Success, voidResult.ErrorMessage);
+        Assert.Equal(ApartmentInvoiceStatus.Void, voidResult.Invoice!.Status);
+    }
+
+    [Fact]
+    public async Task VoidAsync_IssuedInvoice_WithConfirmedPayment_IsRejected()
+    {
+        await using var context = CreateContext();
+        SeedBillingData(context);
+        var service = new BillingService(context, NullLogger<BillingService>.Instance);
+
+        var draft = await service.GenerateDraftAsync(1, 2026, 8, new DateTime(2026, 9, 10), "user-manager");
+        var issue = await service.IssueAsync(draft.Invoice!.ApartmentInvoiceId, "user-manager", draft.Invoice.RowVersion);
+
+        // Add confirmed payment
+        context.PaymentTransactions.Add(new PaymentTransaction
+        {
+            ApartmentInvoiceId = draft.Invoice.ApartmentInvoiceId,
+            Reference = "AHCONFIRMED123",
+            Amount = draft.Invoice.TotalAmount,
+            Status = PaymentTransactionStatus.Confirmed,
+            CreatedAtUtc = DateTime.UtcNow,
+            ConfirmedAtUtc = DateTime.UtcNow,
+            ConfirmedByUserId = "user-manager"
+        });
+        await context.SaveChangesAsync();
+
+        var voidResult = await service.VoidAsync(draft.Invoice.ApartmentInvoiceId, "user-manager", issue.Invoice!.RowVersion);
+        Assert.False(voidResult.Success);
+        Assert.Contains("đã có giao dịch thanh toán", voidResult.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task VoidAsync_IssuedInvoice_WithPendingPayment_RemovesPendingAndSucceeds()
+    {
+        await using var context = CreateContext();
+        SeedBillingData(context);
+        var service = new BillingService(context, NullLogger<BillingService>.Instance);
+
+        var draft = await service.GenerateDraftAsync(1, 2026, 8, new DateTime(2026, 9, 10), "user-manager");
+        var issue = await service.IssueAsync(draft.Invoice!.ApartmentInvoiceId, "user-manager", draft.Invoice.RowVersion);
+
+        // Add pending payment
+        context.PaymentTransactions.Add(new PaymentTransaction
+        {
+            ApartmentInvoiceId = draft.Invoice.ApartmentInvoiceId,
+            Reference = "AHPENDING123",
+            Amount = draft.Invoice.TotalAmount,
+            Status = PaymentTransactionStatus.Pending,
+            CreatedAtUtc = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        var voidResult = await service.VoidAsync(draft.Invoice.ApartmentInvoiceId, "user-manager", issue.Invoice!.RowVersion);
+        Assert.True(voidResult.Success, voidResult.ErrorMessage);
+        Assert.Equal(ApartmentInvoiceStatus.Void, voidResult.Invoice!.Status);
+        Assert.Empty(await context.PaymentTransactions.Where(x => x.ApartmentInvoiceId == draft.Invoice.ApartmentInvoiceId).ToListAsync());
+    }
+
+    [Fact]
+    public async Task VoidAsync_AlreadyVoidInvoice_ReturnsError()
+    {
+        await using var context = CreateContext();
+        SeedBillingData(context);
+        var service = new BillingService(context, NullLogger<BillingService>.Instance);
+
+        var draft = await service.GenerateDraftAsync(1, 2026, 8, new DateTime(2026, 9, 10), "user-manager");
+        var voidFirst = await service.VoidAsync(draft.Invoice!.ApartmentInvoiceId, "user-manager", draft.Invoice.RowVersion);
+        Assert.True(voidFirst.Success);
+
+        var voidSecond = await service.VoidAsync(draft.Invoice.ApartmentInvoiceId, "user-manager", voidFirst.Invoice!.RowVersion);
+        Assert.False(voidSecond.Success);
+        Assert.Contains("trạng thái hủy", voidSecond.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task CloseTariffAsync_ValidDate_Succeeds()
+    {
+        await using var context = CreateContext();
+        SeedBillingData(context);
+        var service = new BillingService(context, NullLogger<BillingService>.Instance);
+
+        var closeResult = await service.CloseTariffAsync(1, new DateTime(2026, 12, 31), "user-manager");
+        Assert.True(closeResult.Success, closeResult.ErrorMessage);
+
+        var tariff = await service.GetTariffAsync(1);
+        Assert.NotNull(tariff);
+        Assert.Equal(new DateTime(2026, 12, 31), tariff.EffectiveTo);
+    }
+
+    [Fact]
+    public async Task CloseTariffAsync_DateBeforeEffectiveFrom_ReturnsError()
+    {
+        await using var context = CreateContext();
+        SeedBillingData(context);
+        var service = new BillingService(context, NullLogger<BillingService>.Instance);
+
+        var closeResult = await service.CloseTariffAsync(1, new DateTime(2025, 12, 31), "user-manager");
+        Assert.False(closeResult.Success);
+        Assert.Contains("từ ngày bắt đầu", closeResult.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task CloseTariffAsync_NonExistentTariff_ReturnsError()
+    {
+        await using var context = CreateContext();
+        var service = new BillingService(context, NullLogger<BillingService>.Instance);
+
+        var closeResult = await service.CloseTariffAsync(999, new DateTime(2026, 12, 31), "user-manager");
+        Assert.False(closeResult.Success);
+        Assert.Equal("Không tìm thấy biểu phí.", closeResult.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task GetTariffAsync_ReturnsTariffWithDetails()
+    {
+        await using var context = CreateContext();
+        SeedBillingData(context);
+        var service = new BillingService(context, NullLogger<BillingService>.Instance);
+
+        var tariff = await service.GetTariffAsync(2); // Electricity tariff
+        Assert.NotNull(tariff);
+        Assert.Equal(FeeChargeType.Electricity, tariff.ChargeType);
+        Assert.Equal(2, tariff.Tiers.Count);
+        Assert.NotNull(tariff.Building);
+    }
+
+    [Fact]
+    public async Task GetBillingSummaryAsync_AccurateKPIs_PendingNotCountedAsCollected()
+    {
+        await using var context = CreateContext();
+        SeedBillingData(context);
+        var service = new BillingService(context, NullLogger<BillingService>.Instance);
+
+        // Invoice 1: Issued with confirmed payment
+        var draft1 = await service.GenerateDraftAsync(1, 2026, 8, new DateTime(2026, 9, 10), "user-manager");
+        var issue1 = await service.IssueAsync(draft1.Invoice!.ApartmentInvoiceId, "user-manager", draft1.Invoice.RowVersion);
+        context.PaymentTransactions.Add(new PaymentTransaction
+        {
+            ApartmentInvoiceId = draft1.Invoice.ApartmentInvoiceId,
+            Reference = "AHCONFIRMED-SUMMARY",
+            Amount = draft1.Invoice.TotalAmount,
+            Status = PaymentTransactionStatus.Confirmed,
+            CreatedAtUtc = DateTime.UtcNow,
+            ConfirmedAtUtc = DateTime.UtcNow,
+            ConfirmedByUserId = "user-manager"
+        });
+
+        // Invoice 2: Issued with pending payment (must NOT be counted into collected)
+        var user2 = new ApplicationUser
+        {
+            Id = "user-resident-2", UserName = "resident2@test.local",
+            NormalizedUserName = "RESIDENT2@TEST.LOCAL", Email = "resident2@test.local",
+            NormalizedEmail = "RESIDENT2@TEST.LOCAL", FullName = "Test Resident 2", IsActive = true
+        };
+        var apt2 = new Apartment { ApartmentId = 2, BuildingId = 1, ApartmentCode = "A-102", Floor = 1, Area = 60, Status = "Đang sử dụng" };
+        var res2 = new Resident { ResidentId = 2, UserId = user2.Id, User = user2, CitizenId = "987654321" };
+        context.AddRange(user2, apt2, res2);
+        context.ApartmentResidents.Add(new ApartmentResident
+        {
+            ApartmentId = 2, ResidentId = 2, Relationship = "Chủ hộ", MoveInDate = new DateTime(2026, 1, 1), IsOwner = true
+        });
+        context.UtilityMeterReadings.AddRange(
+            new UtilityMeterReading { ApartmentId = 2, UtilityType = FeeChargeType.Electricity, BillingYear = 2026, BillingMonth = 8, PreviousReading = 0, CurrentReading = 50, ReadAtUtc = DateTime.UtcNow, RecordedByUserId = "user-manager" },
+            new UtilityMeterReading { ApartmentId = 2, UtilityType = FeeChargeType.Water, BillingYear = 2026, BillingMonth = 8, PreviousReading = 0, CurrentReading = 5, ReadAtUtc = DateTime.UtcNow, RecordedByUserId = "user-manager" });
+        await context.SaveChangesAsync();
+
+        var draft2 = await service.GenerateDraftAsync(2, 2026, 8, new DateTime(2026, 9, 10), "user-manager");
+        var issue2 = await service.IssueAsync(draft2.Invoice!.ApartmentInvoiceId, "user-manager", draft2.Invoice.RowVersion);
+        context.PaymentTransactions.Add(new PaymentTransaction
+        {
+            ApartmentInvoiceId = draft2.Invoice.ApartmentInvoiceId,
+            Reference = "AHPENDING-SUMMARY",
+            Amount = draft2.Invoice.TotalAmount,
+            Status = PaymentTransactionStatus.Pending,
+            CreatedAtUtc = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        var summary = await service.GetBillingSummaryAsync(buildingId: 1, year: 2026, month: 8);
+
+        Assert.Equal(2, summary.TotalInvoices);
+        Assert.Equal(2, summary.IssuedCount);
+        Assert.Equal(draft1.Invoice.TotalAmount + draft2.Invoice.TotalAmount, summary.TotalInvoiced);
+        // Total collected must ONLY count the confirmed payment from invoice 1
+        Assert.Equal(draft1.Invoice.TotalAmount, summary.TotalCollected);
+        // Total receivable must be invoice 2 total amount
+        Assert.Equal(draft2.Invoice.TotalAmount, summary.TotalReceivable);
+        Assert.Equal(1, summary.PaidCount);
+        Assert.Equal(1, summary.UnpaidCount);
+    }
+
+    [Fact]
+    public async Task GetInvoicesAsync_WithFilters_FiltersProperly()
+    {
+        await using var context = CreateContext();
+        SeedBillingData(context);
+        var service = new BillingService(context, NullLogger<BillingService>.Instance);
+
+        var draft1 = await service.GenerateDraftAsync(1, 2026, 8, new DateTime(2026, 9, 10), "user-manager");
+        await service.IssueAsync(draft1.Invoice!.ApartmentInvoiceId, "user-manager", draft1.Invoice.RowVersion);
+
+        // Filter by Building
+        var filteredByBld = await service.GetInvoicesAsync(new InvoiceFilterCriteria(BuildingId: 1));
+        Assert.Single(filteredByBld);
+
+        var filteredOtherBld = await service.GetInvoicesAsync(new InvoiceFilterCriteria(BuildingId: 99));
+        Assert.Empty(filteredOtherBld);
+
+        // Filter by Year / Month
+        var filteredPeriod = await service.GetInvoicesAsync(new InvoiceFilterCriteria(Year: 2026, Month: 8));
+        Assert.Single(filteredPeriod);
+
+        var filteredWrongMonth = await service.GetInvoicesAsync(new InvoiceFilterCriteria(Year: 2026, Month: 12));
+        Assert.Empty(filteredWrongMonth);
+
+        // Filter by Status
+        var filteredIssued = await service.GetInvoicesAsync(new InvoiceFilterCriteria(Status: ApartmentInvoiceStatus.Issued));
+        Assert.Single(filteredIssued);
+
+        var filteredDraft = await service.GetInvoicesAsync(new InvoiceFilterCriteria(Status: ApartmentInvoiceStatus.Draft));
+        Assert.Empty(filteredDraft);
+    }
+
+
     private static ApplicationDbContext CreateContext()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()

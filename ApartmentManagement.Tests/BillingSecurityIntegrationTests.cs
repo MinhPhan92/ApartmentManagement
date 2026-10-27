@@ -128,6 +128,55 @@ public sealed class BillingSecurityIntegrationTests : IClassFixture<CustomWebApp
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    [Fact]
+    public async Task BillingVoid_RequiresAntiforgeryToken()
+    {
+        using var client = CreateAuthenticatedClient(AppRoles.Accountant, "billing-accountant");
+        using var response = await client.PostAsync(
+            "/Billing/Void",
+            new FormUrlEncodedContent([new KeyValuePair<string, string>("InvoiceId", "1")]));
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task BillingCloseTariff_RequiresAntiforgeryToken()
+    {
+        using var client = CreateAuthenticatedClient(AppRoles.Accountant, "billing-accountant");
+        using var response = await client.PostAsync(
+            "/Billing/CloseTariff",
+            new FormUrlEncodedContent([new KeyValuePair<string, string>("FeeTariffId", "1")]));
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Resident_CannotVoidInvoice()
+    {
+        using var client = CreateAuthenticatedClient(AppRoles.Resident, ResidentOneId);
+        using var response = await client.PostAsync(
+            "/Billing/Void",
+            new FormUrlEncodedContent([new KeyValuePair<string, string>("InvoiceId", "1")]));
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Resident_CannotCloseTariff()
+    {
+        using var client = CreateAuthenticatedClient(AppRoles.Resident, ResidentOneId);
+        using var response = await client.PostAsync(
+            "/Billing/CloseTariff",
+            new FormUrlEncodedContent([new KeyValuePair<string, string>("FeeTariffId", "1")]));
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Resident_CannotOpenTariffDetails()
+    {
+        using var client = CreateAuthenticatedClient(AppRoles.Resident, ResidentOneId);
+        using var response = await client.GetAsync("/Billing/TariffDetails/1");
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+
     private HttpClient CreateClient() => _factory.CreateClient(new WebApplicationFactoryClientOptions
     {
         AllowAutoRedirect = false,

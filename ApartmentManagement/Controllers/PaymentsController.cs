@@ -16,11 +16,36 @@ public sealed class PaymentsController : Controller
         _paymentService = paymentService;
 
     [HttpGet]
-    public async Task<IActionResult> Index() =>
-        View(new PaymentTransactionsViewModel
+    public async Task<IActionResult> Index(PaymentTransactionStatus? status = null, string? searchTerm = null)
+    {
+        var allTransactions = await _paymentService.GetTransactionsAsync();
+        var filteredTransactions = await _paymentService.GetTransactionsAsync(status, searchTerm);
+
+        var statusOptions = new List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>
         {
-            Transactions = await _paymentService.GetTransactionsAsync()
+            new("Tất cả trạng thái", ""),
+            new("Chờ xác nhận", PaymentTransactionStatus.Pending.ToString(), status == PaymentTransactionStatus.Pending),
+            new("Đã xác nhận", PaymentTransactionStatus.Confirmed.ToString(), status == PaymentTransactionStatus.Confirmed)
+        };
+
+        var totalCount = allTransactions.Count;
+        var pendingCount = allTransactions.Count(x => x.Status == PaymentTransactionStatus.Pending);
+        var confirmedCount = allTransactions.Count(x => x.Status == PaymentTransactionStatus.Confirmed);
+        var totalConfirmedAmount = allTransactions.Where(x => x.Status == PaymentTransactionStatus.Confirmed).Sum(x => x.Amount);
+
+        return View(new PaymentTransactionsViewModel
+        {
+            Transactions = filteredTransactions,
+            Status = status,
+            SearchTerm = searchTerm,
+            StatusOptions = statusOptions,
+            TotalCount = totalCount,
+            PendingCount = pendingCount,
+            ConfirmedCount = confirmedCount,
+            TotalConfirmedAmount = totalConfirmedAmount
         });
+    }
+
 
     [HttpPost]
     [ValidateAntiForgeryToken]

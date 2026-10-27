@@ -1,0 +1,179 @@
+@model FeeTariffDetailsViewModel
+@{
+    ViewData["Title"] = $"Chi tiết biểu phí #{Model.Tariff.FeeTariffId}";
+    var tariff = Model.Tariff;
+}
+
+<div class="container py-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1">
+                    <li class="breadcrumb-item"><a asp-action="Index">Phí & Hóa đơn</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Chi tiết biểu phí</li>
+                </ol>
+            </nav>
+            <h1 class="h3 fw-bold mb-0">Biểu phí @ChargeText(tariff.ChargeType) — @tariff.Building.BuildingName</h1>
+        </div>
+        <div class="d-flex gap-2">
+            @if (Model.CanClose)
+            {
+                <a asp-action="CloseTariff" asp-route-id="@tariff.FeeTariffId" class="btn btn-outline-warning d-inline-flex align-items-center gap-1">
+                    <i class="bi bi-calendar-x-fill"></i> Đóng / Cập nhật thời hạn
+                </a>
+            }
+            <a asp-action="Index" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Quay lại
+            </a>
+        </div>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show rounded-3 shadow-sm mb-4" role="status">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                <div>@TempData["SuccessMessage"]</div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    <div class="row g-4">
+        <div class="col-12 col-lg-8">
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-white border-0 py-3 px-4">
+                    <h2 class="h5 fw-bold mb-0">Cấu hình đơn giá</h2>
+                </div>
+                <div class="card-body p-4 pt-0">
+                    @if (tariff.ChargeType == FeeChargeType.Management)
+                    {
+                        <div class="p-3 bg-light rounded-3 mb-3">
+                            <span class="text-muted d-block small mb-1">Phương thức tính phí:</span>
+                            <strong class="fs-5 text-primary">Theo diện tích căn hộ (VND/m²/tháng)</strong>
+                            <div class="mt-2 fs-4 fw-bold text-dark">
+                                @tariff.MonthlyRatePerSquareMeter.ToString("N0") <small class="fs-6 text-muted">VND/m²/tháng</small>
+                            </div>
+                        </div>
+                        <p class="text-muted small mb-0">Phí quản lý được tính đủ tháng theo diện tích thông thủy của căn hộ tại ngày chốt kỳ.</p>
+                    }
+                    else
+                    {
+                        <div class="p-3 bg-light rounded-3 mb-3">
+                            <span class="text-muted d-block small mb-1">Phương thức tính phí:</span>
+                            <strong class="fs-5 text-primary">Biểu giá lũy tiến từng bậc (@(tariff.ChargeType == FeeChargeType.Electricity ? "VND/kWh" : "VND/m³"))</strong>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-bordered align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="text-center" style="width: 80px;">Bậc</th>
+                                        <th>Khoảng sản lượng tiêu thụ</th>
+                                        <th class="text-end">Đơn giá</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @{
+                                        decimal previousUpper = 0;
+                                    }
+                                    @foreach (var tier in tariff.Tiers.OrderBy(x => x.TierOrder))
+                                    {
+                                        <tr>
+                                            <td class="text-center fw-bold">@tier.TierOrder</td>
+                                            <td>
+                                                @if (tier.UpperConsumption.HasValue)
+                                                {
+                                                    <span>Từ <strong>@previousUpper.ToString("N0")</strong> đến <strong>@tier.UpperConsumption.Value.ToString("N0")</strong> @(tariff.ChargeType == FeeChargeType.Electricity ? "kWh" : "m³")</span>
+                                                    previousUpper = tier.UpperConsumption.Value;
+                                                }
+                                                else
+                                                {
+                                                    <span>Trên <strong>@previousUpper.ToString("N0")</strong> @(tariff.ChargeType == FeeChargeType.Electricity ? "kWh" : "m³") (không giới hạn)</span>
+                                                }
+                                            </td>
+                                            <td class="text-end fw-bold text-primary">@tier.UnitRate.ToString("N0") đ</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Historical Protection Notice -->
+            <div class="card border-0 bg-info-subtle text-info-emphasis rounded-4 p-4">
+                <div class="d-flex gap-3">
+                    <i class="bi bi-shield-lock-fill fs-3 flex-shrink-0"></i>
+                    <div>
+                        <h6 class="fw-bold mb-1">Bảo vệ tính toàn vẹn dữ liệu lịch sử</h6>
+                        <p class="small mb-0">
+                            Biểu phí này đã được áp dụng cho <strong>@Model.InvoicesCount</strong> dòng hóa đơn trong hệ thống. Để bảo vệ tính toàn vẹn của các hóa đơn đã lập, đơn giá gốc không thể sửa đổi tùy tiện. Khi biểu giá thay đổi, hãy thiết lập ngày kết thúc hiệu lực cho biểu phí này và tạo cấu hình biểu phí mới cho kỳ tiếp theo.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-4">
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-white border-0 py-3 px-4">
+                    <h2 class="h6 fw-bold mb-0">Thông tin hiệu lực</h2>
+                </div>
+                <div class="card-body p-4 pt-0">
+                    <dl class="row mb-0 g-2">
+                        <dt class="col-sm-5 text-muted small">Tòa nhà:</dt>
+                        <dd class="col-sm-7 fw-semibold">@tariff.Building.BuildingName</dd>
+
+                        <dt class="col-sm-5 text-muted small">Mã tòa nhà:</dt>
+                        <dd class="col-sm-7 font-monospace">@tariff.Building.BuildingCode</dd>
+
+                        <dt class="col-sm-5 text-muted small">Loại phí:</dt>
+                        <dd class="col-sm-7">
+                            <span class="badge @(tariff.ChargeType == FeeChargeType.Management ? "bg-info-subtle text-info" : tariff.ChargeType == FeeChargeType.Electricity ? "bg-warning-subtle text-warning" : "bg-primary-subtle text-primary")">
+                                @ChargeText(tariff.ChargeType)
+                            </span>
+                        </dd>
+
+                        <dt class="col-sm-5 text-muted small">Hiệu lực từ:</dt>
+                        <dd class="col-sm-7 fw-semibold">@tariff.EffectiveFrom.ToString("dd/MM/yyyy")</dd>
+
+                        <dt class="col-sm-5 text-muted small">Hiệu lực đến:</dt>
+                        <dd class="col-sm-7 fw-semibold">@(tariff.EffectiveTo?.ToString("dd/MM/yyyy") ?? "Vô thời hạn")</dd>
+
+                        <dt class="col-sm-5 text-muted small">Trạng thái:</dt>
+                        <dd class="col-sm-7">
+                            @if (Model.IsActive)
+                            {
+                                <span class="badge bg-success-subtle text-success border border-success-subtle">Đang áp dụng</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Hết hiệu lực</span>
+                            }
+                        </dd>
+
+                        <dt class="col-sm-5 text-muted small">Ngày tạo:</dt>
+                        <dd class="col-sm-7">@tariff.CreatedAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</dd>
+
+                        <dt class="col-sm-5 text-muted small">Người tạo:</dt>
+                        <dd class="col-sm-7">@(tariff.CreatedByUser?.FullName ?? tariff.CreatedByUserId)</dd>
+
+                        <dt class="col-sm-5 text-muted small">Hóa đơn gắn liền:</dt>
+                        <dd class="col-sm-7 fw-bold text-primary">@Model.InvoicesCount dòng hóa đơn</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@functions {
+    private static string ChargeText(FeeChargeType type) => type switch
+    {
+        FeeChargeType.Management => "Phí quản lý",
+        FeeChargeType.Electricity => "Điện",
+        FeeChargeType.Water => "Nước",
+        _ => "Không xác định"
+    };
+}

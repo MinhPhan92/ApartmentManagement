@@ -32,11 +32,142 @@ public sealed class BillingService : IBillingService
             .ToListAsync();
     }
 
-    public Task<List<ApartmentInvoice>> GetInvoicesAsync() =>
-        InvoiceQuery().OrderByDescending(x => x.BillingYear)
+    public Task<FeeTariff?> GetTariffAsync(int tariffId)
+    {
+        if (tariffId <= 0) return Task.FromResult<FeeTariff?>(null);
+        return _context.FeeTariffs.AsNoTracking()
+            .Include(x => x.Building)
+            .Include(x => x.Tiers)
+            .Include(x => x.CreatedByUser)
+            .Include(x => x.InvoiceLines)
+            .FirstOrDefaultAsync(x => x.FeeTariffId == tariffId);
+    }
+
+    public async Task<BillingOperationResult> CloseTariffAsync(
+        int tariffId,
+        DateTime effectiveTo,
+        string actorUserId)
+    {
+        if (tariffId <= 0) return Failure("Không tìm thấy biểu phí.");
+        if (string.IsNullOrWhiteSpace(actorUserId)) return Failure("Người thực hiện không hợp lệ.");
+
+        var tariff = await _context.FeeTariffs.FirstOrDefaultAsync(x => x.FeeTariffId == tariffId);
+        if (tariff == null) return Failure("Không tìm thấy biểu phí.");
+
+        var closeDate = effectiveTo.Date;
+        if (closeDate < tariff.EffectiveFrom.Date)
+            return Failure("Ngày kết thúc hiệu lực phải từ ngày bắt đầu hiệu lực trở đi.");
+
+        var overlaps = await _context.FeeTariffs.AnyAsync(x =>
+            x.FeeTariffId != tariffId &&
+            x.BuildingId == tariff.BuildingId &&
+            x.ChargeType == tariff.ChargeType &&
+            x.EffectiveFrom <= closeDate &&
+            (!x.EffectiveTo.HasValue || x.EffectiveTo.Value >= tariff.EffectiveFrom.Date));
+        if (overlaps)
+            return Failure("Khoảng thời gian hiệu lực mới bị trùng lặp với biểu phí khác.");
+
+        tariff.EffectiveTo = closeDate;
+        try
+        {
+            await _context.SaveChangesAsync();
+            return new BillingOperationResult(true, null, null);
+        }
+        catch (DbUpdateException ex)
+        {
+            _logger.LogError(ex, "Lỗi khi cập nhật thời hạn biểu phí {TariffId}", tariffId);
+            return Failure("Không thể cập nhật biểu phí. Vui lòng thử lại.");
+        }
+    }
+
+    public Task<List<ApartmentInvoice>> GetInvoicesAsync(InvoiceFilterCriteria? criteria = null)
+    {
+        var query = InvoiceQuery();
+        if (criteria != null)
+        {
+            if (criteria.BuildingId.HasValue && criteria.BuildingId.Value > 0)
+                query = query.Where(x => x.Apartment.BuildingId == criteria.BuildingId.Value);
+
+            if (criteria.Year.HasValue && criteria.Year.Value > 0)
+                query = query.Where(x => x.BillingYear == criteria.Year.Value);
+
+            if (criteria.Month.HasValue && criteria.Month.Value > 0)
+                query = query.Where(x => x.BillingMonth == criteria.Month.Value);
+
+            if (criteria.Status.HasValue)
+                query = query.Where(x => x.Status == criteria.Status.Value);
+
+            if (criteria.IsPaid.HasValue)
+            {
+                if (criteria.IsPaid.Value)
+                    query = query.Where(x => x.PaymentTransactions.Any(p => p.Status == PaymentTransactionStatus.Confirmed));
+                else
+                    query = query.Where(x => !x.PaymentTransactions.Any(p => p.Status == PaymentTransactionStatus.Confirmed));
+            }
+
+            if (!string.IsNullOrWhiteSpace(criteria.SearchTerm))
+            {
+                var term = criteria.SearchTerm.Trim().ToLower();
+                query = query.Where(x =>
+                    x.InvoiceCode.ToLower().Contains(term) ||
+                    x.Apartment.ApartmentCode.ToLower().Contains(term) ||
+                    (x.Resident.User != null && x.Resident.User.FullName != null && x.Resident.User.FullName.ToLower().Contains(term)));
+            }
+        }
+
+        return query.OrderByDescending(x => x.BillingYear)
             .ThenByDescending(x => x.BillingMonth)
             .ThenBy(x => x.Apartment.ApartmentCode)
             .ToListAsync();
+    }
+
+    public async Task<BillingSummaryDto> GetBillingSummaryAsync(
+        int? buildingId = null,
+        int? year = null,
+        int? month = null)
+    {
+        var query = _context.ApartmentInvoices.AsNoTracking();
+        if (buildingId.HasValue && buildingId.Value > 0)
+            query = query.Where(x => x.Apartment.BuildingId == buildingId.Value);
+        if (year.HasValue && year.Value > 0)
+            query = query.Where(x => x.BillingYear == year.Value);
+        if (month.HasValue && month.Value > 0)
+            query = query.Where(x => x.BillingMonth == month.Value);
+
+        var list = await query
+            .Select(x => new
+            {
+                x.ApartmentInvoiceId,
+                x.Status,
+                x.TotalAmount,
+                ConfirmedAmount = x.PaymentTransactions
+                    .Where(p => p.Status == PaymentTransactionStatus.Confirmed)
+                    .Sum(p => (decimal?)p.Amount) ?? 0m
+            })
+            .ToListAsync();
+
+        var totalInvoiced = list.Where(x => x.Status == ApartmentInvoiceStatus.Issued).Sum(x => x.TotalAmount);
+        var totalCollected = list.Where(x => x.Status == ApartmentInvoiceStatus.Issued).Sum(x => x.ConfirmedAmount);
+        var totalReceivable = Math.Max(0m, totalInvoiced - totalCollected);
+
+        var draftCount = list.Count(x => x.Status == ApartmentInvoiceStatus.Draft);
+        var issuedCount = list.Count(x => x.Status == ApartmentInvoiceStatus.Issued);
+        var paidCount = list.Count(x => x.Status == ApartmentInvoiceStatus.Issued && x.ConfirmedAmount >= x.TotalAmount && x.TotalAmount > 0);
+        var unpaidCount = list.Count(x => x.Status == ApartmentInvoiceStatus.Issued && x.ConfirmedAmount < x.TotalAmount);
+        var voidCount = list.Count(x => x.Status == ApartmentInvoiceStatus.Void);
+
+        return new BillingSummaryDto(
+            TotalInvoiced: totalInvoiced,
+            TotalCollected: totalCollected,
+            TotalReceivable: totalReceivable,
+            TotalInvoices: list.Count,
+            DraftCount: draftCount,
+            IssuedCount: issuedCount,
+            PaidCount: paidCount,
+            UnpaidCount: unpaidCount,
+            VoidCount: voidCount);
+    }
+
 
     public Task<List<ApartmentInvoice>> GetResidentInvoicesAsync(string userId)
     {
@@ -400,11 +531,64 @@ public sealed class BillingService : IBillingService
         }
     }
 
+    public async Task<BillingOperationResult> VoidAsync(
+        int invoiceId,
+        string actorUserId,
+        byte[] rowVersion,
+        string? reason = null)
+    {
+        if (invoiceId <= 0) return Failure("Không tìm thấy hóa đơn.");
+        if (string.IsNullOrWhiteSpace(actorUserId)) return Failure("Người thực hiện không hợp lệ.");
+
+        var invoice = await _context.ApartmentInvoices
+            .Include(x => x.PaymentTransactions)
+            .FirstOrDefaultAsync(x => x.ApartmentInvoiceId == invoiceId);
+        if (invoice == null) return Failure("Không tìm thấy hóa đơn.");
+        if (invoice.Status == ApartmentInvoiceStatus.Void)
+            return Failure("Hóa đơn đã ở trạng thái hủy.");
+
+        var hasConfirmedPayment = invoice.PaymentTransactions.Any(x => x.Status == PaymentTransactionStatus.Confirmed);
+        if (hasConfirmedPayment)
+            return Failure("Hóa đơn đã có giao dịch thanh toán được xác nhận. Không thể hủy hóa đơn.");
+
+        if (_context.Database.IsRelational() &&
+            (rowVersion.Length == 0 || !invoice.RowVersion.AsSpan().SequenceEqual(rowVersion)))
+            return Failure("Hóa đơn đã thay đổi đồng thời. Tải lại dữ liệu trước khi thử lại.");
+
+        var pendingPayments = invoice.PaymentTransactions.Where(x => x.Status == PaymentTransactionStatus.Pending).ToList();
+        if (pendingPayments.Count > 0)
+        {
+            _context.PaymentTransactions.RemoveRange(pendingPayments);
+        }
+
+        invoice.Status = ApartmentInvoiceStatus.Void;
+        if (_context.Database.IsRelational())
+            _context.Entry(invoice).Property(x => x.RowVersion).OriginalValue = rowVersion;
+
+        try
+        {
+            await _context.SaveChangesAsync();
+            return new BillingOperationResult(true, null, invoice);
+        }
+        catch (DbUpdateConcurrencyException exception)
+        {
+            _logger.LogInformation(exception, "Xung đột khi hủy hóa đơn {InvoiceId}", invoiceId);
+            return Failure("Hóa đơn đã thay đổi đồng thời. Tải lại dữ liệu trước khi thử lại.");
+        }
+        catch (DbUpdateException exception)
+        {
+            _logger.LogError(exception, "Không thể hủy hóa đơn {InvoiceId}", invoiceId);
+            return Failure("Không thể hủy hóa đơn. Vui lòng kiểm tra ràng buộc dữ liệu và thử lại.");
+        }
+    }
+
     private IQueryable<ApartmentInvoice> InvoiceQuery() =>
         _context.ApartmentInvoices.AsNoTracking()
             .Include(x => x.Apartment).ThenInclude(x => x.Building)
             .Include(x => x.Resident).ThenInclude(x => x.User)
-            .Include(x => x.Lines);
+            .Include(x => x.Lines)
+            .Include(x => x.PaymentTransactions).ThenInclude(x => x.ConfirmedByUser);
+
 
     private static string? ValidateTariff(FeeTariffInput input)
     {

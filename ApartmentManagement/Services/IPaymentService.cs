@@ -4,7 +4,7 @@ namespace ApartmentManagement.Services;
 
 public interface IPaymentService
 {
-    Task<List<PaymentTransaction>> GetTransactionsAsync();
+    Task<List<PaymentTransaction>> GetTransactionsAsync(PaymentTransactionStatus? status = null, string? searchTerm = null);
     Task<PaymentTransaction?> GetResidentPaymentAsync(string userId, int paymentTransactionId);
     Task<PaymentTransaction?> GetResidentPaymentForInvoiceAsync(string userId, int invoiceId);
     Task<PaymentTransaction?> GetOrCreateResidentPaymentAsync(string userId, int invoiceId);

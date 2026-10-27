@@ -15,8 +15,25 @@ public sealed class PaymentService : IPaymentService
         _logger = logger;
     }
 
-    public Task<List<PaymentTransaction>> GetTransactionsAsync() =>
-        PaymentQuery().OrderByDescending(x => x.CreatedAtUtc).ToListAsync();
+    public Task<List<PaymentTransaction>> GetTransactionsAsync(PaymentTransactionStatus? status = null, string? searchTerm = null)
+    {
+        var query = PaymentQuery();
+        if (status.HasValue)
+            query = query.Where(x => x.Status == status.Value);
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var term = searchTerm.Trim().ToLower();
+            query = query.Where(x =>
+                x.Reference.ToLower().Contains(term) ||
+                x.Invoice.InvoiceCode.ToLower().Contains(term) ||
+                x.Invoice.Apartment.ApartmentCode.ToLower().Contains(term) ||
+                (x.Invoice.Resident.User != null && x.Invoice.Resident.User.FullName != null && x.Invoice.Resident.User.FullName.ToLower().Contains(term)));
+        }
+
+        return query.OrderByDescending(x => x.CreatedAtUtc).ToListAsync();
+    }
+
 
     public Task<PaymentTransaction?> GetResidentPaymentAsync(string userId, int paymentTransactionId) =>
         PaymentQuery().FirstOrDefaultAsync(x =>

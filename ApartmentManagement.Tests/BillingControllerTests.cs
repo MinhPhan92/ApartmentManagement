@@ -74,6 +74,8 @@ public sealed class BillingControllerTests
     [InlineData(nameof(BillingController.RecordReading), typeof(MeterReadingEditViewModel))]
     [InlineData(nameof(BillingController.CreateInvoice), typeof(GenerateInvoiceViewModel))]
     [InlineData(nameof(BillingController.Issue), typeof(IssueInvoiceViewModel))]
+    [InlineData(nameof(BillingController.Void), typeof(VoidInvoiceViewModel))]
+    [InlineData(nameof(BillingController.CloseTariff), typeof(CloseTariffViewModel))]
     public void BillingController_ModifyingActions_HaveValidateAntiForgeryTokenAndHttpPost(
         string actionName,
         params Type[] parameterTypes)
@@ -92,8 +94,10 @@ public sealed class BillingControllerTests
     public async Task Index_ReturnsViewResult_WithBillingIndexViewModel()
     {
         var (controller, mockBilling, _, _) = CreateTestHarness();
-        mockBilling.Setup(s => s.GetInvoicesAsync()).ReturnsAsync([]);
+        mockBilling.Setup(s => s.GetInvoicesAsync(It.IsAny<InvoiceFilterCriteria>())).ReturnsAsync([]);
         mockBilling.Setup(s => s.GetTariffsAsync(null)).ReturnsAsync([]);
+        mockBilling.Setup(s => s.GetBillingSummaryAsync(It.IsAny<int?>(), It.IsAny<int?>(), It.IsAny<int?>()))
+            .ReturnsAsync(new BillingSummaryDto(0, 0, 0, 0, 0, 0, 0, 0, 0));
 
         var result = await controller.Index();
 
@@ -102,6 +106,7 @@ public sealed class BillingControllerTests
         Assert.NotNull(model.Invoices);
         Assert.NotNull(model.Tariffs);
     }
+
 
     #endregion
 
@@ -498,6 +503,252 @@ public sealed class BillingControllerTests
         Assert.Equal(nameof(BillingController.Details), redirect.ActionName);
         Assert.Equal(1, redirect.RouteValues?["id"]);
         Assert.Equal("Đã phát hành hóa đơn cho cư dân.", controller.TempData["SuccessMessage"]);
+    }
+
+    #endregion
+
+    #region Void Tests
+
+    [Fact]
+    public async Task Void_Post_ReturnsNotFound_WhenModelNullOrIdNonPositive()
+    {
+        var (controller, _, _, _) = CreateTestHarness();
+
+        var nullResult = await controller.Void(null!);
+        var invalidIdResult = await controller.Void(new VoidInvoiceViewModel { InvoiceId = 0, RowVersionToken = "AQID" });
+
+        Assert.IsType<NotFoundResult>(nullResult);
+        Assert.IsType<NotFoundResult>(invalidIdResult);
+    }
+
+    [Fact]
+    public async Task Void_Post_ReturnsForbid_WhenUserNotAuthenticated()
+    {
+        var (controller, _, _, _) = CreateTestHarness(userId: null);
+
+        var result = await controller.Void(new VoidInvoiceViewModel { InvoiceId = 1, RowVersionToken = "AQID" });
+
+        Assert.IsType<ForbidResult>(result);
+    }
+
+    [Fact]
+    public async Task Void_Post_RedirectsToDetails_WithErrorMessage_WhenRowVersionInvalid()
+    {
+        var (controller, _, _, _) = CreateTestHarness();
+
+        var result = await controller.Void(new VoidInvoiceViewModel { InvoiceId = 1, RowVersionToken = "not-base-64!" });
+
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal(nameof(BillingController.Details), redirect.ActionName);
+        Assert.Equal(1, redirect.RouteValues?["id"]);
+        Assert.Equal("Phiên bản hóa đơn không hợp lệ. Vui lòng tải lại dữ liệu.", controller.TempData["ErrorMessage"]);
+    }
+
+    [Fact]
+    public async Task Void_Post_ReturnsNotFound_WhenServiceReportsInvoiceNotFound()
+    {
+        var (controller, mockBilling, _, _) = CreateTestHarness();
+        mockBilling.Setup(s => s.VoidAsync(999, "accountant-user", It.IsAny<byte[]>(), It.IsAny<string?>()))
+            .ReturnsAsync(new BillingOperationResult(false, "Không tìm thấy hóa đơn.", null));
+
+        var result = await controller.Void(new VoidInvoiceViewModel { InvoiceId = 999, RowVersionToken = "AQID" });
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task Void_Post_RedirectsToDetails_WithErrorMessage_WhenServiceFails()
+    {
+        var (controller, mockBilling, _, _) = CreateTestHarness();
+        mockBilling.Setup(s => s.VoidAsync(1, "accountant-user", It.IsAny<byte[]>(), It.IsAny<string?>()))
+            .ReturnsAsync(new BillingOperationResult(false, "Hóa đơn đã có giao dịch thanh toán được xác nhận. Không thể hủy hóa đơn.", null));
+
+        var result = await controller.Void(new VoidInvoiceViewModel { InvoiceId = 1, RowVersionToken = "AQID" });
+
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal(nameof(BillingController.Details), redirect.ActionName);
+        Assert.Equal(1, redirect.RouteValues?["id"]);
+        Assert.Equal("Hóa đơn đã có giao dịch thanh toán được xác nhận. Không thể hủy hóa đơn.", controller.TempData["ErrorMessage"]);
+    }
+
+    [Fact]
+    public async Task Void_Post_RedirectsToDetails_WithSuccessMessage_WhenSuccessful()
+    {
+        var (controller, mockBilling, _, _) = CreateTestHarness();
+        var invoice = new ApartmentInvoice { ApartmentInvoiceId = 1, Status = ApartmentInvoiceStatus.Void };
+        mockBilling.Setup(s => s.VoidAsync(1, "accountant-user", It.IsAny<byte[]>(), It.IsAny<string?>()))
+            .ReturnsAsync(new BillingOperationResult(true, null, invoice));
+
+        var result = await controller.Void(new VoidInvoiceViewModel { InvoiceId = 1, RowVersionToken = "AQID" });
+
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal(nameof(BillingController.Details), redirect.ActionName);
+        Assert.Equal(1, redirect.RouteValues?["id"]);
+        Assert.Equal("Đã hủy hóa đơn thành công.", controller.TempData["SuccessMessage"]);
+    }
+
+    #endregion
+
+    #region TariffDetails Tests
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task TariffDetails_ReturnsNotFound_WhenIdNonPositive(int id)
+    {
+        var (controller, _, _, _) = CreateTestHarness();
+
+        var result = await controller.TariffDetails(id);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task TariffDetails_ReturnsNotFound_WhenTariffNotFound()
+    {
+        var (controller, mockBilling, _, _) = CreateTestHarness();
+        mockBilling.Setup(s => s.GetTariffAsync(999)).ReturnsAsync((FeeTariff?)null);
+
+        var result = await controller.TariffDetails(999);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task TariffDetails_ReturnsViewResult_WithDetailsModel()
+    {
+        var (controller, mockBilling, _, _) = CreateTestHarness();
+        var tariff = new FeeTariff
+        {
+            FeeTariffId = 1,
+            Building = new Building { BuildingName = "Tòa B1" },
+            ChargeType = FeeChargeType.Management,
+            EffectiveFrom = DateTime.Today.AddDays(-10),
+            InvoiceLines = []
+        };
+        mockBilling.Setup(s => s.GetTariffAsync(1)).ReturnsAsync(tariff);
+
+        var result = await controller.TariffDetails(1);
+
+        var viewResult = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<FeeTariffDetailsViewModel>(viewResult.Model);
+        Assert.Equal(1, model.Tariff.FeeTariffId);
+        Assert.True(model.IsActive);
+        Assert.True(model.CanClose);
+    }
+
+    #endregion
+
+    #region CloseTariff Tests
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task CloseTariff_Get_ReturnsNotFound_WhenIdNonPositive(int id)
+    {
+        var (controller, _, _, _) = CreateTestHarness();
+
+        var result = await controller.CloseTariff(id);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task CloseTariff_Get_ReturnsNotFound_WhenTariffNotFound()
+    {
+        var (controller, mockBilling, _, _) = CreateTestHarness();
+        mockBilling.Setup(s => s.GetTariffAsync(999)).ReturnsAsync((FeeTariff?)null);
+
+        var result = await controller.CloseTariff(999);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task CloseTariff_Get_ReturnsView_WhenTariffFound()
+    {
+        var (controller, mockBilling, _, _) = CreateTestHarness();
+        var tariff = new FeeTariff
+        {
+            FeeTariffId = 1,
+            Building = new Building { BuildingName = "Tòa B1" },
+            ChargeType = FeeChargeType.Management,
+            EffectiveFrom = DateTime.Today.AddDays(-10)
+        };
+        mockBilling.Setup(s => s.GetTariffAsync(1)).ReturnsAsync(tariff);
+
+        var result = await controller.CloseTariff(1);
+
+        var viewResult = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<CloseTariffViewModel>(viewResult.Model);
+        Assert.Equal(1, model.FeeTariffId);
+        Assert.Equal("Tòa B1", model.BuildingName);
+    }
+
+    [Fact]
+    public async Task CloseTariff_Post_ReturnsNotFound_WhenModelNullOrIdNonPositive()
+    {
+        var (controller, _, _, _) = CreateTestHarness();
+
+        var nullResult = await controller.CloseTariff((CloseTariffViewModel)null!);
+        var invalidIdResult = await controller.CloseTariff(new CloseTariffViewModel { FeeTariffId = 0 });
+
+        Assert.IsType<NotFoundResult>(nullResult);
+        Assert.IsType<NotFoundResult>(invalidIdResult);
+    }
+
+    [Fact]
+    public async Task CloseTariff_Post_ReturnsForbid_WhenUserNotAuthenticated()
+    {
+        var (controller, _, _, _) = CreateTestHarness(userId: null);
+
+        var result = await controller.CloseTariff(new CloseTariffViewModel { FeeTariffId = 1, EffectiveTo = DateTime.Today });
+
+        Assert.IsType<ForbidResult>(result);
+    }
+
+    [Fact]
+    public async Task CloseTariff_Post_ReturnsView_WhenModelStateInvalid()
+    {
+        var (controller, _, _, _) = CreateTestHarness();
+        controller.ModelState.AddModelError("EffectiveTo", "Lỗi ngày kết thúc");
+
+        var model = new CloseTariffViewModel { FeeTariffId = 1, EffectiveTo = DateTime.Today };
+        var result = await controller.CloseTariff(model);
+
+        var viewResult = Assert.IsType<ViewResult>(result);
+        Assert.Equal(model, viewResult.Model);
+    }
+
+    [Fact]
+    public async Task CloseTariff_Post_ReturnsView_WithModelError_WhenServiceFails()
+    {
+        var (controller, mockBilling, _, _) = CreateTestHarness();
+        mockBilling.Setup(s => s.CloseTariffAsync(1, It.IsAny<DateTime>(), "accountant-user"))
+            .ReturnsAsync(new BillingOperationResult(false, "Ngày kết thúc phải từ ngày bắt đầu trở đi.", null));
+
+        var model = new CloseTariffViewModel { FeeTariffId = 1, EffectiveTo = DateTime.Today };
+        var result = await controller.CloseTariff(model);
+
+        var viewResult = Assert.IsType<ViewResult>(result);
+        Assert.False(controller.ModelState.IsValid);
+        Assert.Contains("Ngày kết thúc phải từ ngày bắt đầu trở đi.", controller.ModelState[string.Empty]!.Errors[0].ErrorMessage);
+    }
+
+    [Fact]
+    public async Task CloseTariff_Post_RedirectsToTariffDetails_WhenSuccessful()
+    {
+        var (controller, mockBilling, _, _) = CreateTestHarness();
+        mockBilling.Setup(s => s.CloseTariffAsync(1, It.IsAny<DateTime>(), "accountant-user"))
+            .ReturnsAsync(new BillingOperationResult(true, null, null));
+
+        var model = new CloseTariffViewModel { FeeTariffId = 1, EffectiveTo = DateTime.Today };
+        var result = await controller.CloseTariff(model);
+
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal(nameof(BillingController.TariffDetails), redirect.ActionName);
+        Assert.Equal(1, redirect.RouteValues?["id"]);
+        Assert.Equal("Đã cập nhật thời hạn kết thúc biểu phí.", controller.TempData["SuccessMessage"]);
     }
 
     #endregion

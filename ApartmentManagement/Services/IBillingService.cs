@@ -5,7 +5,10 @@ namespace ApartmentManagement.Services;
 public interface IBillingService
 {
     Task<List<FeeTariff>> GetTariffsAsync(int? buildingId = null);
-    Task<List<ApartmentInvoice>> GetInvoicesAsync();
+    Task<FeeTariff?> GetTariffAsync(int tariffId);
+    Task<BillingOperationResult> CloseTariffAsync(int tariffId, DateTime effectiveTo, string actorUserId);
+    Task<List<ApartmentInvoice>> GetInvoicesAsync(InvoiceFilterCriteria? criteria = null);
+    Task<BillingSummaryDto> GetBillingSummaryAsync(int? buildingId = null, int? year = null, int? month = null);
     Task<List<ApartmentInvoice>> GetResidentInvoicesAsync(string userId);
     Task<ApartmentInvoice?> GetResidentInvoiceAsync(string userId, int invoiceId);
     Task<ApartmentInvoice?> GetInvoiceAsync(int invoiceId);
@@ -14,4 +17,5 @@ public interface IBillingService
     Task<BillingOperationResult> GenerateDraftAsync(
         int apartmentId, int year, int month, DateTime dueDate, string actorUserId);
     Task<BillingOperationResult> IssueAsync(int invoiceId, string actorUserId, byte[] rowVersion);
+    Task<BillingOperationResult> VoidAsync(int invoiceId, string actorUserId, byte[] rowVersion, string? reason = null);
 }

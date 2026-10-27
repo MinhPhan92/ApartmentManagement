@@ -1,31 +1,153 @@
 @model ResidentInvoiceListViewModel
 @{
     ViewData["Title"] = "Hóa đơn của tôi";
+    var totalDue = Model.Invoices
+        .Where(x => !x.PaymentTransactions.Any(p => p.Status == PaymentTransactionStatus.Confirmed))
+        .Sum(x => x.TotalAmount);
+    var unpaidCount = Model.Invoices
+        .Count(x => !x.PaymentTransactions.Any(p => p.Status == PaymentTransactionStatus.Confirmed));
 }
-<div class="container py-4">
-    <h1 class="h3 fw-bold">Hóa đơn của tôi</h1>
-    <p class="text-muted mb-4">Chỉ hiển thị hóa đơn đã được Ban quản lý phát hành.</p>
-    @if (Model.Invoices.Count == 0)
+
+<div class="container-fluid px-3 px-lg-4 py-4">
+    <!-- Header -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <h1 class="h3 fw-bold mb-1">Hóa đơn của tôi</h1>
+            <p class="text-muted mb-0">Tra cứu các khoản phí định kỳ, theo dõi trạng thái thanh toán và tạo mã VietQR chuyển khoản.</p>
+        </div>
+    </div>
+
+    <!-- Feedback Alerts -->
+    @if (TempData["SuccessMessage"] != null)
     {
-        <div class="alert alert-info">Chưa có hóa đơn được phát hành cho tài khoản của bạn.</div>
+        <div class="alert alert-success alert-dismissible fade show rounded-3 shadow-sm mb-4" role="status">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                <div>@TempData["SuccessMessage"]</div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
     }
-    else
+    @if (TempData["ErrorMessage"] != null)
     {
-        <div class="table-responsive bg-white rounded-4 shadow-sm">
-            <table class="table align-middle mb-0">
-                <thead><tr><th>Mã hóa đơn</th><th>Kỳ</th><th>Căn hộ</th><th>Hạn thanh toán</th><th>Tổng phải thu</th><th></th></tr></thead>
+        <div class="alert alert-danger alert-dismissible fade show rounded-3 shadow-sm mb-4" role="alert">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-exclamation-triangle-fill text-danger fs-5"></i>
+                <div>@TempData["ErrorMessage"]</div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    <!-- Resident Summary Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-md-4">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body p-4">
+                    <span class="text-muted small fw-semibold text-uppercase">Số hóa đơn đã nhận</span>
+                    <h3 class="fw-bold mt-2 mb-1">@Model.Invoices.Count</h3>
+                    <span class="small text-muted">Hóa đơn chính thức từ Ban quản lý</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-4">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body p-4">
+                    <span class="text-muted small fw-semibold text-uppercase">Hóa đơn cần thanh toán</span>
+                    <h3 class="fw-bold mt-2 mb-1 @(unpaidCount > 0 ? "text-danger" : "text-success")">@unpaidCount</h3>
+                    <span class="small @(unpaidCount > 0 ? "text-danger" : "text-success") fw-medium">
+                        @(unpaidCount > 0 ? "Vui lòng thanh toán trước hạn" : "Đã thanh toán đủ các kỳ")
+                    </span>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-4">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body p-4">
+                    <span class="text-muted small fw-semibold text-uppercase">Tổng dư nợ còn lại</span>
+                    <h3 class="fw-bold mt-2 mb-1 @(totalDue > 0 ? "text-danger" : "text-muted")">
+                        @totalDue.ToString("N0") <small class="fs-6 text-muted">đ</small>
+                    </h3>
+                    <span class="small text-muted">Chưa bao gồm các khoản đang chờ xác nhận</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table Card -->
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+        <div class="card-header bg-white border-0 py-3 px-4 d-flex justify-content-between align-items-center">
+            <h2 class="h5 fw-bold mb-0">Danh sách hóa đơn</h2>
+            <span class="badge bg-light text-muted border">@Model.Invoices.Count hóa đơn</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">Mã hóa đơn</th>
+                        <th>Kỳ</th>
+                        <th>Căn hộ</th>
+                        <th>Hạn thanh toán</th>
+                        <th class="text-end">Tổng phải thu</th>
+                        <th class="text-center">Trạng thái thanh toán</th>
+                        <th class="text-end pe-4">Thao tác</th>
+                    </tr>
+                </thead>
                 <tbody>
-                @foreach (var invoice in Model.Invoices)
+                @if (Model.Invoices.Count == 0)
                 {
                     <tr>
-                        <td>@invoice.InvoiceCode</td><td>@invoice.BillingMonth.ToString("D2")/@invoice.BillingYear</td>
-                        <td>@invoice.Apartment.Building?.BuildingName — @invoice.Apartment.ApartmentCode</td>
-                        <td>@invoice.DueDate.ToString("dd/MM/yyyy")</td><td>@invoice.TotalAmount.ToString("N0") đ</td>
-                        <td><a asp-action="Details" asp-route-id="@invoice.ApartmentInvoiceId" class="btn btn-sm btn-outline-primary">Xem</a></td>
+                        <td colspan="7" class="text-center py-5 text-muted">
+                            <div class="d-flex flex-column align-items-center gap-2">
+                                <i class="bi bi-receipt fs-1 text-muted"></i>
+                                <span>Chưa có hóa đơn nào được phát hành cho tài khoản của bạn.</span>
+                            </div>
+                        </td>
                     </tr>
+                }
+                else
+                {
+                    @foreach (var invoice in Model.Invoices)
+                    {
+                        var isPaid = invoice.PaymentTransactions.Any(x => x.Status == PaymentTransactionStatus.Confirmed);
+                        var isPending = invoice.PaymentTransactions.Any(x => x.Status == PaymentTransactionStatus.Pending);
+
+                        <tr>
+                            <td class="ps-4 font-monospace fw-semibold text-primary">@invoice.InvoiceCode</td>
+                            <td><span class="badge bg-light text-dark border">@($"{invoice.BillingMonth:D2}/{invoice.BillingYear}")</span></td>
+                            <td>@(invoice.Apartment.Building?.BuildingName ?? "Chung cư") — <strong>@invoice.Apartment.ApartmentCode</strong></td>
+                            <td>@invoice.DueDate.ToString("dd/MM/yyyy")</td>
+                            <td class="text-end fw-bold">@invoice.TotalAmount.ToString("N0") đ</td>
+                            <td class="text-center">
+                                @if (isPaid)
+                                {
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle d-inline-flex align-items-center gap-1">
+                                        <i class="bi bi-check-circle-fill"></i> Đã thanh toán
+                                    </span>
+                                }
+                                else if (isPending)
+                                {
+                                    <span class="badge bg-warning-subtle text-warning border border-warning-subtle d-inline-flex align-items-center gap-1">
+                                        <i class="bi bi-hourglass-split"></i> Chờ xác nhận
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle d-inline-flex align-items-center gap-1">
+                                        <i class="bi bi-exclamation-circle-fill"></i> Chưa thanh toán
+                                    </span>
+                                }
+                            </td>
+                            <td class="text-end pe-4">
+                                <a asp-action="Details" asp-route-id="@invoice.ApartmentInvoiceId" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1">
+                                    <i class="bi bi-eye"></i> Xem chi tiết
+                                </a>
+                            </td>
+                        </tr>
+                    }
                 }
                 </tbody>
             </table>
         </div>
-    }
+    </div>
 </div>

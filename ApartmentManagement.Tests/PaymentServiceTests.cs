@@ -72,6 +72,33 @@ public sealed class PaymentServiceTests
         Assert.Equal(new byte[] { 137, 80, 78, 71 }, png[..4]);
     }
 
+    [Fact]
+    public async Task GetTransactionsAsync_WithStatusAndSearchTerm_FiltersCorrectly()
+    {
+        await using var context = CreateContext();
+        SeedInvoice(context);
+        var service = new PaymentService(context, NullLogger<PaymentService>.Instance);
+
+        var payment = await service.GetOrCreateResidentPaymentAsync("resident-user", 1);
+        Assert.NotNull(payment);
+
+        // Filter by Pending status
+        var pendingList = await service.GetTransactionsAsync(PaymentTransactionStatus.Pending);
+        Assert.Single(pendingList);
+
+        // Filter by Confirmed status (none yet)
+        var confirmedList = await service.GetTransactionsAsync(PaymentTransactionStatus.Confirmed);
+        Assert.Empty(confirmedList);
+
+        // Filter by search term
+        var searchMatch = await service.GetTransactionsAsync(searchTerm: "resident");
+        Assert.Single(searchMatch);
+
+        var searchNoMatch = await service.GetTransactionsAsync(searchTerm: "nonexistent");
+        Assert.Empty(searchNoMatch);
+    }
+
+
     private static ApplicationDbContext CreateContext()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()

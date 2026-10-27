@@ -2,23 +2,68 @@
 @{
     ViewData["Title"] = "Lập hóa đơn nháp";
 }
+
 <div class="container py-4">
     <div class="card border-0 shadow-sm rounded-4 mx-auto" style="max-width: 700px">
         <div class="card-body p-4 p-md-5">
-            <h1 class="h3 fw-bold">Lập hóa đơn nháp</h1>
-            <p class="text-muted">Hóa đơn nháp chưa hiển thị cho cư dân. Kiểm tra chi tiết rồi phát hành.</p>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-2">
+                    <li class="breadcrumb-item"><a asp-action="Index">Phí & Hóa đơn</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Lập hóa đơn nháp</li>
+                </ol>
+            </nav>
+            <h1 class="h3 fw-bold mb-2">Lập hóa đơn nháp</h1>
+            <p class="text-muted small mb-4">Hóa đơn nháp sẽ tổng hợp phí quản lý theo diện tích và phí điện nước theo chỉ số đã ghi. Hóa đơn nháp chưa hiển thị cho cư dân cho đến khi được duyệt phát hành.</p>
+
             <form asp-action="CreateInvoice" method="post">
-                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
-                <div class="mb-3"><label asp-for="ApartmentId" class="form-label">Căn hộ</label><select asp-for="ApartmentId" asp-items="Model.ApartmentOptions" class="form-select"><option value="">-- Chọn căn hộ --</option></select><span asp-validation-for="ApartmentId" class="text-danger"></span></div>
-                <div class="row">
-                    <div class="col-md-4 mb-3"><label asp-for="BillingMonth" class="form-label">Tháng</label><input asp-for="BillingMonth" class="form-control" /></div>
-                    <div class="col-md-4 mb-3"><label asp-for="BillingYear" class="form-label">Năm</label><input asp-for="BillingYear" class="form-control" /></div>
-                    <div class="col-md-4 mb-3"><label asp-for="DueDate" class="form-label">Hạn thanh toán</label><input asp-for="DueDate" class="form-control" /><span asp-validation-for="DueDate" class="text-danger"></span></div>
+                <div asp-validation-summary="ModelOnly" class="alert alert-danger rounded-3 mb-3"></div>
+
+                <div class="mb-3">
+                    <label asp-for="ApartmentId" class="form-label fw-semibold">Căn hộ áp dụng <span class="text-danger">*</span></label>
+                    <select asp-for="ApartmentId" asp-items="Model.ApartmentOptions" class="form-select form-select-lg">
+                        <option value="">-- Chọn căn hộ --</option>
+                    </select>
+                    <span asp-validation-for="ApartmentId" class="text-danger small"></span>
                 </div>
-                <button type="submit" class="btn btn-primary">Tính và tạo bản nháp</button>
-                <a asp-action="Index" class="btn btn-outline-secondary ms-2">Hủy</a>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <label asp-for="BillingMonth" class="form-label fw-semibold">Tháng tính phí <span class="text-danger">*</span></label>
+                        <input asp-for="BillingMonth" class="form-control" type="number" min="1" max="12" />
+                        <span asp-validation-for="BillingMonth" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="BillingYear" class="form-label fw-semibold">Năm tính phí <span class="text-danger">*</span></label>
+                        <input asp-for="BillingYear" class="form-control" type="number" min="2000" max="2200" />
+                        <span asp-validation-for="BillingYear" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="DueDate" class="form-label fw-semibold">Hạn thanh toán <span class="text-danger">*</span></label>
+                        <input asp-for="DueDate" class="form-control" type="date" />
+                        <span asp-validation-for="DueDate" class="text-danger small"></span>
+                    </div>
+                </div>
+
+                <div class="p-3 bg-light rounded-3 mb-4">
+                    <div class="d-flex gap-2">
+                        <i class="bi bi-info-circle text-primary fs-5 flex-shrink-0"></i>
+                        <small class="text-muted">
+                            Yêu cầu tiên quyết: Tòa nhà của căn hộ phải có biểu phí hiệu lực trong toàn bộ kỳ tính phí, đã ghi đủ chỉ số điện và nước cho kỳ này, và căn hộ có chủ hộ đang cư trú tại ngày cuối kỳ.
+                        </small>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary d-inline-flex align-items-center gap-1">
+                        <i class="bi bi-calculator"></i> Tính và tạo hóa đơn nháp
+                    </button>
+                    <a asp-action="Index" class="btn btn-outline-secondary">Hủy bỏ</a>
+                </div>
             </form>
         </div>
     </div>
 </div>
-@section Scripts { <partial name="_ValidationScriptsPartial" /> }
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
