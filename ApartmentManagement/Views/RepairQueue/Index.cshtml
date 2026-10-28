@@ -1,0 +1,200 @@
+@model IEnumerable<ApartmentManagement.Models.RepairRequest>
+
+@{
+    ViewData["Title"] = "Hàng Đợi Sửa Chữa & Bảo Trì";
+    var activeTab = ViewBag.ActiveTab as string ?? "all-requests";
+    var isTechnicianOnly = (bool)(ViewBag.IsTechnicianOnly ?? false);
+    var currentStatus = ViewBag.CurrentStatus as string;
+    var currentPriority = ViewBag.CurrentPriority as string;
+    var searchTerm = ViewBag.SearchTerm as string;
+}
+
+<div class="container py-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">🛠️ Hàng Đợi Sửa Chữa & Bảo Trì</h2>
+            <p class="text-muted mb-0">Quản lý tiếp nhận, phân công và giám sát tiến độ xử lý sự cố kỹ thuật toàn tòa nhà.</p>
+        </div>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm rounded-3 mb-4" role="alert">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-check-circle-fill fs-5"></i>
+                <div>@TempData["SuccessMessage"]</div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm rounded-3 mb-4" role="alert">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+                <div>@TempData["ErrorMessage"]</div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    <!-- Tabs Navigation -->
+    <ul class="nav nav-pills mb-4 gap-2">
+        @if (!isTechnicianOnly)
+        {
+            <li class="nav-item">
+                <a class="nav-link rounded-pill px-4 @(activeTab == "all-requests" ? "active" : "bg-white text-dark shadow-sm")"
+                   asp-action="Index" asp-route-tab="all-requests">
+                    <i class="bi bi-list-task me-1"></i> Tất cả yêu cầu
+                </a>
+            </li>
+        }
+        @if (User.IsInRole(ApartmentManagement.Common.Security.AppRoles.Technician))
+        {
+            <li class="nav-item">
+                <a class="nav-link rounded-pill px-4 @(activeTab == "my-tasks" ? "active" : "bg-white text-dark shadow-sm")"
+                   asp-action="Index" asp-route-tab="my-tasks">
+                    <i class="bi bi-person-workspace me-1"></i> Nhiệm vụ của tôi
+                </a>
+            </li>
+        }
+    </ul>
+
+    <!-- Filter Card -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-3 p-md-4">
+            <form method="get" class="row g-3">
+                <input type="hidden" name="tab" value="@activeTab" />
+                <div class="col-12 col-md-4">
+                    <label class="form-label small fw-semibold text-muted">Tìm kiếm</label>
+                    <input type="text" name="searchTerm" value="@searchTerm" class="form-control rounded-3" placeholder="Mã yêu cầu, căn hộ, người gửi..." />
+                </div>
+                <div class="col-12 col-sm-6 col-md-3">
+                    <label class="form-label small fw-semibold text-muted">Trạng thái</label>
+                    <select name="status" class="form-select rounded-3">
+                        <option value="">-- Tất cả trạng thái --</option>
+                        @foreach (var st in ApartmentManagement.Models.RepairRequestStatus.AllStatuses)
+                        {
+                            <option value="@st" selected="@(currentStatus == st)">@ApartmentManagement.Models.RepairRequestStatus.ToDisplayName(st)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-12 col-sm-6 col-md-3">
+                    <label class="form-label small fw-semibold text-muted">Mức ưu tiên</label>
+                    <select name="priority" class="form-select rounded-3">
+                        <option value="">-- Tất cả mức độ --</option>
+                        @foreach (var pr in ApartmentManagement.Models.RepairPriority.AllPriorities)
+                        {
+                            <option value="@pr" selected="@(currentPriority == pr)">@ApartmentManagement.Models.RepairPriority.ToDisplayName(pr)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-12 col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary rounded-pill w-100 py-2">
+                        <i class="bi bi-funnel me-1"></i> Lọc
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Requests Table -->
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+        <div class="card-body p-0">
+            @if (Model == null || !Model.Any())
+            {
+                <div class="text-center py-5">
+                    <div class="display-6 text-muted mb-3"><i class="bi bi-inbox"></i></div>
+                    <h5 class="fw-semibold text-muted">Không có yêu cầu sửa chữa nào phù hợp</h5>
+                    <p class="text-muted mb-0">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm.</p>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light text-muted small text-uppercase">
+                            <tr>
+                                <th class="ps-4">Mã / Tiêu đề</th>
+                                <th>Căn hộ</th>
+                                <th>Cư dân</th>
+                                <th>Mức ưu tiên</th>
+                                <th>Trạng thái</th>
+                                <th>Kỹ thuật viên</th>
+                                <th>Ngày tạo</th>
+                                <th class="text-end pe-4">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Model)
+                            {
+                                var activeAssignment = item.Assignments.FirstOrDefault(a => a.Status != ApartmentManagement.Models.RepairAssignmentStatus.Reassigned);
+                                <tr>
+                                    <td class="ps-4">
+                                        <div class="fw-bold text-dark">
+                                            <a asp-action="Details" asp-route-id="@item.RepairRequestId" class="text-decoration-none text-dark hover-primary">
+                                                #REQ-@item.RepairRequestId.ToString("D4") — @item.Title
+                                            </a>
+                                        </div>
+                                        <div class="small text-muted text-truncate" style="max-width: 260px;">@item.Description</div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark border">
+                                            @item.Apartment?.ApartmentCode (@(item.Apartment?.Building?.BuildingName ?? ""))
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="small fw-semibold">@(item.Resident?.User?.FullName ?? "N/A")</div>
+                                        <div class="small text-muted">@(item.Resident?.User?.PhoneNumber ?? "")</div>
+                                    </td>
+                                    <td>
+                                        <span class="badge @ApartmentManagement.Models.RepairPriority.ToBadgeClass(item.Priority)">
+                                            @ApartmentManagement.Models.RepairPriority.ToDisplayName(item.Priority)
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge @ApartmentManagement.Models.RepairRequestStatus.ToBadgeClass(item.Status)">
+                                            @ApartmentManagement.Models.RepairRequestStatus.ToDisplayName(item.Status)
+                                        </span>
+                                    </td>
+                                    <td>
+                                        @if (activeAssignment?.TechnicianUser != null)
+                                        {
+                                            <div class="small fw-semibold text-primary">
+                                                <i class="bi bi-person me-1"></i>@activeAssignment.TechnicianUser.FullName
+                                            </div>
+                                            <span class="badge bg-light text-muted border small">@ApartmentManagement.Models.RepairAssignmentStatus.ToDisplayName(activeAssignment.Status)</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle small">Chưa phân công</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <div class="small">@item.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")</div>
+                                        <div class="text-muted small">@item.CreatedAt.ToLocalTime().ToString("HH:mm")</div>
+                                    </td>
+                                    <td class="text-end pe-4">
+                                        <div class="btn-group btn-group-sm">
+                                            <a asp-action="Details" asp-route-id="@item.RepairRequestId" class="btn btn-outline-secondary rounded-pill px-3">
+                                                Chi tiết
+                                            </a>
+                                            @if (item.Status != ApartmentManagement.Models.RepairRequestStatus.Completed &&
+                                                 item.Status != ApartmentManagement.Models.RepairRequestStatus.Cancelled &&
+                                                 (User.IsInRole(ApartmentManagement.Common.Security.AppRoles.SuperAdmin) || User.IsInRole(ApartmentManagement.Common.Security.AppRoles.BuildingManager)))
+                                            {
+                                                <a asp-action="Assign" asp-route-id="@item.RepairRequestId" class="btn btn-primary rounded-pill px-3 ms-1">
+                                                    @(activeAssignment == null ? "Phân công" : "Đổi KTV")
+                                                </a>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>

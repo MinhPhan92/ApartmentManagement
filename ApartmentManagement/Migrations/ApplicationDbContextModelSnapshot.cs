@@ -902,6 +902,168 @@ namespace ApartmentManagement.Migrations
                         });
                 });
 
+            modelBuilder.Entity("ApartmentManagement.Models.RepairAssignment", b =>
+                {
+                    b.Property<int>("AssignmentId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("AssignmentId"));
+
+                    b.Property<DateTime>("AssignedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<int>("RepairRequestId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("TechnicianUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("AssignmentId");
+
+                    b.HasIndex("RepairRequestId");
+
+                    b.HasIndex("TechnicianUserId", "Status");
+
+                    b.ToTable("RepairAssignments", t =>
+                        {
+                            t.HasCheckConstraint("CK_RepairAssignments_Status", "[Status] IN (N'Assigned', N'InProgress', N'Completed', N'Reassigned')");
+                        });
+                });
+
+            modelBuilder.Entity("ApartmentManagement.Models.RepairRequest", b =>
+                {
+                    b.Property<int>("RepairRequestId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RepairRequestId"));
+
+                    b.Property<int>("ApartmentId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ConfirmedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("Priority")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<byte?>("Rating")
+                        .HasColumnType("tinyint");
+
+                    b.Property<string>("ResidentFeedback")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("ResidentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Result")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("RepairRequestId");
+
+                    b.HasIndex("ApartmentId");
+
+                    b.HasIndex("ResidentId", "CreatedAt");
+
+                    b.HasIndex("Status", "CreatedAt");
+
+                    b.ToTable("RepairRequests", t =>
+                        {
+                            t.HasCheckConstraint("CK_RepairRequests_Priority", "[Priority] IN (N'Low', N'Normal', N'High', N'Urgent')");
+
+                            t.HasCheckConstraint("CK_RepairRequests_Rating", "[Rating] IS NULL OR ([Rating] >= 1 AND [Rating] <= 5)");
+
+                            t.HasCheckConstraint("CK_RepairRequests_Status", "[Status] IN (N'Pending', N'Assigned', N'InProgress', N'PendingConfirmation', N'Completed', N'Reopened', N'Cancelled')");
+                        });
+                });
+
+            modelBuilder.Entity("ApartmentManagement.Models.RepairStatusHistory", b =>
+                {
+                    b.Property<int>("RepairStatusHistoryId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RepairStatusHistoryId"));
+
+                    b.Property<DateTime>("ChangedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ChangedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("NewStatus")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("PreviousStatus")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int>("RepairRequestId")
+                        .HasColumnType("int");
+
+                    b.HasKey("RepairStatusHistoryId");
+
+                    b.HasIndex("ChangedByUserId");
+
+                    b.HasIndex("RepairRequestId", "ChangedAt");
+
+                    b.ToTable("RepairStatusHistories");
+                });
+
             modelBuilder.Entity("ApartmentManagement.Models.Resident", b =>
                 {
                     b.Property<int>("ResidentId")
@@ -1525,6 +1687,63 @@ namespace ApartmentManagement.Migrations
                     b.Navigation("Invoice");
                 });
 
+            modelBuilder.Entity("ApartmentManagement.Models.RepairAssignment", b =>
+                {
+                    b.HasOne("ApartmentManagement.Models.RepairRequest", "RepairRequest")
+                        .WithMany("Assignments")
+                        .HasForeignKey("RepairRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ApartmentManagement.Models.ApplicationUser", "TechnicianUser")
+                        .WithMany()
+                        .HasForeignKey("TechnicianUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("RepairRequest");
+
+                    b.Navigation("TechnicianUser");
+                });
+
+            modelBuilder.Entity("ApartmentManagement.Models.RepairRequest", b =>
+                {
+                    b.HasOne("ApartmentManagement.Models.Apartment", "Apartment")
+                        .WithMany("RepairRequests")
+                        .HasForeignKey("ApartmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ApartmentManagement.Models.Resident", "Resident")
+                        .WithMany("RepairRequests")
+                        .HasForeignKey("ResidentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Apartment");
+
+                    b.Navigation("Resident");
+                });
+
+            modelBuilder.Entity("ApartmentManagement.Models.RepairStatusHistory", b =>
+                {
+                    b.HasOne("ApartmentManagement.Models.ApplicationUser", "ChangedByUser")
+                        .WithMany()
+                        .HasForeignKey("ChangedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ApartmentManagement.Models.RepairRequest", "RepairRequest")
+                        .WithMany("StatusHistory")
+                        .HasForeignKey("RepairRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ChangedByUser");
+
+                    b.Navigation("RepairRequest");
+                });
+
             modelBuilder.Entity("ApartmentManagement.Models.Resident", b =>
                 {
                     b.HasOne("ApartmentManagement.Models.ApplicationUser", "User")
@@ -1659,6 +1878,8 @@ namespace ApartmentManagement.Migrations
 
                     b.Navigation("Invoices");
 
+                    b.Navigation("RepairRequests");
+
                     b.Navigation("UtilityMeterReadings");
 
                     b.Navigation("Vehicles");
@@ -1701,6 +1922,13 @@ namespace ApartmentManagement.Migrations
                     b.Navigation("Tiers");
                 });
 
+            modelBuilder.Entity("ApartmentManagement.Models.RepairRequest", b =>
+                {
+                    b.Navigation("Assignments");
+
+                    b.Navigation("StatusHistory");
+                });
+
             modelBuilder.Entity("ApartmentManagement.Models.Resident", b =>
                 {
                     b.Navigation("AmenityBookings");
@@ -1712,6 +1940,8 @@ namespace ApartmentManagement.Migrations
                     b.Navigation("ContractParties");
 
                     b.Navigation("Invoices");
+
+                    b.Navigation("RepairRequests");
 
                     b.Navigation("Vehicles");
 

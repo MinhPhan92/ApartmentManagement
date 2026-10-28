@@ -130,9 +130,9 @@
                                 </a>
                             </li>
                             <li class="sidebar-nav-item">
-                                <a asp-controller="MyIncidents" asp-action="Index" class="sidebar-nav-link @(currentController == "MyIncidents" ? "active" : "")">
+                                <a asp-controller="RepairRequests" asp-action="Index" class="sidebar-nav-link @(currentController == "RepairRequests" || currentController == "MyIncidents" ? "active" : "")">
                                     <i class="bi bi-tools"></i>
-                                    <span>Báo sự cố</span>
+                                    <span>Yêu cầu sửa chữa</span>
                                 </a>
                             </li>
                             <li class="sidebar-nav-item">
@@ -174,9 +174,9 @@
                         <div class="nav-section-title">Vận hành & Kỹ thuật</div>
                         <ul class="sidebar-nav">
                             <li class="sidebar-nav-item">
-                                <a asp-controller="IncidentQueue" asp-action="Index" class="sidebar-nav-link @(currentController == "IncidentQueue" ? "active" : "")">
+                                <a asp-controller="RepairQueue" asp-action="Index" class="sidebar-nav-link @(currentController == "RepairQueue" || currentController == "IncidentQueue" ? "active" : "")">
                                     <i class="bi bi-tools"></i>
-                                    <span>Hàng đợi sự cố</span>
+                                    <span>Hàng đợi sửa chữa</span>
                                 </a>
                             </li>
                             <li class="sidebar-nav-item">

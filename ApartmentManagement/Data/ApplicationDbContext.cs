@@ -57,6 +57,9 @@ namespace ApartmentManagement.Data
         public DbSet<Announcement> Announcements => Set<Announcement>();
 
         public DbSet<VisitorPass> VisitorPasses => Set<VisitorPass>();
+        public DbSet<RepairRequest> RepairRequests => Set<RepairRequest>();
+        public DbSet<RepairAssignment> RepairAssignments => Set<RepairAssignment>();
+        public DbSet<RepairStatusHistory> RepairStatusHistories => Set<RepairStatusHistory>();
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -515,6 +518,84 @@ namespace ApartmentManagement.Data
                     .HasForeignKey(x => x.ResidentId).OnDelete(DeleteBehavior.Restrict);
                 entity.HasOne(x => x.Apartment).WithMany(x => x.VisitorPasses)
                     .HasForeignKey(x => x.ApartmentId).OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // REPAIR REQUEST
+            builder.Entity<RepairRequest>(entity =>
+            {
+                entity.HasKey(x => x.RepairRequestId);
+                entity.Property(x => x.Title).HasMaxLength(200).IsRequired();
+                entity.Property(x => x.Description).HasMaxLength(4000).IsRequired();
+                entity.Property(x => x.Priority).HasMaxLength(30).IsRequired();
+                entity.Property(x => x.Status).HasMaxLength(30).IsRequired();
+                entity.Property(x => x.Result).HasMaxLength(4000);
+                entity.Property(x => x.ResidentFeedback).HasMaxLength(1000);
+                entity.Property(x => x.CreatedAt).HasColumnType("datetime2");
+                entity.Property(x => x.CompletedAt).HasColumnType("datetime2");
+                entity.Property(x => x.ConfirmedAt).HasColumnType("datetime2");
+                entity.Property(x => x.RowVersion).IsRowVersion();
+
+                entity.ToTable(table =>
+                {
+                    table.HasCheckConstraint("CK_RepairRequests_Priority",
+                        "[Priority] IN (N'Low', N'Normal', N'High', N'Urgent')");
+                    table.HasCheckConstraint("CK_RepairRequests_Status",
+                        "[Status] IN (N'Pending', N'Assigned', N'InProgress', N'PendingConfirmation', N'Completed', N'Reopened', N'Cancelled')");
+                    table.HasCheckConstraint("CK_RepairRequests_Rating",
+                        "[Rating] IS NULL OR ([Rating] >= 1 AND [Rating] <= 5)");
+                });
+
+                entity.HasIndex(x => new { x.ResidentId, x.CreatedAt });
+                entity.HasIndex(x => x.ApartmentId);
+                entity.HasIndex(x => new { x.Status, x.CreatedAt });
+
+                entity.HasOne(x => x.Resident).WithMany(x => x.RepairRequests)
+                    .HasForeignKey(x => x.ResidentId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(x => x.Apartment).WithMany(x => x.RepairRequests)
+                    .HasForeignKey(x => x.ApartmentId).OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // REPAIR ASSIGNMENT
+            builder.Entity<RepairAssignment>(entity =>
+            {
+                entity.HasKey(x => x.AssignmentId);
+                entity.Property(x => x.TechnicianUserId).HasMaxLength(450).IsRequired();
+                entity.Property(x => x.Status).HasMaxLength(30).IsRequired();
+                entity.Property(x => x.Note).HasMaxLength(2000);
+                entity.Property(x => x.AssignedAt).HasColumnType("datetime2");
+                entity.Property(x => x.CompletedAt).HasColumnType("datetime2");
+
+                entity.ToTable(table =>
+                {
+                    table.HasCheckConstraint("CK_RepairAssignments_Status",
+                        "[Status] IN (N'Assigned', N'InProgress', N'Completed', N'Reassigned')");
+                });
+
+                entity.HasIndex(x => x.RepairRequestId);
+                entity.HasIndex(x => new { x.TechnicianUserId, x.Status });
+
+                entity.HasOne(x => x.RepairRequest).WithMany(x => x.Assignments)
+                    .HasForeignKey(x => x.RepairRequestId).OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(x => x.TechnicianUser).WithMany()
+                    .HasForeignKey(x => x.TechnicianUserId).OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // REPAIR STATUS HISTORY
+            builder.Entity<RepairStatusHistory>(entity =>
+            {
+                entity.HasKey(x => x.RepairStatusHistoryId);
+                entity.Property(x => x.PreviousStatus).HasMaxLength(30);
+                entity.Property(x => x.NewStatus).HasMaxLength(30).IsRequired();
+                entity.Property(x => x.ChangedByUserId).HasMaxLength(450).IsRequired();
+                entity.Property(x => x.Note).HasMaxLength(1000);
+                entity.Property(x => x.ChangedAt).HasColumnType("datetime2");
+
+                entity.HasIndex(x => new { x.RepairRequestId, x.ChangedAt });
+
+                entity.HasOne(x => x.RepairRequest).WithMany(x => x.StatusHistory)
+                    .HasForeignKey(x => x.RepairRequestId).OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(x => x.ChangedByUser).WithMany()
+                    .HasForeignKey(x => x.ChangedByUserId).OnDelete(DeleteBehavior.Restrict);
             });
         }
     }

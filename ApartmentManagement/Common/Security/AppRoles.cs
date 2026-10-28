@@ -24,4 +24,6 @@ public static class AppPolicies
     public const string RequireManagement = "RequireManagement";
     public const string RequireAccountantOrManager = "RequireAccountantOrManager";
     public const string RequireResident = "RequireResident";
+    public const string RequireTechnician = "RequireTechnician";
+    public const string RequireTechnicianOrManagement = "RequireTechnicianOrManagement";
 }

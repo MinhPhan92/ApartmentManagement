@@ -1,0 +1,148 @@
+@model IEnumerable<ApartmentManagement.Models.RepairAssignment>
+
+@{
+    ViewData["Title"] = "Nhiệm Vụ Kỹ Thuật Của Tôi";
+}
+
+<div class="container py-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">🛠️ Nhiệm Vụ Kỹ Thuật Của Tôi</h2>
+            <p class="text-muted mb-0">Các yêu cầu sửa chữa đã được Ban Quản Lý phân công trực tiếp cho bạn.</p>
+        </div>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm rounded-3 mb-4" role="alert">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-check-circle-fill fs-5"></i>
+                <div>@TempData["SuccessMessage"]</div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm rounded-3 mb-4" role="alert">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+                <div>@TempData["ErrorMessage"]</div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    <!-- Tabs Navigation -->
+    <ul class="nav nav-pills mb-4 gap-2">
+        @if (User.IsInRole(ApartmentManagement.Common.Security.AppRoles.SuperAdmin) || User.IsInRole(ApartmentManagement.Common.Security.AppRoles.BuildingManager))
+        {
+            <li class="nav-item">
+                <a class="nav-link rounded-pill px-4 bg-white text-dark shadow-sm"
+                   asp-action="Index" asp-route-tab="all-requests">
+                    <i class="bi bi-list-task me-1"></i> Tất cả yêu cầu
+                </a>
+            </li>
+        }
+        <li class="nav-item">
+            <a class="nav-link rounded-pill px-4 active"
+               asp-action="Index" asp-route-tab="my-tasks">
+                <i class="bi bi-person-workspace me-1"></i> Nhiệm vụ của tôi
+            </a>
+        </li>
+    </ul>
+
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+        <div class="card-body p-0">
+            @if (Model == null || !Model.Any())
+            {
+                <div class="text-center py-5">
+                    <div class="display-6 text-muted mb-3"><i class="bi bi-emoji-smile"></i></div>
+                    <h5 class="fw-semibold text-muted">Hiện tại bạn không có nhiệm vụ nào cần xử lý</h5>
+                    <p class="text-muted mb-0">Khi Ban Quản Lý phân công sự cố mới, danh sách sẽ hiển thị tại đây.</p>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light text-muted small text-uppercase">
+                            <tr>
+                                <th class="ps-4">Sự cố</th>
+                                <th>Căn hộ</th>
+                                <th>Cư dân liên hệ</th>
+                                <th>Mức ưu tiên</th>
+                                <th>Trạng thái việc</th>
+                                <th>Thời gian giao</th>
+                                <th class="text-end pe-4">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var a in Model)
+                            {
+                                var req = a.RepairRequest;
+                                var rowVersionBase64 = Convert.ToBase64String(req.RowVersion);
+                                <tr>
+                                    <td class="ps-4">
+                                        <div class="fw-bold text-dark">
+                                            <a asp-action="Details" asp-route-id="@req.RepairRequestId" class="text-decoration-none text-dark hover-primary">
+                                                #REQ-@req.RepairRequestId.ToString("D4") — @req.Title
+                                            </a>
+                                        </div>
+                                        <div class="small text-muted text-truncate" style="max-width: 250px;">@req.Description</div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark border">
+                                            @req.Apartment?.ApartmentCode (@(req.Apartment?.Building?.BuildingName ?? ""))
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="small fw-semibold">@(req.Resident?.User?.FullName ?? "N/A")</div>
+                                        <div class="small text-muted">📞 @(req.Resident?.User?.PhoneNumber ?? "Chưa có SĐT")</div>
+                                    </td>
+                                    <td>
+                                        <span class="badge @ApartmentManagement.Models.RepairPriority.ToBadgeClass(req.Priority)">
+                                            @ApartmentManagement.Models.RepairPriority.ToDisplayName(req.Priority)
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge @(a.Status == ApartmentManagement.Models.RepairAssignmentStatus.Assigned ? "bg-warning text-dark" : a.Status == ApartmentManagement.Models.RepairAssignmentStatus.InProgress ? "bg-primary text-white" : "bg-success text-white")">
+                                            @ApartmentManagement.Models.RepairAssignmentStatus.ToDisplayName(a.Status)
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="small">@a.AssignedAt.ToLocalTime().ToString("dd/MM/yyyy")</div>
+                                        <div class="text-muted small">@a.AssignedAt.ToLocalTime().ToString("HH:mm")</div>
+                                    </td>
+                                    <td class="text-end pe-4">
+                                        <div class="d-flex justify-content-end gap-1">
+                                            @if (a.Status == ApartmentManagement.Models.RepairAssignmentStatus.Assigned)
+                                            {
+                                                <form asp-action="StartWork" asp-route-assignmentId="@a.AssignmentId" method="post" class="d-inline">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="rowVersionBase64" value="@rowVersionBase64" />
+                                                    <button type="submit" class="btn btn-sm btn-primary rounded-pill px-3">
+                                                        <i class="bi bi-play-fill me-1"></i> Bắt đầu xử lý
+                                                    </button>
+                                                </form>
+                                            }
+                                            else if (a.Status == ApartmentManagement.Models.RepairAssignmentStatus.InProgress)
+                                            {
+                                                <a asp-action="CompleteWork" asp-route-assignmentId="@a.AssignmentId" class="btn btn-sm btn-success rounded-pill px-3">
+                                                    <i class="bi bi-check2-circle me-1"></i> Báo hoàn thành
+                                                </a>
+                                            }
+                                            <a asp-action="Details" asp-route-id="@req.RepairRequestId" class="btn btn-sm btn-outline-secondary rounded-pill px-2">
+                                                Chi tiết
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>

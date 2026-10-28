@@ -1,0 +1,69 @@
+@model ApartmentManagement.ViewModels.RepairRequestProgressViewModel
+
+@{
+    ViewData["Title"] = $"Báo cáo hoàn thành — #REQ-{Model.RepairRequestId}";
+}
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-8 col-lg-6">
+            <div class="mb-4">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a asp-action="Index" class="text-decoration-none">Hàng đợi sửa chữa</a></li>
+                        <li class="breadcrumb-item"><a asp-action="Details" asp-route-id="@Model.RepairRequestId" class="text-decoration-none">#REQ-@Model.RepairRequestId.ToString("D4")</a></li>
+                        <li class="breadcrumb-item active" aria-current="page">Báo cáo hoàn thành</li>
+                    </ol>
+                </nav>
+                <h2 class="fw-bold mb-1">🏁 Báo Cáo Kết Quả Sửa Chữa</h2>
+                <p class="text-muted">Nhập chi tiết các hạng mục đã khắc phục để chuyển yêu cầu sang trạng thái chờ cư dân nghiệm thu.</p>
+            </div>
+
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4">
+                    <div class="p-3 bg-light rounded-3 mb-4">
+                        <div class="small text-muted">Sự cố:</div>
+                        <div class="fw-bold text-dark">#REQ-@Model.RepairRequestId.ToString("D4"): @Model.Title</div>
+                        <div class="small text-muted mt-1">Căn hộ: <strong class="text-dark">@Model.ApartmentCode</strong></div>
+                    </div>
+
+                    <form asp-action="CompleteWork" asp-route-assignmentId="@Model.AssignmentId" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" asp-for="AssignmentId" />
+                        <input type="hidden" asp-for="RepairRequestId" />
+                        <input type="hidden" asp-for="Title" />
+                        <input type="hidden" asp-for="ApartmentCode" />
+                        <input type="hidden" asp-for="RowVersion" />
+
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger rounded-3" role="alert"></div>
+
+                        <div class="mb-3">
+                            <label asp-for="Result" class="form-label fw-semibold">Kết quả xử lý chi tiết <span class="text-danger">*</span></label>
+                            <textarea asp-for="Result" class="form-control rounded-3" rows="4" placeholder="Mô tả các công việc đã thực hiện, nguyên nhân sự cố, vật tư đã thay thế (nếu có), tình trạng thiết bị sau sửa chữa..."></textarea>
+                            <span asp-validation-for="Result" class="text-danger small"></span>
+                        </div>
+
+                        <div class="mb-4">
+                            <label asp-for="Note" class="form-label fw-semibold">Ghi chú bổ sung (tùy chọn)</label>
+                            <textarea asp-for="Note" class="form-control rounded-3" rows="2" placeholder="Lưu ý cho cư dân trong quá trình sử dụng..."></textarea>
+                            <span asp-validation-for="Note" class="text-danger small"></span>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center pt-2 border-top">
+                            <a asp-action="Details" asp-route-id="@Model.RepairRequestId" class="btn btn-outline-secondary rounded-pill px-4">
+                                Quay lại
+                            </a>
+                            <button type="submit" class="btn btn-success rounded-pill px-4 shadow-sm">
+                                <i class="bi bi-check-circle me-1"></i> Gửi chờ nghiệm thu
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

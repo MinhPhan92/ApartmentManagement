@@ -46,6 +46,11 @@ namespace ApartmentManagement.Controllers
             var pendingVehicles = await _context.Vehicles.CountAsync(x => x.Status == "Chờ duyệt");
             var activeAmenities = await _context.Amenities.CountAsync(x => x.IsActive);
             var unpaidInvoices = await _context.ApartmentInvoices.CountAsync(x => x.Status == ApartmentInvoiceStatus.Issued && !x.PaymentTransactions.Any(pt => pt.Status == PaymentTransactionStatus.Confirmed));
+            var pendingRepairs = await _context.RepairRequests.CountAsync(x =>
+                x.Status == RepairRequestStatus.Pending ||
+                x.Status == RepairRequestStatus.Assigned ||
+                x.Status == RepairRequestStatus.InProgress ||
+                x.Status == RepairRequestStatus.Reopened);
 
             ViewBag.UserFullName = user?.FullName ?? user?.UserName;
             ViewBag.UserRole = isSystemAdmin ? "System Administrator" : "Building Manager";
@@ -58,6 +63,8 @@ namespace ApartmentManagement.Controllers
             ViewBag.PendingVehicles = pendingVehicles;
             ViewBag.ActiveAmenities = activeAmenities;
             ViewBag.UnpaidInvoices = unpaidInvoices;
+            ViewBag.PendingRepairs = pendingRepairs;
+            ViewBag.PendingTickets = pendingRepairs;
 
             return View(recentBuildings);
         }

@@ -1,0 +1,338 @@
+@model ApartmentManagement.Models.RepairRequest
+
+@{
+    ViewData["Title"] = $"Yêu cầu #{Model.RepairRequestId} - {Model.Title}";
+    var rowVersionBase64 = Convert.ToBase64String(Model.RowVersion);
+    var activeAssignment = Model.Assignments.FirstOrDefault(a => a.Status != ApartmentManagement.Models.RepairAssignmentStatus.Reassigned);
+}
+
+<div class="container py-4">
+    <div class="mb-4">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a asp-action="Index" class="text-decoration-none">Yêu cầu sửa chữa</a></li>
+                <li class="breadcrumb-item active" aria-current="page">#REQ-@Model.RepairRequestId.ToString("D4")</li>
+            </ol>
+        </nav>
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+            <div>
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="badge @ApartmentManagement.Models.RepairRequestStatus.ToBadgeClass(Model.Status) fs-6">
+                        @ApartmentManagement.Models.RepairRequestStatus.ToDisplayName(Model.Status)
+                    </span>
+                    <span class="badge @ApartmentManagement.Models.RepairPriority.ToBadgeClass(Model.Priority) fs-6">
+                        Ưu tiên: @ApartmentManagement.Models.RepairPriority.ToDisplayName(Model.Priority)
+                    </span>
+                </div>
+                <h2 class="fw-bold mb-0">#REQ-@Model.RepairRequestId.ToString("D4"): @Model.Title</h2>
+            </div>
+            <a asp-action="Index" class="btn btn-outline-secondary rounded-pill px-4">
+                <i class="bi bi-arrow-left me-1"></i> Quay lại
+            </a>
+        </div>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm rounded-3 mb-4" role="alert">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-check-circle-fill fs-5"></i>
+                <div>@TempData["SuccessMessage"]</div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm rounded-3 mb-4" role="alert">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+                <div>@TempData["ErrorMessage"]</div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    <!-- NẾU ĐANG CHỜ NGHIỆM THU: BANNER HÀNH ĐỘNG DÀNH CHO CƯ DÂN -->
+    @if (Model.Status == ApartmentManagement.Models.RepairRequestStatus.PendingConfirmation)
+    {
+        <div class="card border-0 shadow-sm rounded-4 border-start border-primary border-4 mb-4 bg-primary-subtle">
+            <div class="card-body p-4">
+                <div class="d-flex align-items-start gap-3">
+                    <div class="fs-2 text-primary">🔔</div>
+                    <div class="flex-grow-1">
+                        <h5 class="fw-bold text-primary mb-1">Kỹ thuật viên đã hoàn thành công việc — Cần bạn nghiệm thu!</h5>
+                        <p class="text-dark mb-3">Vui lòng kiểm tra tình trạng thực tế tại căn hộ. Bạn có thể xác nhận hoàn thành (và đánh giá dịch vụ) hoặc gửi yêu cầu làm lại nếu sự cố chưa được khắc phục triệt để.</p>
+                        
+                        <div class="p-3 bg-white rounded-3 shadow-sm mb-3">
+                            <div class="fw-semibold text-muted small mb-1">KẾT QUẢ XỬ LÝ CỦA KỸ THUẬT VIÊN:</div>
+                            <div class="text-dark">@Model.Result</div>
+                        </div>
+
+                        <div class="d-flex flex-wrap gap-2">
+                            <button type="button" class="btn btn-success rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#confirmModal">
+                                <i class="bi bi-check-circle me-1"></i> Nghiệm thu & Chấm điểm
+                            </button>
+                            <button type="button" class="btn btn-outline-danger rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#redoModal">
+                                <i class="bi bi-arrow-repeat me-1"></i> Yêu cầu xử lý lại
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <div class="row g-4">
+        <!-- Cột trái: Thông tin chi tiết sự cố -->
+        <div class="col-12 col-lg-8">
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-white py-3 border-0">
+                    <h5 class="fw-bold mb-0">📄 Thông Tin Yêu Cầu</h5>
+                </div>
+                <div class="card-body pt-0">
+                    <div class="mb-3">
+                        <label class="text-muted small fw-semibold">Mô tả sự cố:</label>
+                        <div class="p-3 bg-light rounded-3 text-dark mt-1" style="white-space: pre-line;">@Model.Description</div>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(Model.Result))
+                    {
+                        <div class="mb-3">
+                            <label class="text-muted small fw-semibold">Kết quả sửa chữa từ KTV:</label>
+                            <div class="p-3 bg-success-subtle rounded-3 text-dark mt-1 border border-success-subtle">
+                                <div class="fw-semibold text-success mb-1">
+                                    <i class="bi bi-check-all me-1"></i> Đã hoàn thành lúc: @(Model.CompletedAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "N/A")
+                                </div>
+                                <div style="white-space: pre-line;">@Model.Result</div>
+                            </div>
+                        </div>
+                    }
+
+                    @if (Model.Rating.HasValue)
+                    {
+                        <div class="p-3 bg-light rounded-3 border">
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <span class="fw-semibold text-dark">Đánh giá của cư dân:</span>
+                                <span class="text-warning fs-5">
+                                    @for (int i = 1; i <= 5; i++)
+                                    {
+                                        if (i <= Model.Rating.Value)
+                                        {
+                                            <span>★</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">☆</span>
+                                        }
+                                    }
+                                </span>
+                                <span class="fw-bold text-dark">(@Model.Rating / 5 sao)</span>
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(Model.ResidentFeedback))
+                            {
+                                <div class="text-muted small fst-italic">“@Model.ResidentFeedback”</div>
+                            }
+                            <div class="small text-muted mt-1">Nghiệm thu vào: @Model.ConfirmedAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Lịch sử tiến độ (Timeline) -->
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-white py-3 border-0">
+                    <h5 class="fw-bold mb-0">⏱️ Lịch Sử Tiến Độ Xử Lý</h5>
+                </div>
+                <div class="card-body pt-0">
+                    @if (Model.StatusHistory != null && Model.StatusHistory.Any())
+                    {
+                        <div class="timeline">
+                            @foreach (var history in Model.StatusHistory.OrderByDescending(h => h.ChangedAt))
+                            {
+                                <div class="border-start border-2 border-primary ps-3 pb-3 position-relative">
+                                    <div class="position-absolute rounded-circle bg-primary" style="width: 10px; height: 10px; left: -6px; top: 5px;"></div>
+                                    <div class="d-flex justify-content-between align-items-baseline">
+                                        <span class="badge @ApartmentManagement.Models.RepairRequestStatus.ToBadgeClass(history.NewStatus)">
+                                            @ApartmentManagement.Models.RepairRequestStatus.ToDisplayName(history.NewStatus)
+                                        </span>
+                                        <span class="small text-muted">@history.ChangedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                                    </div>
+                                    <div class="small fw-semibold text-dark mt-1">
+                                        Thực hiện bởi: @(history.ChangedByUser?.FullName ?? "Hệ thống")
+                                    </div>
+                                    @if (!string.IsNullOrWhiteSpace(history.Note))
+                                    {
+                                        <div class="small text-muted mt-1 bg-light p-2 rounded-2">@history.Note</div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-muted small mb-0">Chưa có lịch sử trạng thái.</p>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Cột phải: Thông tin căn hộ & Kỹ thuật viên -->
+        <div class="col-12 col-lg-4">
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-white py-3 border-0">
+                    <h5 class="fw-bold mb-0">🏢 Căn Hộ & Địa Điểm</h5>
+                </div>
+                <div class="card-body pt-0">
+                    <div class="row g-2 small">
+                        <div class="col-5 text-muted">Căn hộ:</div>
+                        <div class="col-7 fw-semibold text-dark">@Model.Apartment?.ApartmentCode</div>
+
+                        <div class="col-5 text-muted">Tòa nhà:</div>
+                        <div class="col-7 fw-semibold text-dark">@Model.Apartment?.Building?.BuildingName</div>
+
+                        <div class="col-5 text-muted">Tầng:</div>
+                        <div class="col-7 text-dark">@Model.Apartment?.Floor</div>
+
+                        <div class="col-5 text-muted">Ngày gửi:</div>
+                        <div class="col-7 text-dark">@Model.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-white py-3 border-0">
+                    <h5 class="fw-bold mb-0">👷 Kỹ Thuật Viên Phụ Trách</h5>
+                </div>
+                <div class="card-body pt-0">
+                    @if (activeAssignment?.TechnicianUser != null)
+                    {
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center fw-bold" style="width: 44px; height: 44px;">
+                                @(activeAssignment.TechnicianUser.FullName.Substring(0, 1).ToUpper())
+                            </div>
+                            <div>
+                                <div class="fw-bold text-dark">@activeAssignment.TechnicianUser.FullName</div>
+                                <div class="small text-muted">@activeAssignment.TechnicianUser.Email</div>
+                                <span class="badge bg-light text-dark border small mt-1">
+                                    Giao lúc: @activeAssignment.AssignedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                                </span>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-muted small">
+                            <i class="bi bi-clock me-1"></i> Đang chờ Ban Quản Lý phân công kỹ thuật viên.
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Nút hủy yêu cầu (nếu đang Pending / Assigned) -->
+            @if (Model.Status == ApartmentManagement.Models.RepairRequestStatus.Pending || Model.Status == ApartmentManagement.Models.RepairRequestStatus.Assigned)
+            {
+                <div class="card border-0 shadow-sm rounded-4">
+                    <div class="card-body p-3">
+                        <button type="button" class="btn btn-outline-danger w-100 rounded-pill" data-bs-toggle="modal" data-bs-target="#cancelModal">
+                            <i class="bi bi-x-circle me-1"></i> Hủy yêu cầu này
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nghiệm thu & Chấm điểm -->
+<div class="modal fade" id="confirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <form asp-action="Confirm" asp-route-id="@Model.RepairRequestId" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="rowVersionBase64" value="@rowVersionBase64" />
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold">⭐ Nghiệm Thu & Đánh Giá</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-3">Xác nhận sự cố đã được khắc phục hoàn toàn và cho Ban Quản Lý biết mức độ hài lòng của bạn.</p>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Đánh giá chất lượng:</label>
+                        <select name="rating" class="form-select rounded-3">
+                            <option value="5" selected>⭐⭐⭐⭐⭐ 5 sao - Rất hài lòng / Xử lý nhanh</option>
+                            <option value="4">⭐⭐⭐⭐ 4 sao - Hài lòng</option>
+                            <option value="3">⭐⭐⭐ 3 sao - Bình thường</option>
+                            <option value="2">⭐⭐ 2 sao - Chưa hài lòng lắm</option>
+                            <option value="1">⭐ 1 sao - Kém</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label fw-semibold">Nhận xét (không bắt buộc):</label>
+                        <textarea name="feedback" class="form-control rounded-3" rows="3" placeholder="Chia sẻ thêm cảm nhận của bạn về thái độ phục vụ và hiệu quả công việc..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-pill px-3" data-bs-dismiss="modal">Đóng</button>
+                    <button type="submit" class="btn btn-success rounded-pill px-4">Xác nhận nghiệm thu</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Yêu cầu làm lại -->
+<div class="modal fade" id="redoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <form asp-action="RequestRedo" asp-route-id="@Model.RepairRequestId" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="rowVersionBase64" value="@rowVersionBase64" />
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold text-danger">⚠️ Yêu Cầu Xử Lý Lại</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-3">Vui lòng mô tả rõ lý do chưa đạt để Kỹ thuật viên kiểm tra và xử lý lại kịp thời.</p>
+                    <div class="mb-2">
+                        <label class="form-label fw-semibold">Lý do chưa khắc phục xong <span class="text-danger">*</span>:</label>
+                        <textarea name="redoReason" required class="form-control rounded-3" rows="3" placeholder="Ví dụ: Nước vẫn còn rò rỉ nhẹ sau khi bật van áp lực, công tắc đèn còn chập chờn..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-pill px-3" data-bs-dismiss="modal">Đóng</button>
+                    <button type="submit" class="btn btn-danger rounded-pill px-4">Gửi yêu cầu làm lại</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Hủy yêu cầu -->
+<div class="modal fade" id="cancelModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <form asp-action="Cancel" asp-route-id="@Model.RepairRequestId" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="rowVersionBase64" value="@rowVersionBase64" />
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold text-danger">Hủy Yêu Cầu Sửa Chữa</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-3">Bạn có chắc chắn muốn hủy yêu cầu sửa chữa này không?</p>
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Lý do hủy (tùy chọn):</label>
+                        <input type="text" name="reason" class="form-control rounded-3" placeholder="Đã tự khắc phục được, không cần nữa..." />
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-pill px-3" data-bs-dismiss="modal">Không hủy</button>
+                    <button type="submit" class="btn btn-danger rounded-pill px-4">Xác nhận hủy</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

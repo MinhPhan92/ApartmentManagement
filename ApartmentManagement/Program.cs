@@ -52,6 +52,7 @@ builder.Services.AddScoped<IContractService, ContractService>();
 builder.Services.AddScoped<IBillingService, BillingService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<ISearchService, SearchService>();
+builder.Services.AddScoped<IRepairRequestService, RepairRequestService>();
 builder.Services.AddSingleton<IVietQrCodeGenerator, VietQrCodeGenerator>();
 builder.Services.Configure<VietQrOptions>(builder.Configuration.GetSection("Payments:VietQr"));
 
@@ -126,6 +127,14 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(AppPolicies.RequireSuperAdmin, policy =>
         policy.RequireRole(AppRoles.SuperAdmin));
 
+    options.AddPolicy(AppPolicies.RequireTechnician, policy =>
+        policy.RequireRole(AppRoles.Technician));
+
+    options.AddPolicy(AppPolicies.RequireTechnicianOrManagement, policy =>
+        policy.RequireRole(
+            AppRoles.SuperAdmin,
+            AppRoles.BuildingManager,
+            AppRoles.Technician));
 });
 
 builder.Services.AddControllersWithViews();

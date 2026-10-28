@@ -8,6 +8,17 @@ using Xunit;
 
 namespace ApartmentManagement.Tests;
 
+file static class ApartmentContractTestExtensions
+{
+    public static void SetContractCode(this ApartmentContract contract, string contractCode)
+    {
+        typeof(ApartmentContract).GetProperty(nameof(ApartmentContract.ContractCode))!
+            .SetValue(contract, contractCode.Trim());
+        typeof(ApartmentContract).GetProperty(nameof(ApartmentContract.ContractCodeNormalized))!
+            .SetValue(contract, contractCode.Trim().ToUpperInvariant());
+    }
+}
+
 public sealed class SearchServiceTests
 {
     private static ApplicationDbContext CreateTestDbContext()

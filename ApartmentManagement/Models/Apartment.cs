@@ -48,5 +48,6 @@ namespace ApartmentManagement.Models
         public ICollection<Complaint> Complaints { get; set; } = new List<Complaint>();
 
         public ICollection<VisitorPass> VisitorPasses { get; set; } = new List<VisitorPass>();
+        public ICollection<RepairRequest> RepairRequests { get; set; } = new List<RepairRequest>();
     }
 }

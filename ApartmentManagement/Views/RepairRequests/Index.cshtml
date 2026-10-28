@@ -1,0 +1,128 @@
+@model IEnumerable<ApartmentManagement.Models.RepairRequest>
+
+@{
+    ViewData["Title"] = "Yêu Cầu Sửa Chữa Của Tôi";
+}
+
+<div class="container py-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">🛠️ Yêu Cầu Sửa Chữa</h2>
+            <p class="text-muted mb-0">Theo dõi tiến độ tiếp nhận, xử lý và nghiệm thu sự cố kỹ thuật tại căn hộ của bạn.</p>
+        </div>
+        <div>
+            <a asp-action="Create" class="btn btn-primary shadow-sm rounded-pill px-4">
+                <i class="bi bi-plus-circle me-1"></i> Gửi yêu cầu mới
+            </a>
+        </div>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm rounded-3 mb-4" role="alert">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-check-circle-fill fs-5"></i>
+                <div>@TempData["SuccessMessage"]</div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm rounded-3 mb-4" role="alert">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+                <div>@TempData["ErrorMessage"]</div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+        <div class="card-body p-0">
+            @if (Model == null || !Model.Any())
+            {
+                <div class="text-center py-5">
+                    <div class="display-6 text-muted mb-3"><i class="bi bi-tools"></i></div>
+                    <h5 class="fw-semibold text-muted">Bạn chưa có yêu cầu sửa chữa nào</h5>
+                    <p class="text-muted mb-3">Khi gặp sự cố điện, nước, thiết bị căn hộ, hãy nhấn nút bên dưới để báo cho Ban Quản Lý.</p>
+                    <a asp-action="Create" class="btn btn-outline-primary rounded-pill px-4">
+                        Gửi yêu cầu đầu tiên
+                    </a>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light text-muted small text-uppercase">
+                            <tr>
+                                <th class="ps-4">Mã / Tiêu đề</th>
+                                <th>Căn hộ</th>
+                                <th>Mức ưu tiên</th>
+                                <th>Trạng thái</th>
+                                <th>Kỹ thuật viên</th>
+                                <th>Ngày gửi</th>
+                                <th class="text-end pe-4">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Model)
+                            {
+                                var activeAssignment = item.Assignments.FirstOrDefault(a => a.Status != ApartmentManagement.Models.RepairAssignmentStatus.Reassigned);
+                                <tr>
+                                    <td class="ps-4">
+                                        <div class="fw-bold text-dark">
+                                            <a asp-action="Details" asp-route-id="@item.RepairRequestId" class="text-decoration-none text-dark hover-primary">
+                                                #REQ-@item.RepairRequestId.ToString("D4") — @item.Title
+                                            </a>
+                                        </div>
+                                        <div class="small text-muted text-truncate" style="max-width: 280px;">@item.Description</div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark border">
+                                            @item.Apartment?.ApartmentCode - @(item.Apartment?.Building?.BuildingName ?? "")
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge @ApartmentManagement.Models.RepairPriority.ToBadgeClass(item.Priority)">
+                                            @ApartmentManagement.Models.RepairPriority.ToDisplayName(item.Priority)
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge @ApartmentManagement.Models.RepairRequestStatus.ToBadgeClass(item.Status)">
+                                            @ApartmentManagement.Models.RepairRequestStatus.ToDisplayName(item.Status)
+                                        </span>
+                                        @if (item.Status == ApartmentManagement.Models.RepairRequestStatus.PendingConfirmation)
+                                        {
+                                            <div class="small text-danger fw-semibold mt-1">Cần nghiệm thu!</div>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (activeAssignment?.TechnicianUser != null)
+                                        {
+                                            <div class="small fw-semibold">@activeAssignment.TechnicianUser.FullName</div>
+                                        }
+                                        else
+                                        {
+                                            <span class="small text-muted fst-italic">Chưa phân công</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <div class="small">@item.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")</div>
+                                        <div class="text-muted small">@item.CreatedAt.ToLocalTime().ToString("HH:mm")</div>
+                                    </td>
+                                    <td class="text-end pe-4">
+                                        <a asp-action="Details" asp-route-id="@item.RepairRequestId" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                                            Xem chi tiết
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>

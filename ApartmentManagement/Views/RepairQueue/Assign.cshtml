@@ -1,0 +1,70 @@
+@model ApartmentManagement.ViewModels.RepairRequestAssignViewModel
+
+@{
+    ViewData["Title"] = $"Phân công kỹ thuật viên — #REQ-{Model.RepairRequestId}";
+}
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-8 col-lg-6">
+            <div class="mb-4">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a asp-action="Index" class="text-decoration-none">Hàng đợi sửa chữa</a></li>
+                        <li class="breadcrumb-item"><a asp-action="Details" asp-route-id="@Model.RepairRequestId" class="text-decoration-none">#REQ-@Model.RepairRequestId.ToString("D4")</a></li>
+                        <li class="breadcrumb-item active" aria-current="page">Phân công</li>
+                    </ol>
+                </nav>
+                <h2 class="fw-bold mb-1">👷 Phân Công Kỹ Thuật Viên</h2>
+                <p class="text-muted">Chọn kỹ thuật viên phụ trách xử lý sự cố cho căn hộ.</p>
+            </div>
+
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4">
+                    <div class="p-3 bg-light rounded-3 mb-4">
+                        <div class="small text-muted">Sự cố cần sửa:</div>
+                        <div class="fw-bold text-dark">#REQ-@Model.RepairRequestId.ToString("D4"): @Model.RequestTitle</div>
+                        <div class="small text-muted mt-1">Căn hộ: <strong class="text-dark">@Model.ApartmentCode</strong></div>
+                    </div>
+
+                    <form asp-action="Assign" asp-route-id="@Model.RepairRequestId" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" asp-for="RepairRequestId" />
+                        <input type="hidden" asp-for="RequestTitle" />
+                        <input type="hidden" asp-for="ApartmentCode" />
+                        <input type="hidden" asp-for="RowVersion" />
+
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger rounded-3" role="alert"></div>
+
+                        <div class="mb-3">
+                            <label asp-for="TechnicianUserId" class="form-label fw-semibold">Chọn Kỹ thuật viên <span class="text-danger">*</span></label>
+                            <select asp-for="TechnicianUserId" asp-items="Model.AvailableTechnicians" class="form-select rounded-3 py-2">
+                                <option value="">-- Chọn kỹ thuật viên --</option>
+                            </select>
+                            <span asp-validation-for="TechnicianUserId" class="text-danger small"></span>
+                        </div>
+
+                        <div class="mb-4">
+                            <label asp-for="Note" class="form-label fw-semibold">Ghi chú giao việc</label>
+                            <textarea asp-for="Note" class="form-control rounded-3" rows="3" placeholder="Ví dụ: Kiểm tra đường ống trước 15:00, mang theo đồng hồ đo điện..."></textarea>
+                            <span asp-validation-for="Note" class="text-danger small"></span>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center pt-2 border-top">
+                            <a asp-action="Details" asp-route-id="@Model.RepairRequestId" class="btn btn-outline-secondary rounded-pill px-4">
+                                Hủy bỏ
+                            </a>
+                            <button type="submit" class="btn btn-primary rounded-pill px-4 shadow-sm">
+                                <i class="bi bi-check2-circle me-1"></i> Xác nhận phân công
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

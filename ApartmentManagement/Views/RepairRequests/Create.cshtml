@@ -1,0 +1,74 @@
+@model ApartmentManagement.ViewModels.RepairRequestCreateViewModel
+
+@{
+    ViewData["Title"] = "Gửi Yêu Cầu Sửa Chữa";
+}
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-8">
+            <div class="mb-4">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a asp-action="Index" class="text-decoration-none">Yêu cầu sửa chữa</a></li>
+                        <li class="breadcrumb-item active" aria-current="page">Tạo yêu cầu mới</li>
+                    </ol>
+                </nav>
+                <h2 class="fw-bold mb-1">✍️ Báo Sự Cố & Yêu Cầu Sửa Chữa</h2>
+                <p class="text-muted">Cung cấp chi tiết sự cố tại căn hộ để Đội kỹ thuật tiếp nhận và hỗ trợ nhanh chóng nhất.</p>
+            </div>
+
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4">
+                    <form asp-action="Create" method="post">
+                        @Html.AntiForgeryToken()
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger rounded-3" role="alert"></div>
+
+                        <div class="mb-3">
+                            <label asp-for="ApartmentId" class="form-label fw-semibold">Căn hộ gặp sự cố <span class="text-danger">*</span></label>
+                            <select asp-for="ApartmentId" asp-items="Model.AvailableApartments" class="form-select rounded-3 py-2">
+                            </select>
+                            <span asp-validation-for="ApartmentId" class="text-danger small"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Title" class="form-label fw-semibold">Tiêu đề yêu cầu <span class="text-danger">*</span></label>
+                            <input asp-for="Title" class="form-control rounded-3 py-2" placeholder="Ví dụ: Rò rỉ nước dưới bồn rửa chén, Chập aptomat phòng ngủ..." />
+                            <span asp-validation-for="Title" class="text-danger small"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Priority" class="form-label fw-semibold">Mức độ ưu tiên <span class="text-danger">*</span></label>
+                            <select asp-for="Priority" class="form-select rounded-3 py-2">
+                                <option value="@ApartmentManagement.Models.RepairPriority.Low">🟢 Thấp (Có thể xử lý trong vài ngày)</option>
+                                <option value="@ApartmentManagement.Models.RepairPriority.Normal" selected>🔵 Bình thường (Cần xử lý trong ngày)</option>
+                                <option value="@ApartmentManagement.Models.RepairPriority.High">🟠 Cao (Ảnh hưởng sinh hoạt hàng ngày)</option>
+                                <option value="@ApartmentManagement.Models.RepairPriority.Urgent">🔴 Khẩn cấp (Nguy cơ ngập nước, cháy nổ, an toàn)</option>
+                            </select>
+                            <span asp-validation-for="Priority" class="text-danger small"></span>
+                        </div>
+
+                        <div class="mb-4">
+                            <label asp-for="Description" class="form-label fw-semibold">Mô tả chi tiết sự cố <span class="text-danger">*</span></label>
+                            <textarea asp-for="Description" class="form-control rounded-3" rows="5" placeholder="Mô tả cụ thể vị trí, hiện tượng, thời gian phát sinh sự cố để kỹ thuật viên chuẩn bị dụng cụ phù hợp..."></textarea>
+                            <span asp-validation-for="Description" class="text-danger small"></span>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center pt-2 border-top">
+                            <a asp-action="Index" class="btn btn-outline-secondary rounded-pill px-4">
+                                <i class="bi bi-arrow-left me-1"></i> Quay lại danh sách
+                            </a>
+                            <button type="submit" class="btn btn-primary rounded-pill px-4 shadow-sm">
+                                <i class="bi bi-send me-1"></i> Gửi yêu cầu
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
