@@ -261,8 +261,8 @@ public sealed class ContractService : IContractService
             contract.EndDate.Value.Date > DateTime.UtcNow.Date &&
             normalizedReason == null)
             return Failure("Vui lòng nhập lý do khi kết thúc hợp đồng trước hạn.");
-        if (!await IsSuperAdminAsync(actorUserId))
-            return Failure("Chỉ SuperAdmin mới được quản lý hợp đồng.");
+        if (!await IsManagementAsync(actorUserId))
+            return Failure("Chỉ ban quản lý mới được quản lý hợp đồng.");
 
         var previousStatus = contract.Status;
         contract.Status = newStatus;
@@ -292,8 +292,8 @@ public sealed class ContractService : IContractService
             return "Tiền thuê hàng tháng phải lớn hơn 0.";
         if (input.DepositAmount < 0)
             return "Tiền đặt cọc không thể nhỏ hơn 0.";
-        if (!await IsSuperAdminAsync(actorUserId))
-            return "Chỉ SuperAdmin mới được quản lý hợp đồng.";
+        if (!await IsManagementAsync(actorUserId))
+            return "Chỉ ban quản lý mới được quản lý hợp đồng.";
 
         var normalizedCode = input.ContractCode.Trim().ToUpperInvariant();
         if (await _context.ApartmentContracts.AnyAsync(x =>
@@ -382,11 +382,11 @@ public sealed class ContractService : IContractService
             ? await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable)
             : null;
 
-    private Task<bool> IsSuperAdminAsync(string actorUserId) =>
+    private Task<bool> IsManagementAsync(string actorUserId) =>
         _context.UserRoles
             .Join(_context.Roles, userRole => userRole.RoleId, role => role.Id,
                 (userRole, role) => new { userRole.UserId, role.Name })
-            .AnyAsync(x => x.UserId == actorUserId && x.Name == AppRoles.SuperAdmin);
+            .AnyAsync(x => x.UserId == actorUserId && (x.Name == AppRoles.SuperAdmin || x.Name == AppRoles.BuildingManager));
 
     private async Task<ContractServiceResult> SaveAsync(
         ApartmentContract contract,

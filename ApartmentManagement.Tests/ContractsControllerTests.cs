@@ -73,7 +73,9 @@ public sealed class ContractsControllerTests
         return context;
     }
 
-    private static ControllerContext CreateControllerContext(string? userId = "superadmin-user")
+    private static ControllerContext CreateControllerContext(
+        string? userId = "superadmin-user",
+        string role = AppRoles.SuperAdmin)
     {
         var httpContext = new DefaultHttpContext();
         if (userId != null)
@@ -81,7 +83,7 @@ public sealed class ContractsControllerTests
             var identity = new ClaimsIdentity(
             [
                 new Claim(ClaimTypes.NameIdentifier, userId),
-                new Claim(ClaimTypes.Role, AppRoles.SuperAdmin)
+                new Claim(ClaimTypes.Role, role)
             ], "TestAuth");
             httpContext.User = new ClaimsPrincipal(identity);
         }
@@ -168,11 +170,11 @@ public sealed class ContractsControllerTests
     #region Security & Policy Attribute Tests
 
     [Fact]
-    public void ContractsController_HasRequireSuperAdminPolicy()
+    public void ContractsController_HasRequireManagementPolicy()
     {
         var authAttr = typeof(ContractsController).GetCustomAttribute<AuthorizeAttribute>();
         Assert.NotNull(authAttr);
-        Assert.Equal(AppPolicies.RequireSuperAdmin, authAttr.Policy);
+        Assert.Equal(AppPolicies.RequireManagement, authAttr.Policy);
     }
 
     [Theory]
@@ -430,6 +432,39 @@ public sealed class ContractsControllerTests
         var redirect = Assert.IsType<RedirectToActionResult>(result);
         Assert.Equal(nameof(ContractsController.Details), redirect.ActionName);
         Assert.Equal(10, redirect.RouteValues?["id"]);
+        Assert.Equal("Đã tạo hợp đồng ở trạng thái nháp.", controller.TempData["SuccessMessage"]);
+    }
+
+    [Fact]
+    public async Task Create_Post_WithBuildingManagerUser_ReturnsRedirectToDetails()
+    {
+        using var context = CreateInMemoryDbContext();
+        var mockService = new Mock<IContractService>();
+        var contract = CreateTestContract(11);
+        mockService.Setup(s => s.CreateDraftAsync(It.IsAny<ContractDraftInput>(), "manager-user"))
+            .ReturnsAsync(new ContractServiceResult(true, null, contract));
+
+        var controller = new ContractsController(mockService.Object, context)
+        {
+            ControllerContext = CreateControllerContext("manager-user", AppRoles.BuildingManager),
+            TempData = new TempDataDictionary(new DefaultHttpContext(), Mock.Of<ITempDataProvider>())
+        };
+
+        var model = new ContractEditViewModel
+        {
+            ContractCode = "HD-MGR-01",
+            ApartmentId = 1,
+            LessorResidentId = 1,
+            LesseeResidentId = 2,
+            StartDate = DateTime.UtcNow,
+            MonthlyRent = 1000m
+        };
+
+        var result = await controller.Create(model);
+
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal(nameof(ContractsController.Details), redirect.ActionName);
+        Assert.Equal(11, redirect.RouteValues?["id"]);
         Assert.Equal("Đã tạo hợp đồng ở trạng thái nháp.", controller.TempData["SuccessMessage"]);
     }
 

@@ -276,9 +276,13 @@
                     </div>
 
                     <!-- Search Bar -->
-                    <div class="header-search">
+                    <div class="header-search position-relative" id="globalSearchContainer">
                         <i class="bi bi-search"></i>
-                        <input type="text" placeholder="Tìm kiếm căn hộ, cư dân, sự cố..." aria-label="Tìm kiếm nhanh">
+                        <input type="text" id="globalSearchInput" placeholder="Tìm kiếm căn hộ, cư dân, hợp đồng..." aria-label="Tìm kiếm nhanh" autocomplete="off" spellcheck="false">
+                        <div class="search-spinner d-none" id="globalSearchSpinner">
+                            <span class="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true"></span>
+                        </div>
+                        <div class="search-dropdown-menu d-none" id="globalSearchDropdown" role="listbox" aria-label="Kết quả tìm kiếm"></div>
                     </div>
 
                     <!-- Topbar Actions & User Menu -->

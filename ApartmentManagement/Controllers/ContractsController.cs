@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ApartmentManagement.Controllers;
 
-[Authorize(Policy = AppPolicies.RequireSuperAdmin)]
+[Authorize(Policy = AppPolicies.RequireManagement)]
 public sealed class ContractsController : Controller
 {
     private const int PageSize = 10;

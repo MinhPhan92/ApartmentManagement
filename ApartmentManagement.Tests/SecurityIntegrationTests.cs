@@ -585,12 +585,49 @@ public sealed class SecurityIntegrationTests : IClassFixture<CustomWebApplicatio
 
     [Theory]
     [InlineData(AppRoles.Resident, ResidentOneUserId)]
-    [InlineData(AppRoles.BuildingManager, "manager-user")]
-    public async Task NonSuperAdmin_ContractManagement_ReturnsForbidden(string role, string userId)
+    [InlineData(AppRoles.Accountant, "accountant-user")]
+    [InlineData(AppRoles.Technician, "technician-user")]
+    public async Task UnauthorizedRole_ContractManagement_ReturnsForbidden(string role, string userId)
     {
         using var client = CreateAuthenticatedClient(role, userId);
         using var response = await client.GetAsync("/Contracts");
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task BuildingManager_CanViewContractManagement()
+    {
+        using var client = CreateAuthenticatedClient(AppRoles.BuildingManager, "manager-user");
+        using var response = await client.GetAsync("/Contracts");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Quản lý hợp đồng", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task BuildingManager_CanCreateContractDraft()
+    {
+        using var client = CreateAuthenticatedClient(AppRoles.BuildingManager, "manager-user");
+        var (_, token) = await AntiforgeryHelper.ExtractAsync(client, "/Contracts/Create");
+        using var content = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["ContractCode"] = $"MGR-{Guid.NewGuid():N}",
+            ["ApartmentId"] = "1",
+            ["LessorResidentId"] = "1",
+            ["LesseeResidentId"] = "2",
+            ["StartDate"] = "2027-01-01",
+            ["EndDate"] = "2027-12-31",
+            ["MonthlyRent"] = "1200",
+            ["DepositAmount"] = "600",
+            ["__RequestVerificationToken"] = token
+        });
+        using var response = await client.PostAsync("/Contracts/Create", content);
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+
+        using var scope = _factory.Services.CreateScope();
+        var contract = await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>()
+            .ApartmentContracts.SingleAsync(x => x.ContractCode.StartsWith("MGR-"));
+        Assert.Equal(ApartmentContractStatus.Draft, contract.Status);
+        Assert.Equal("manager-user", contract.CreatedByUserId);
     }
 
     [Fact]
@@ -1154,6 +1191,9 @@ public sealed class SecurityIntegrationTests : IClassFixture<CustomWebApplicatio
         var admin = CreateUser("admin-test", "admin@test.local", "Test SuperAdmin");
         Assert.True(userManager.CreateAsync(admin, "Admin@Test1234").GetAwaiter().GetResult().Succeeded);
         Assert.True(userManager.AddToRoleAsync(admin, AppRoles.SuperAdmin).GetAwaiter().GetResult().Succeeded);
+        var manager = CreateUser("manager-user", "manager@test.local", "Test BuildingManager");
+        Assert.True(userManager.CreateAsync(manager, "Manager@Test1234").GetAwaiter().GetResult().Succeeded);
+        Assert.True(userManager.AddToRoleAsync(manager, AppRoles.BuildingManager).GetAwaiter().GetResult().Succeeded);
 
         var contractService = scope.ServiceProvider.GetRequiredService<ApartmentManagement.Services.IContractService>();
         var firstContract = contractService.CreateDraftAsync(new ApartmentManagement.Services.ContractDraftInput

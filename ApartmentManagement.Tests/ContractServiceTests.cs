@@ -1,3 +1,4 @@
+using ApartmentManagement.Common.Security;
 using ApartmentManagement.Data;
 using ApartmentManagement.Models;
 using ApartmentManagement.Services;
@@ -84,14 +85,42 @@ public sealed class ContractServiceTests
     }
 
     [Fact]
-    public async Task CreateDraft_RejectsActorWithoutSuperAdminRole()
+    public async Task CreateDraft_RejectsActorWithoutManagementRole()
     {
         using var fixture = await CreateFixtureAsync();
 
         var result = await fixture.Service.CreateDraftAsync(ValidDraft(), "resident-user-1");
 
         Assert.False(result.Success);
-        Assert.Equal("Chỉ SuperAdmin mới được quản lý hợp đồng.", result.ErrorMessage);
+        Assert.Equal("Chỉ ban quản lý mới được quản lý hợp đồng.", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task CreateDraft_AllowsActorWithBuildingManagerRole()
+    {
+        using var fixture = await CreateFixtureAsync();
+
+        var result = await fixture.Service.CreateDraftAsync(ValidDraft(), "manager");
+
+        Assert.True(result.Success, result.ErrorMessage);
+        Assert.NotNull(result.Contract);
+        Assert.Equal("manager", result.Contract.CreatedByUserId);
+    }
+
+    [Fact]
+    public async Task Activate_AllowsActorWithBuildingManagerRole()
+    {
+        using var fixture = await CreateFixtureAsync();
+        var draft = await fixture.Service.CreateDraftAsync(ValidDraft(), "manager");
+        Assert.True(draft.Success);
+        draft.Contract!.RowVersion = [1];
+
+        var activated = await fixture.Service.ActivateAsync(
+            draft.Contract.ApartmentContractId, "manager", [1]);
+
+        Assert.True(activated.Success, activated.ErrorMessage);
+        Assert.Equal(ApartmentContractStatus.Active, activated.Contract!.Status);
+        Assert.Equal("manager", activated.Contract.UpdatedByUserId);
     }
 
     [Theory]
@@ -410,6 +439,7 @@ public sealed class ContractServiceTests
             .Options;
         var context = new ApplicationDbContext(options);
         var admin = new ApplicationUser { Id = "admin", UserName = "admin" };
+        var manager = new ApplicationUser { Id = "manager", UserName = "manager" };
         var residentUser1 = new ApplicationUser { Id = "resident-user-1", UserName = "resident1" };
         var residentUser2 = new ApplicationUser { Id = "resident-user-2", UserName = "resident2" };
         var residentUser3 = new ApplicationUser { Id = "resident-user-3", UserName = "resident3" };
@@ -418,6 +448,12 @@ public sealed class ContractServiceTests
             Id = "superadmin-role",
             Name = "SuperAdmin",
             NormalizedName = "SUPERADMIN"
+        };
+        var buildingManagerRole = new Microsoft.AspNetCore.Identity.IdentityRole
+        {
+            Id = "buildingmanager-role",
+            Name = AppRoles.BuildingManager,
+            NormalizedName = AppRoles.BuildingManager.ToUpperInvariant()
         };
         var building = new Building { BuildingCode = "B1", BuildingName = "Building", NumberOfFloors = 5 };
         var apartment = new Apartment
@@ -430,11 +466,16 @@ public sealed class ContractServiceTests
             Status = "Trống"
         };
         context.AddRange(
-            admin, residentUser1, residentUser2, residentUser3, superAdminRole,
+            admin, manager, residentUser1, residentUser2, residentUser3, superAdminRole, buildingManagerRole,
             new Microsoft.AspNetCore.Identity.IdentityUserRole<string>
             {
                 UserId = admin.Id,
                 RoleId = superAdminRole.Id
+            },
+            new Microsoft.AspNetCore.Identity.IdentityUserRole<string>
+            {
+                UserId = manager.Id,
+                RoleId = buildingManagerRole.Id
             },
             building, apartment,
             new Resident { ResidentId = 1, User = residentUser1, UserId = residentUser1.Id, CitizenId = "000000001" },

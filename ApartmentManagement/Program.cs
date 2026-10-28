@@ -51,6 +51,7 @@ builder.Services.AddScoped<IOccupancyService, OccupancyService>();
 builder.Services.AddScoped<IContractService, ContractService>();
 builder.Services.AddScoped<IBillingService, BillingService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<ISearchService, SearchService>();
 builder.Services.AddSingleton<IVietQrCodeGenerator, VietQrCodeGenerator>();
 builder.Services.Configure<VietQrOptions>(builder.Configuration.GetSection("Payments:VietQr"));
 
