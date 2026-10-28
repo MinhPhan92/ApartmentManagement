@@ -104,8 +104,10 @@ public sealed class PaymentService : IPaymentService
             return new PaymentOperationResult(true, null, payment);
         if (payment.Invoice.Status != ApartmentInvoiceStatus.Issued)
             return Failure("Chỉ được xác nhận giao dịch của hóa đơn đã phát hành.");
-        if (_context.Database.IsRelational() &&
-            (rowVersion.Length == 0 || !payment.RowVersion.AsSpan().SequenceEqual(rowVersion)))
+        if (_context.Database.IsRelational() && rowVersion.Length == 0)
+            return Failure("Giao dịch đã thay đổi đồng thời. Tải lại dữ liệu trước khi thử lại.");
+        if (rowVersion.Length > 0 && payment.RowVersion.Length > 0 &&
+            !payment.RowVersion.AsSpan().SequenceEqual(rowVersion))
             return Failure("Giao dịch đã thay đổi đồng thời. Tải lại dữ liệu trước khi thử lại.");
 
         payment.Status = PaymentTransactionStatus.Confirmed;

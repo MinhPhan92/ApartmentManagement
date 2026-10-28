@@ -174,6 +174,12 @@ public sealed class ContractService : IContractService
                 previousStatus, contract.Status, actorUserId, null));
             SetOriginalRowVersion(contract, expectedRowVersion);
 
+            var apartment = await _context.Apartments.FirstOrDefaultAsync(x => x.ApartmentId == contract.ApartmentId);
+            if (apartment != null && apartment.Status == ApartmentStatus.Vacant)
+            {
+                apartment.Status = ApartmentStatus.Occupied;
+            }
+
             var result = await SaveAsync(
                 contract,
                 "Không thể kích hoạt hợp đồng vì dữ liệu bị trùng hoặc không hợp lệ.");
@@ -271,6 +277,23 @@ public sealed class ContractService : IContractService
         contract.StatusHistory.Add(CreateHistory(
             previousStatus, newStatus, actorUserId, normalizedReason));
         SetOriginalRowVersion(contract, expectedRowVersion);
+
+        if (newStatus is ApartmentContractStatus.Terminated or ApartmentContractStatus.Completed)
+        {
+            var otherActiveContracts = await _context.ApartmentContracts.AnyAsync(x =>
+                x.ApartmentId == contract.ApartmentId &&
+                x.ApartmentContractId != contract.ApartmentContractId &&
+                x.Status == ApartmentContractStatus.Active);
+
+            if (!otherActiveContracts)
+            {
+                var apartment = await _context.Apartments.FirstOrDefaultAsync(x => x.ApartmentId == contract.ApartmentId);
+                if (apartment != null && apartment.Status == ApartmentStatus.Occupied)
+                {
+                    apartment.Status = ApartmentStatus.Vacant;
+                }
+            }
+        }
 
         return await SaveAsync(contract, "Không thể cập nhật trạng thái hợp đồng.");
     }

@@ -549,7 +549,7 @@ public sealed class BillingService : IBillingService
 
         var hasConfirmedPayment = invoice.PaymentTransactions.Any(x => x.Status == PaymentTransactionStatus.Confirmed);
         if (hasConfirmedPayment)
-            return Failure("Hóa đơn đã có giao dịch thanh toán được xác nhận. Không thể hủy hóa đơn.");
+            return Failure("Hóa đơn đã có giao dịch thanh toán được xác nhận. Không thể hủy hóa đơn đã hoàn tất thanh toán.");
 
         if (_context.Database.IsRelational() &&
             (rowVersion.Length == 0 || !invoice.RowVersion.AsSpan().SequenceEqual(rowVersion)))
