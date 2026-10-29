@@ -20,7 +20,8 @@ namespace ApartmentManagement.Services
 
         public async Task<List<Apartment>> GetAllApartmentsAsync(
             int? buildingId = null,
-            string? searchTerm = null)
+            string? searchTerm = null,
+            string? status = null)
         {
             var query = _context.Apartments
                 .Include(x => x.Building)
@@ -38,6 +39,25 @@ namespace ApartmentManagement.Services
 
                 query = query.Where(
                     x => x.ApartmentCode.Contains(searchTerm));
+            }
+
+            if (!string.IsNullOrWhiteSpace(status) &&
+                !string.Equals(status, "All", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(status, "Tất cả", StringComparison.OrdinalIgnoreCase))
+            {
+                var normalized = ApartmentStatus.Normalize(status);
+                if (normalized == ApartmentStatus.Vacant)
+                {
+                    query = query.Where(x => x.Status == ApartmentStatus.Vacant || x.Status == ApartmentStatus.LegacyVacant);
+                }
+                else if (normalized == ApartmentStatus.Maintenance)
+                {
+                    query = query.Where(x => x.Status == ApartmentStatus.Maintenance || x.Status == ApartmentStatus.LegacyMaintenance);
+                }
+                else
+                {
+                    query = query.Where(x => x.Status == normalized);
+                }
             }
 
             return await query

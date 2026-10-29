@@ -1,0 +1,246 @@
+@using ApartmentManagement.Services
+@model BatchGenerateInvoicesViewModel
+@{
+    ViewData["Title"] = "Lập hóa đơn tòa nhà";
+}
+
+<div class="container-fluid px-3 px-lg-4 py-4">
+    <!-- Breadcrumb & Header -->
+    <div class="mb-4">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-2">
+                <li class="breadcrumb-item"><a asp-action="Index">Phí & Hóa đơn</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Lập hóa đơn tòa nhà</li>
+            </ol>
+        </nav>
+        <h1 class="h3 fw-bold mb-1">Lập hóa đơn nháp theo tòa nhà</h1>
+        <p class="text-muted mb-0">Hệ thống sẽ duyệt các căn hộ trong tòa nhà, tính phí quản lý cùng điện nước theo chỉ số và tự động sinh hóa đơn nháp.</p>
+    </div>
+
+    <!-- Alert Notifications -->
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show rounded-3 shadow-sm mb-4" role="status">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                <div>@TempData["SuccessMessage"]</div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    <div class="row g-4">
+        <!-- Input Form Card -->
+        <div class="col-12 col-xl-4">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4">
+                    <h2 class="h5 fw-bold mb-3 d-flex align-items-center gap-2">
+                        <i class="bi bi-sliders text-primary"></i> Tham số sinh hóa đơn
+                    </h2>
+
+                    <form asp-action="BatchCreateInvoices" method="post">
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger rounded-3 mb-3"></div>
+
+                        <div class="mb-3">
+                            <label asp-for="BuildingId" class="form-label fw-semibold">Tòa nhà <span class="text-danger">*</span></label>
+                            <select asp-for="BuildingId" asp-items="Model.BuildingOptions" class="form-select form-select-lg">
+                                <option value="">-- Chọn tòa nhà --</option>
+                            </select>
+                            <span asp-validation-for="BuildingId" class="text-danger small"></span>
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-6">
+                                <label asp-for="BillingMonth" class="form-label fw-semibold">Tháng tính phí <span class="text-danger">*</span></label>
+                                <input asp-for="BillingMonth" class="form-control" type="number" min="1" max="12" />
+                                <span asp-validation-for="BillingMonth" class="text-danger small"></span>
+                            </div>
+                            <div class="col-6">
+                                <label asp-for="BillingYear" class="form-label fw-semibold">Năm tính phí <span class="text-danger">*</span></label>
+                                <input asp-for="BillingYear" class="form-control" type="number" min="2000" max="2200" />
+                                <span asp-validation-for="BillingYear" class="text-danger small"></span>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="DueDate" class="form-label fw-semibold">Hạn thanh toán <span class="text-danger">*</span></label>
+                            <input asp-for="DueDate" class="form-control" type="date" />
+                            <span asp-validation-for="DueDate" class="text-danger small"></span>
+                        </div>
+
+                        <div class="p-3 bg-light rounded-3 mb-4">
+                            <div class="d-flex gap-2">
+                                <i class="bi bi-shield-check text-primary fs-5 flex-shrink-0"></i>
+                                <div class="small text-muted">
+                                    <strong>Quy tắc an toàn:</strong>
+                                    <ul class="mb-0 ps-3 mt-1">
+                                        <li>Hóa đơn mới luôn ở trạng thái <em>Nháp (Draft)</em>.</li>
+                                        <li>Căn hộ thiếu chỉ số điện/nước hoặc chưa có chủ hộ sẽ được bỏ qua an toàn.</li>
+                                        <li>Căn hộ đã có hóa đơn cùng kỳ sẽ không bị tạo trùng.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg d-inline-flex justify-content-center align-items-center gap-2">
+                                <i class="bi bi-play-circle-fill"></i> Tiến hành sinh hóa đơn
+                            </button>
+                            <a asp-action="Index" class="btn btn-outline-secondary">Quay lại danh sách</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Execution Results Card -->
+        <div class="col-12 col-xl-8">
+            @if (Model.Result != null)
+            {
+                var r = Model.Result;
+                <div class="card border-0 shadow-sm rounded-4 mb-4">
+                    <div class="card-body p-4">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+                            <h2 class="h5 fw-bold mb-0 d-flex align-items-center gap-2">
+                                <i class="bi bi-clipboard2-data text-success"></i> Kết quả tổng hợp
+                            </h2>
+                            <span class="badge bg-light text-dark border">
+                                Kỳ @Model.BillingMonth/@Model.BillingYear
+                            </span>
+                        </div>
+
+                        <!-- KPI Summary Counters -->
+                        <div class="row g-3 mb-4">
+                            <div class="col-6 col-sm">
+                                <div class="p-3 bg-light rounded-3 text-center">
+                                    <div class="text-muted small">Tổng căn hộ</div>
+                                    <div class="fs-4 fw-bold text-dark">@r.TotalScanned</div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-sm">
+                                <div class="p-3 bg-success bg-opacity-10 rounded-3 text-center">
+                                    <div class="text-success small fw-semibold">Tạo thành công</div>
+                                    <div class="fs-4 fw-bold text-success">@r.CreatedCount</div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-sm">
+                                <div class="p-3 bg-info bg-opacity-10 rounded-3 text-center">
+                                    <div class="text-info small fw-semibold">Đã có hóa đơn</div>
+                                    <div class="fs-4 fw-bold text-info">@r.AlreadyExistsCount</div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-sm">
+                                <div class="p-3 bg-warning bg-opacity-10 rounded-3 text-center">
+                                    <div class="text-warning small fw-semibold">Bỏ qua</div>
+                                    <div class="fs-4 fw-bold text-warning">@r.SkippedCount</div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-sm">
+                                <div class="p-3 bg-danger bg-opacity-10 rounded-3 text-center">
+                                    <div class="text-danger small fw-semibold">Lỗi</div>
+                                    <div class="fs-4 fw-bold text-danger">@r.FailedCount</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Results Table -->
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th scope="col" style="width: 120px;">Căn hộ</th>
+                                        <th scope="col" style="width: 140px;">Trạng thái</th>
+                                        <th scope="col" style="width: 180px;">Mã hóa đơn</th>
+                                        <th scope="col" style="width: 140px;" class="text-end">Tổng tiền</th>
+                                        <th scope="col">Chi tiết</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @if (r.Items.Count == 0)
+                                    {
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted py-4">
+                                                Tòa nhà chưa có căn hộ nào.
+                                            </td>
+                                        </tr>
+                                    }
+                                    else
+                                    {
+                                        @foreach (var item in r.Items)
+                                        {
+                                            <tr>
+                                                <td class="fw-semibold">@item.ApartmentCode</td>
+                                                <td>
+                                                    @switch (item.Status)
+                                                    {
+                                                        case BatchBillingItemStatus.Created:
+                                                            <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                                                                <i class="bi bi-check2-circle"></i> Đã tạo mới
+                                                            </span>
+                                                            break;
+                                                        case BatchBillingItemStatus.AlreadyExists:
+                                                            <span class="badge bg-info-subtle text-info border border-info-subtle px-2 py-1">
+                                                                <i class="bi bi-info-circle"></i> Đã tồn tại
+                                                            </span>
+                                                            break;
+                                                        case BatchBillingItemStatus.Skipped:
+                                                            <span class="badge bg-warning-subtle text-warning border border-warning-subtle px-2 py-1">
+                                                                <i class="bi bi-dash-circle"></i> Bỏ qua
+                                                            </span>
+                                                            break;
+                                                        case BatchBillingItemStatus.Failed:
+                                                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1">
+                                                                <i class="bi bi-x-circle"></i> Lỗi
+                                                            </span>
+                                                            break;
+                                                    }
+                                                </td>
+                                                <td>
+                                                    @if (item.InvoiceId.HasValue && !string.IsNullOrEmpty(item.InvoiceCode))
+                                                    {
+                                                        <a asp-action="Details" asp-route-id="@item.InvoiceId.Value" class="text-decoration-none fw-monospace small">
+                                                            @item.InvoiceCode
+                                                        </a>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted">—</span>
+                                                    }
+                                                </td>
+                                                <td class="text-end font-monospace">
+                                                    @(item.TotalAmount.HasValue ? item.TotalAmount.Value.ToString("N0") + " ₫" : "—")
+                                                </td>
+                                                <td class="small text-muted">@item.Message</td>
+                                            </tr>
+                                        }
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="mt-4 pt-3 border-top d-flex justify-content-between align-items-center">
+                            <span class="text-muted small">Cần phát hành các hóa đơn nháp để cư dân có thể theo dõi và thanh toán.</span>
+                            <a asp-action="Index" asp-route-buildingId="@Model.BuildingId" asp-route-year="@Model.BillingYear" asp-route-month="@Model.BillingMonth" asp-route-status="Draft" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-receipt"></i> Xem danh sách hóa đơn nháp
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="card border-0 shadow-sm rounded-4 h-100 d-flex justify-content-center align-items-center p-5 text-center text-muted">
+                    <div style="max-width: 420px;">
+                        <i class="bi bi-building-gear display-3 text-secondary mb-3"></i>
+                        <h3 class="h5 fw-bold text-dark">Chưa có kết quả xử lý</h3>
+                        <p class="small mb-0">Chọn tòa nhà, kỳ tính phí và bấm <strong>Tiến hành sinh hóa đơn</strong> để bắt đầu quá trình tạo hóa đơn hàng loạt.</p>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

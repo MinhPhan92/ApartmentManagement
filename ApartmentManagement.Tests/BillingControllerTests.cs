@@ -76,6 +76,8 @@ public sealed class BillingControllerTests
     [InlineData(nameof(BillingController.Issue), typeof(IssueInvoiceViewModel))]
     [InlineData(nameof(BillingController.Void), typeof(VoidInvoiceViewModel))]
     [InlineData(nameof(BillingController.CloseTariff), typeof(CloseTariffViewModel))]
+    [InlineData(nameof(BillingController.BatchCreateInvoices), typeof(BatchGenerateInvoicesViewModel))]
+    [InlineData(nameof(BillingController.RecordBatchReadings), typeof(BatchMeterReadingViewModel))]
     public void BillingController_ModifyingActions_HaveValidateAntiForgeryTokenAndHttpPost(
         string actionName,
         params Type[] parameterTypes)

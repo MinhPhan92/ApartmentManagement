@@ -173,6 +173,84 @@ public sealed class BillingController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+[HttpGet]
+    public async Task<IActionResult> RecordBatchReadings(int? buildingId = null, int? year = null, int? month = null)
+    {
+        var targetYear = year ?? DateTime.Today.Year;
+        var targetMonth = month ?? DateTime.Today.Month;
+        var targetBuildingId = buildingId ?? 0;
+
+        BatchMeterReadingViewModel model;
+        if (targetBuildingId > 0)
+        {
+            model = await _billingService.GetBatchMeterReadingSheetAsync(targetBuildingId, targetYear, targetMonth);
+        }
+        else
+        {
+            model = new BatchMeterReadingViewModel
+            {
+                BillingYear = targetYear,
+                BillingMonth = targetMonth
+            };
+        }
+
+        await PopulateBuildingsAsync(model);
+        return View(model);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RecordBatchReadings(BatchMeterReadingViewModel model)
+    {
+        if (model == null) return BadRequest();
+        var userId = CurrentUserId();
+        if (userId == null) return Forbid();
+
+        if (!ModelState.IsValid)
+        {
+            await PopulateBuildingsAsync(model);
+            return View(model);
+        }
+
+        var input = new BatchMeterReadingSaveInput(
+            model.BuildingId,
+            model.BillingYear,
+            model.BillingMonth,
+            model.Rows.Select(r => new BatchMeterReadingItemInput(
+                r.ApartmentId,
+                r.ApartmentCode,
+                r.ElectricityOldReading,
+                r.ElectricityNewReading,
+                r.WaterOldReading,
+                r.WaterNewReading)).ToList());
+
+        var result = await _billingService.SaveBatchMeterReadingsAsync(input, userId);
+        model.Result = result;
+
+        if (!result.Success)
+        {
+            ModelState.AddModelError(string.Empty, result.ErrorMessage ?? "Không thể lưu chỉ số.");
+        }
+        else
+        {
+            if (result.SavedCount > 0)
+            {
+                TempData["SuccessMessage"] = $"Đã lưu thành công chỉ số cho {result.SavedCount} căn hộ ({result.SkippedCount} bỏ qua, {result.FailedCount} lỗi).";
+            }
+            else if (result.FailedCount > 0)
+            {
+                TempData["ErrorMessage"] = $"Có {result.FailedCount} căn hộ phát sinh lỗi khi lưu chỉ số.";
+            }
+
+            var refreshed = await _billingService.GetBatchMeterReadingSheetAsync(model.BuildingId, model.BillingYear, model.BillingMonth);
+            model.Rows = refreshed.Rows;
+            model.BuildingName = refreshed.BuildingName;
+        }
+
+        await PopulateBuildingsAsync(model);
+        return View(model);
+    }
+
     [HttpGet]
     public async Task<IActionResult> CreateInvoice()
     {
@@ -203,6 +281,55 @@ public sealed class BillingController : Controller
             return View(model);
         }
         return RedirectToAction(nameof(Details), new { id = result.Invoice!.ApartmentInvoiceId });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> BatchCreateInvoices(int? buildingId = null, int? year = null, int? month = null)
+    {
+        var targetYear = year ?? DateTime.Today.Year;
+        var targetMonth = month ?? DateTime.Today.Month;
+        var defaultDueDate = new DateTime(targetYear, targetMonth, 1).AddMonths(1).AddDays(14);
+
+        var model = new BatchGenerateInvoicesViewModel
+        {
+            BuildingId = buildingId ?? 0,
+            BillingYear = targetYear,
+            BillingMonth = targetMonth,
+            DueDate = defaultDueDate
+        };
+
+        await PopulateBuildingsAsync(model);
+        return View(model);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> BatchCreateInvoices(BatchGenerateInvoicesViewModel model)
+    {
+        if (model == null) return BadRequest();
+        var userId = CurrentUserId();
+        if (userId == null) return Forbid();
+
+        if (!ModelState.IsValid)
+        {
+            await PopulateBuildingsAsync(model);
+            return View(model);
+        }
+
+        var result = await _billingService.GenerateBuildingDraftsAsync(
+            model.BuildingId, model.BillingYear, model.BillingMonth, model.DueDate, userId);
+
+        if (!result.Success)
+        {
+            ModelState.AddModelError(string.Empty, result.ErrorMessage ?? "Không thể lập hóa đơn hàng loạt.");
+            await PopulateBuildingsAsync(model);
+            return View(model);
+        }
+
+        model.Result = result;
+        await PopulateBuildingsAsync(model);
+        TempData["SuccessMessage"] = $"Đã xử lý sinh hóa đơn tòa nhà: {result.CreatedCount} tạo mới, {result.AlreadyExistsCount} đã có sẵn, {result.SkippedCount} bỏ qua, {result.FailedCount} lỗi.";
+        return View(model);
     }
 
     [HttpGet]
@@ -332,6 +459,20 @@ public sealed class BillingController : Controller
         return RedirectToAction(nameof(TariffDetails), new { id = model.FeeTariffId });
     }
 
+
+private async Task PopulateBuildingsAsync(BatchMeterReadingViewModel model)
+    {
+        var buildings = await _buildingService.GetAllBuildingsAsync();
+        model.BuildingOptions = buildings.Select(x => new SelectListItem(
+            $"{x.BuildingName} ({x.BuildingCode})", x.BuildingId.ToString(), x.BuildingId == model.BuildingId)).ToList();
+    }
+
+        private async Task PopulateBuildingsAsync(BatchGenerateInvoicesViewModel model)
+    {
+        var buildings = await _buildingService.GetAllBuildingsAsync();
+        model.BuildingOptions = buildings.Select(x => new SelectListItem(
+            $"{x.BuildingName} ({x.BuildingCode})", x.BuildingId.ToString(), x.BuildingId == model.BuildingId)).ToList();
+    }
 
     private async Task PopulateBuildingsAsync(FeeTariffEditViewModel model)
     {

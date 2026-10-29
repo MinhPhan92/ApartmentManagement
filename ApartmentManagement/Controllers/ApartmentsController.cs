@@ -22,18 +22,21 @@ namespace ApartmentManagement.Controllers
 
         public async Task<IActionResult> Index(
             int? buildingId,
-            string? searchTerm)
+            string? searchTerm,
+            string? status = null)
         {
             var apartments =
                 await _apartmentService.GetAllApartmentsAsync(
                     buildingId,
-                    searchTerm);
+                    searchTerm,
+                    status);
 
             ViewBag.Buildings =
                 await _buildingService.GetAllBuildingsAsync();
 
             ViewBag.SelectedBuildingId = buildingId;
             ViewBag.SearchTerm = searchTerm;
+            ViewBag.SelectedStatus = status;
 
             return View(apartments);
         }

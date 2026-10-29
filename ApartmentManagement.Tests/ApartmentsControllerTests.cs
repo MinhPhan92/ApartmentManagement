@@ -65,6 +65,34 @@ namespace ApartmentManagement.Tests
             Assert.Equal("A101", _controller.ViewBag.SearchTerm);
         }
 
+
+        [Fact]
+        public async Task Index_WithStatusFilter_PassesStatusToService_AndPopulatesViewBag()
+        {
+            var apartments = new List<Apartment>
+            {
+                new() { ApartmentId = 1, ApartmentCode = "A101", Floor = 1, Area = 60m, Status = ApartmentStatus.Occupied }
+            };
+            var buildings = new List<Building>
+            {
+                new() { BuildingId = 1, BuildingCode = "BLD-A", BuildingName = "Tòa A" }
+            };
+
+            _mockApartmentService.Setup(s => s.GetAllApartmentsAsync(1, "A101", ApartmentStatus.Occupied))
+                .ReturnsAsync(apartments);
+            _mockBuildingService.Setup(s => s.GetAllBuildingsAsync(null))
+                .ReturnsAsync(buildings);
+
+            var result = await _controller.Index(1, "A101", ApartmentStatus.Occupied);
+
+            var viewResult = Assert.IsType<ViewResult>(result);
+            var model = Assert.IsAssignableFrom<List<Apartment>>(viewResult.Model);
+            Assert.Single(model);
+            Assert.Equal(1, _controller.ViewBag.SelectedBuildingId);
+            Assert.Equal("A101", _controller.ViewBag.SearchTerm);
+            Assert.Equal(ApartmentStatus.Occupied, _controller.ViewBag.SelectedStatus);
+        }
+
         #endregion
 
         #region Details Tests

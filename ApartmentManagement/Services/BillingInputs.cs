@@ -43,3 +43,59 @@ public sealed record BillingSummaryDto(
     int PaidCount,
     int UnpaidCount,
     int VoidCount);
+
+public enum BatchBillingItemStatus
+{
+    Created,
+    AlreadyExists,
+    Skipped,
+    Failed
+}
+
+public sealed record BatchBillingItemResult(
+    int ApartmentId,
+    string ApartmentCode,
+    BatchBillingItemStatus Status,
+    string Message,
+    int? InvoiceId = null,
+    string? InvoiceCode = null,
+    decimal? TotalAmount = null);
+
+public sealed record BatchBillingOperationResult(
+    bool Success,
+    string? ErrorMessage,
+    int TotalScanned,
+    int CreatedCount,
+    int AlreadyExistsCount,
+    int SkippedCount,
+    int FailedCount,
+    IReadOnlyList<BatchBillingItemResult> Items);
+
+public sealed record BatchMeterReadingItemInput(
+    int ApartmentId,
+    string ApartmentCode,
+    decimal ElectricityOldReading,
+    decimal? ElectricityNewReading,
+    decimal WaterOldReading,
+    decimal? WaterNewReading);
+
+public sealed record BatchMeterReadingSaveInput(
+    int BuildingId,
+    int BillingYear,
+    int BillingMonth,
+    IReadOnlyList<BatchMeterReadingItemInput> Items);
+
+public sealed record BatchMeterReadingItemResult(
+    int ApartmentId,
+    string ApartmentCode,
+    bool Success,
+    string? Message);
+
+public sealed record BatchMeterReadingOperationResult(
+    bool Success,
+    string? ErrorMessage,
+    int TotalProcessed,
+    int SavedCount,
+    int SkippedCount,
+    int FailedCount,
+    IReadOnlyList<BatchMeterReadingItemResult> Items);

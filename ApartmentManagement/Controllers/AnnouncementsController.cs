@@ -110,4 +110,38 @@ public class AnnouncementsController : Controller
         }
         return RedirectToAction(nameof(Index));
     }
+
+    // GET: /api/announcements/recent
+    [HttpGet("api/announcements/recent")]
+    [HttpGet("Announcements/Recent")]
+    public async Task<IActionResult> Recent()
+    {
+        List<Announcement> announcements;
+        if (User.IsInRole(AppRoles.Resident))
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Json(Array.Empty<object>());
+            }
+            announcements = await _announcementService.GetAnnouncementsForResidentAsync(userId, take: 5);
+        }
+        else
+        {
+            announcements = await _announcementService.GetAllAnnouncementsAsync(take: 5);
+        }
+
+        var result = announcements.Take(5).Select(a => new
+        {
+            id = a.AnnouncementId,
+            title = a.Title,
+            category = a.Category,
+            createdAtUtc = a.CreatedAtUtc.ToString("o"),
+            displayDate = a.CreatedAtUtc.ToString("dd/MM/yyyy HH:mm"),
+            isPinned = a.IsPinned,
+            url = $"/Announcements/Details/{a.AnnouncementId}"
+        });
+
+        return Json(result);
+    }
 }

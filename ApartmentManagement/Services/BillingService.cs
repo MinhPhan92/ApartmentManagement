@@ -492,7 +492,450 @@ public sealed class BillingService : IBillingService
         }
     }
 
-    public async Task<BillingOperationResult> IssueAsync(
+    public async Task<BatchBillingOperationResult> GenerateBuildingDraftsAsync(
+        int buildingId,
+        int year,
+        int month,
+        DateTime dueDate,
+        string actorUserId)
+    {
+        if (buildingId <= 0)
+            return new BatchBillingOperationResult(false, "Vui lòng chọn tòa nhà.", 0, 0, 0, 0, 0, []);
+        if (string.IsNullOrWhiteSpace(actorUserId))
+            return new BatchBillingOperationResult(false, "Người thực hiện không hợp lệ.", 0, 0, 0, 0, 0, []);
+        if (year is < 2000 or > 2200 || month is < 1 or > 12)
+            return new BatchBillingOperationResult(false, "Kỳ hóa đơn không hợp lệ.", 0, 0, 0, 0, 0, []);
+
+        var periodStart = new DateTime(year, month, 1);
+        var periodEnd = periodStart.AddMonths(1).AddDays(-1);
+        if (dueDate.Date < periodStart.AddMonths(1))
+            return new BatchBillingOperationResult(false, "Hạn thanh toán phải từ ngày đầu tiên sau kỳ tính phí trở đi.", 0, 0, 0, 0, 0, []);
+
+        var buildingExists = await _context.Buildings.AnyAsync(x => x.BuildingId == buildingId);
+        if (!buildingExists)
+            return new BatchBillingOperationResult(false, "Không tìm thấy tòa nhà.", 0, 0, 0, 0, 0, []);
+
+        var tariffs = await _context.FeeTariffs.Include(x => x.Tiers)
+            .Where(x => x.BuildingId == buildingId &&
+                x.EffectiveFrom <= periodStart &&
+                (!x.EffectiveTo.HasValue || x.EffectiveTo.Value >= periodEnd))
+            .ToListAsync();
+
+        FeeTariff? FindTariff(FeeChargeType type)
+        {
+            var matches = tariffs.Where(x => x.ChargeType == type).ToArray();
+            return matches.Length == 1 ? matches[0] : null;
+        }
+
+        if (FindTariff(FeeChargeType.Management) == null ||
+            FindTariff(FeeChargeType.Electricity) == null ||
+            FindTariff(FeeChargeType.Water) == null)
+        {
+            return new BatchBillingOperationResult(
+                false,
+                "Cần có biểu phí quản lý, điện và nước hiệu lực trong toàn bộ kỳ tính phí.",
+                0, 0, 0, 0, 0, []);
+        }
+
+        var apartments = await _context.Apartments
+            .Where(x => x.BuildingId == buildingId)
+            .OrderBy(x => x.ApartmentCode)
+            .ToListAsync();
+
+        if (apartments.Count == 0)
+        {
+            return new BatchBillingOperationResult(true, null, 0, 0, 0, 0, 0, []);
+        }
+
+        var items = new List<BatchBillingItemResult>(apartments.Count);
+
+        foreach (var apt in apartments)
+        {
+            var existingInvoice = await _context.ApartmentInvoices.AsNoTracking()
+                .FirstOrDefaultAsync(x => x.ApartmentId == apt.ApartmentId && x.BillingYear == year && x.BillingMonth == month);
+            if (existingInvoice != null)
+            {
+                items.Add(new BatchBillingItemResult(
+                    apt.ApartmentId,
+                    apt.ApartmentCode,
+                    BatchBillingItemStatus.AlreadyExists,
+                    "Căn hộ đã có hóa đơn trong kỳ này.",
+                    existingInvoice.ApartmentInvoiceId,
+                    existingInvoice.InvoiceCode,
+                    existingInvoice.TotalAmount));
+                continue;
+            }
+
+            try
+            {
+                var draftResult = await GenerateDraftAsync(apt.ApartmentId, year, month, dueDate, actorUserId);
+                if (draftResult.Success)
+                {
+                    items.Add(new BatchBillingItemResult(
+                        apt.ApartmentId,
+                        apt.ApartmentCode,
+                        BatchBillingItemStatus.Created,
+                        "Đã tạo hóa đơn nháp thành công.",
+                        draftResult.Invoice!.ApartmentInvoiceId,
+                        draftResult.Invoice.InvoiceCode,
+                        draftResult.Invoice.TotalAmount));
+                }
+                else
+                {
+                    _context.ChangeTracker.Clear();
+                    var error = draftResult.ErrorMessage ?? "Không thể lập hóa đơn.";
+                    var status = error switch
+                    {
+                        "Căn hộ đã có hóa đơn trong kỳ này." => BatchBillingItemStatus.AlreadyExists,
+                        "Không thể lập hóa đơn. Có thể hóa đơn kỳ này vừa được tạo đồng thời." => BatchBillingItemStatus.AlreadyExists,
+                        "Không có chủ hộ đang cư trú tại thời điểm chốt kỳ." => BatchBillingItemStatus.Skipped,
+                        "Căn hộ có nhiều Chủ hộ đang cư trú tại ngày chốt kỳ; cần chuẩn hóa dữ liệu trước khi lập hóa đơn." => BatchBillingItemStatus.Skipped,
+                        "Cần ghi đủ chỉ số điện và nước trước khi lập hóa đơn." => BatchBillingItemStatus.Skipped,
+                        "Diện tích căn hộ phải lớn hơn 0 để tính phí quản lý." => BatchBillingItemStatus.Skipped,
+                        _ => BatchBillingItemStatus.Failed
+                    };
+
+                    items.Add(new BatchBillingItemResult(
+                        apt.ApartmentId,
+                        apt.ApartmentCode,
+                        status,
+                        error));
+                }
+            }
+            catch (Exception ex)
+            {
+                _context.ChangeTracker.Clear();
+                _logger.LogError(ex, "Lỗi bất ngờ khi sinh hóa đơn căn hộ {ApartmentId}", apt.ApartmentId);
+                items.Add(new BatchBillingItemResult(
+                    apt.ApartmentId,
+                    apt.ApartmentCode,
+                    BatchBillingItemStatus.Failed,
+                    $"Lỗi xử lý: {ex.Message}"));
+            }
+        }
+
+        var createdCount = items.Count(x => x.Status == BatchBillingItemStatus.Created);
+        var alreadyExistsCount = items.Count(x => x.Status == BatchBillingItemStatus.AlreadyExists);
+        var skippedCount = items.Count(x => x.Status == BatchBillingItemStatus.Skipped);
+        var failedCount = items.Count(x => x.Status == BatchBillingItemStatus.Failed);
+
+        return new BatchBillingOperationResult(
+            Success: true,
+            ErrorMessage: null,
+            TotalScanned: apartments.Count,
+            CreatedCount: createdCount,
+            AlreadyExistsCount: alreadyExistsCount,
+            SkippedCount: skippedCount,
+            FailedCount: failedCount,
+            Items: items);
+    }
+
+public async Task<BatchMeterReadingViewModel> GetBatchMeterReadingSheetAsync(
+        int buildingId, int billingYear, int billingMonth)
+    {
+        var model = new BatchMeterReadingViewModel
+        {
+            BuildingId = buildingId,
+            BillingYear = billingYear,
+            BillingMonth = billingMonth,
+            ReadingDate = DateTime.Today
+        };
+
+        if (buildingId <= 0)
+        {
+            return model;
+        }
+
+        var building = await _context.Buildings.AsNoTracking().FirstOrDefaultAsync(x => x.BuildingId == buildingId);
+        if (building == null)
+        {
+            return model;
+        }
+        model.BuildingName = building.BuildingName;
+
+        var apartments = await _context.Apartments.AsNoTracking()
+            .Where(x => x.BuildingId == buildingId)
+            .OrderBy(x => x.ApartmentCode)
+            .ToListAsync();
+
+        if (apartments.Count == 0)
+        {
+            return model;
+        }
+
+        var apartmentIds = apartments.Select(a => a.ApartmentId).ToList();
+
+        var lockedApartmentIds = (await _context.ApartmentInvoices.AsNoTracking()
+            .Where(x => apartmentIds.Contains(x.ApartmentId) &&
+                        x.BillingYear == billingYear &&
+                        x.BillingMonth == billingMonth &&
+                        x.Status != ApartmentInvoiceStatus.Void)
+            .Select(x => x.ApartmentId)
+            .ToListAsync())
+            .ToHashSet();
+
+        var currentReadings = await _context.UtilityMeterReadings.AsNoTracking()
+            .Where(x => apartmentIds.Contains(x.ApartmentId) &&
+                        x.BillingYear == billingYear &&
+                        x.BillingMonth == billingMonth)
+            .ToListAsync();
+
+        var precedingReadings = await _context.UtilityMeterReadings.AsNoTracking()
+            .Where(x => apartmentIds.Contains(x.ApartmentId) &&
+                        (x.BillingYear < billingYear ||
+                         (x.BillingYear == billingYear && x.BillingMonth < billingMonth)))
+            .ToListAsync();
+
+        var precedingLookup = precedingReadings
+            .GroupBy(x => (x.ApartmentId, x.UtilityType))
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderByDescending(x => x.BillingYear).ThenByDescending(x => x.BillingMonth).First());
+
+        var rows = new List<BatchMeterReadingRowItem>(apartments.Count);
+
+        foreach (var apt in apartments)
+        {
+            var isLocked = lockedApartmentIds.Contains(apt.ApartmentId);
+            var currElec = currentReadings.FirstOrDefault(x => x.ApartmentId == apt.ApartmentId && x.UtilityType == FeeChargeType.Electricity);
+            var currWater = currentReadings.FirstOrDefault(x => x.ApartmentId == apt.ApartmentId && x.UtilityType == FeeChargeType.Water);
+
+            precedingLookup.TryGetValue((apt.ApartmentId, FeeChargeType.Electricity), out var precElec);
+            precedingLookup.TryGetValue((apt.ApartmentId, FeeChargeType.Water), out var precWater);
+
+            decimal oldElec = currElec != null ? currElec.PreviousReading : (precElec?.CurrentReading ?? 0m);
+            decimal oldWater = currWater != null ? currWater.PreviousReading : (precWater?.CurrentReading ?? 0m);
+
+            var row = new BatchMeterReadingRowItem
+            {
+                ApartmentId = apt.ApartmentId,
+                ApartmentCode = apt.ApartmentCode,
+                ElectricityOldReading = oldElec,
+                ElectricityNewReading = currElec?.CurrentReading,
+                WaterOldReading = oldWater,
+                WaterNewReading = currWater?.CurrentReading,
+                HasExistingReading = currElec != null || currWater != null,
+                IsInvoiceLocked = isLocked,
+                StatusNote = isLocked ? "Đã có hóa đơn (khóa)" : (currElec != null || currWater != null ? "Đã có chỉ số" : "Chưa có chỉ số")
+            };
+
+            rows.Add(row);
+        }
+
+        model.Rows = rows;
+        return model;
+    }
+
+    public async Task<BatchMeterReadingOperationResult> SaveBatchMeterReadingsAsync(
+        BatchMeterReadingSaveInput input,
+        string actorUserId)
+    {
+        if (input == null)
+            return new BatchMeterReadingOperationResult(false, "Dữ liệu chỉ số không hợp lệ.", 0, 0, 0, 0, []);
+        if (string.IsNullOrWhiteSpace(actorUserId))
+            return new BatchMeterReadingOperationResult(false, "Người thực hiện không hợp lệ.", 0, 0, 0, 0, []);
+        if (input.BuildingId <= 0)
+            return new BatchMeterReadingOperationResult(false, "Vui lòng chọn tòa nhà.", 0, 0, 0, 0, []);
+        if (input.BillingYear is < 2000 or > 2200 || input.BillingMonth is < 1 or > 12)
+            return new BatchMeterReadingOperationResult(false, "Kỳ ghi chỉ số không hợp lệ.", 0, 0, 0, 0, []);
+
+        if (input.Items == null || input.Items.Count == 0)
+            return new BatchMeterReadingOperationResult(true, null, 0, 0, 0, 0, []);
+
+        var items = new List<BatchMeterReadingItemResult>(input.Items.Count);
+        int savedCount = 0;
+        int skippedCount = 0;
+        int failedCount = 0;
+
+        foreach (var row in input.Items)
+        {
+            if (!row.ElectricityNewReading.HasValue && !row.WaterNewReading.HasValue)
+            {
+                items.Add(new BatchMeterReadingItemResult(row.ApartmentId, row.ApartmentCode, true, "Bỏ qua (chưa nhập chỉ số)"));
+                skippedCount++;
+                continue;
+            }
+
+            var isLocked = await _context.ApartmentInvoices.AnyAsync(x =>
+                x.ApartmentId == row.ApartmentId &&
+                x.BillingYear == input.BillingYear &&
+                x.BillingMonth == input.BillingMonth &&
+                x.Status != ApartmentInvoiceStatus.Void);
+
+            if (isLocked)
+            {
+                items.Add(new BatchMeterReadingItemResult(row.ApartmentId, row.ApartmentCode, false, "Không thể thay đổi chỉ số sau khi đã lập hóa đơn."));
+                failedCount++;
+                continue;
+            }
+
+            var apartmentExists = await _context.Apartments.AnyAsync(x => x.ApartmentId == row.ApartmentId);
+            if (!apartmentExists)
+            {
+                items.Add(new BatchMeterReadingItemResult(row.ApartmentId, row.ApartmentCode, false, "Không tìm thấy căn hộ."));
+                failedCount++;
+                continue;
+            }
+
+            if (row.ElectricityNewReading.HasValue)
+            {
+                var val = row.ElectricityNewReading.Value;
+                if (val < 0 || !FitsPrecision(val, 4))
+                {
+                    items.Add(new BatchMeterReadingItemResult(row.ApartmentId, row.ApartmentCode, false, "Chỉ số điện không hợp lệ (không âm, tối đa 4 chữ số thập phân)."));
+                    failedCount++;
+                    continue;
+                }
+                if (val < row.ElectricityOldReading)
+                {
+                    items.Add(new BatchMeterReadingItemResult(row.ApartmentId, row.ApartmentCode, false, "Chỉ số điện mới phải lớn hơn hoặc bằng chỉ số cũ."));
+                    failedCount++;
+                    continue;
+                }
+
+                var following = await _context.UtilityMeterReadings
+                    .Where(x => x.ApartmentId == row.ApartmentId &&
+                                x.UtilityType == FeeChargeType.Electricity &&
+                                (x.BillingYear > input.BillingYear ||
+                                 (x.BillingYear == input.BillingYear && x.BillingMonth > input.BillingMonth)))
+                    .OrderBy(x => x.BillingYear)
+                    .ThenBy(x => x.BillingMonth)
+                    .FirstOrDefaultAsync();
+                if (following != null && val != following.PreviousReading)
+                {
+                    items.Add(new BatchMeterReadingItemResult(row.ApartmentId, row.ApartmentCode, false, "Chỉ số điện cuối kỳ phải khớp với chỉ số đầu kỳ đã ghi cho kỳ sau."));
+                    failedCount++;
+                    continue;
+                }
+            }
+
+            if (row.WaterNewReading.HasValue)
+            {
+                var val = row.WaterNewReading.Value;
+                if (val < 0 || !FitsPrecision(val, 4))
+                {
+                    items.Add(new BatchMeterReadingItemResult(row.ApartmentId, row.ApartmentCode, false, "Chỉ số nước không hợp lệ (không âm, tối đa 4 chữ số thập phân)."));
+                    failedCount++;
+                    continue;
+                }
+                if (val < row.WaterOldReading)
+                {
+                    items.Add(new BatchMeterReadingItemResult(row.ApartmentId, row.ApartmentCode, false, "Chỉ số nước mới phải lớn hơn hoặc bằng chỉ số cũ."));
+                    failedCount++;
+                    continue;
+                }
+
+                var following = await _context.UtilityMeterReadings
+                    .Where(x => x.ApartmentId == row.ApartmentId &&
+                                x.UtilityType == FeeChargeType.Water &&
+                                (x.BillingYear > input.BillingYear ||
+                                 (x.BillingYear == input.BillingYear && x.BillingMonth > input.BillingMonth)))
+                    .OrderBy(x => x.BillingYear)
+                    .ThenBy(x => x.BillingMonth)
+                    .FirstOrDefaultAsync();
+                if (following != null && val != following.PreviousReading)
+                {
+                    items.Add(new BatchMeterReadingItemResult(row.ApartmentId, row.ApartmentCode, false, "Chỉ số nước cuối kỳ phải khớp với chỉ số đầu kỳ đã ghi cho kỳ sau."));
+                    failedCount++;
+                    continue;
+                }
+            }
+
+            try
+            {
+                if (row.ElectricityNewReading.HasValue)
+                {
+                    var existingElec = await _context.UtilityMeterReadings.FirstOrDefaultAsync(x =>
+                        x.ApartmentId == row.ApartmentId &&
+                        x.UtilityType == FeeChargeType.Electricity &&
+                        x.BillingYear == input.BillingYear &&
+                        x.BillingMonth == input.BillingMonth);
+
+                    if (existingElec != null)
+                    {
+                        existingElec.PreviousReading = row.ElectricityOldReading;
+                        existingElec.CurrentReading = row.ElectricityNewReading.Value;
+                        existingElec.ReadAtUtc = DateTime.UtcNow;
+                        existingElec.RecordedByUserId = actorUserId;
+                    }
+                    else
+                    {
+                        _context.UtilityMeterReadings.Add(new UtilityMeterReading
+                        {
+                            ApartmentId = row.ApartmentId,
+                            UtilityType = FeeChargeType.Electricity,
+                            BillingYear = input.BillingYear,
+                            BillingMonth = input.BillingMonth,
+                            PreviousReading = row.ElectricityOldReading,
+                            CurrentReading = row.ElectricityNewReading.Value,
+                            ReadAtUtc = DateTime.UtcNow,
+                            RecordedByUserId = actorUserId
+                        });
+                    }
+                }
+
+                if (row.WaterNewReading.HasValue)
+                {
+                    var existingWater = await _context.UtilityMeterReadings.FirstOrDefaultAsync(x =>
+                        x.ApartmentId == row.ApartmentId &&
+                        x.UtilityType == FeeChargeType.Water &&
+                        x.BillingYear == input.BillingYear &&
+                        x.BillingMonth == input.BillingMonth);
+
+                    if (existingWater != null)
+                    {
+                        existingWater.PreviousReading = row.WaterOldReading;
+                        existingWater.CurrentReading = row.WaterNewReading.Value;
+                        existingWater.ReadAtUtc = DateTime.UtcNow;
+                        existingWater.RecordedByUserId = actorUserId;
+                    }
+                    else
+                    {
+                        _context.UtilityMeterReadings.Add(new UtilityMeterReading
+                        {
+                            ApartmentId = row.ApartmentId,
+                            UtilityType = FeeChargeType.Water,
+                            BillingYear = input.BillingYear,
+                            BillingMonth = input.BillingMonth,
+                            PreviousReading = row.WaterOldReading,
+                            CurrentReading = row.WaterNewReading.Value,
+                            ReadAtUtc = DateTime.UtcNow,
+                            RecordedByUserId = actorUserId
+                        });
+                    }
+                }
+
+                await _context.SaveChangesAsync();
+                items.Add(new BatchMeterReadingItemResult(row.ApartmentId, row.ApartmentCode, true, "Đã lưu chỉ số thành công."));
+                savedCount++;
+            }
+            catch (DbUpdateException ex)
+            {
+                _context.ChangeTracker.Clear();
+                _logger.LogWarning(ex, "DbUpdateException when saving batch meter reading for apt {ApartmentId}", row.ApartmentId);
+                items.Add(new BatchMeterReadingItemResult(row.ApartmentId, row.ApartmentCode, false, "Lỗi cơ sở dữ liệu khi lưu chỉ số."));
+                failedCount++;
+            }
+            catch (Exception ex)
+            {
+                _context.ChangeTracker.Clear();
+                _logger.LogError(ex, "Unexpected error saving batch meter reading for apt {ApartmentId}", row.ApartmentId);
+                items.Add(new BatchMeterReadingItemResult(row.ApartmentId, row.ApartmentCode, false, $"Lỗi phát sinh: {ex.Message}"));
+                failedCount++;
+            }
+        }
+
+        return new BatchMeterReadingOperationResult(
+            Success: true,
+            ErrorMessage: null,
+            TotalProcessed: input.Items.Count,
+            SavedCount: savedCount,
+            SkippedCount: skippedCount,
+            FailedCount: failedCount,
+            Items: items);
+    }
+
+        public async Task<BillingOperationResult> IssueAsync(
         int invoiceId,
         string actorUserId,
         byte[] rowVersion)

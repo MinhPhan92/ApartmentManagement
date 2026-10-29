@@ -1037,5 +1037,105 @@ namespace ApartmentManagement.Tests
             Assert.False(success);
             Assert.Equal("Không tìm thấy căn hộ.", error);
         }
+
+        [Fact]
+        public async Task GetAllApartments_FiltersByStatus_Occupied()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (buildingA, _) = await SeedBuildingsAsync(context);
+            var service = new ApartmentService(context, NullLogger<ApartmentService>.Instance);
+
+            context.Apartments.AddRange(
+                new Apartment { BuildingId = buildingA.BuildingId, ApartmentCode = "A-1", Floor = 1, Area = 50m, Status = ApartmentStatus.Occupied },
+                new Apartment { BuildingId = buildingA.BuildingId, ApartmentCode = "A-2", Floor = 2, Area = 55m, Status = ApartmentStatus.Vacant }
+            );
+            await context.SaveChangesAsync();
+
+            var result = await service.GetAllApartmentsAsync(status: ApartmentStatus.Occupied);
+
+            Assert.Single(result);
+            Assert.Equal("A-1", result[0].ApartmentCode);
+            Assert.Equal(ApartmentStatus.Occupied, result[0].Status);
+        }
+
+        [Fact]
+        public async Task GetAllApartments_FiltersByStatus_Vacant_IncludesLegacy()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (buildingA, _) = await SeedBuildingsAsync(context);
+            var service = new ApartmentService(context, NullLogger<ApartmentService>.Instance);
+
+            context.Apartments.AddRange(
+                new Apartment { BuildingId = buildingA.BuildingId, ApartmentCode = "A-1", Floor = 1, Area = 50m, Status = ApartmentStatus.Vacant },
+                new Apartment { BuildingId = buildingA.BuildingId, ApartmentCode = "A-2", Floor = 2, Area = 55m, Status = ApartmentStatus.LegacyVacant },
+                new Apartment { BuildingId = buildingA.BuildingId, ApartmentCode = "A-3", Floor = 3, Area = 60m, Status = ApartmentStatus.Occupied }
+            );
+            await context.SaveChangesAsync();
+
+            var result = await service.GetAllApartmentsAsync(status: ApartmentStatus.Vacant);
+
+            Assert.Equal(2, result.Count);
+            Assert.All(result, a => Assert.True(a.Status == ApartmentStatus.Vacant || a.Status == ApartmentStatus.LegacyVacant));
+        }
+
+        [Fact]
+        public async Task GetAllApartments_FiltersByStatus_Maintenance_IncludesLegacy()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (buildingA, _) = await SeedBuildingsAsync(context);
+            var service = new ApartmentService(context, NullLogger<ApartmentService>.Instance);
+
+            context.Apartments.AddRange(
+                new Apartment { BuildingId = buildingA.BuildingId, ApartmentCode = "A-1", Floor = 1, Area = 50m, Status = ApartmentStatus.Maintenance },
+                new Apartment { BuildingId = buildingA.BuildingId, ApartmentCode = "A-2", Floor = 2, Area = 55m, Status = ApartmentStatus.LegacyMaintenance },
+                new Apartment { BuildingId = buildingA.BuildingId, ApartmentCode = "A-3", Floor = 3, Area = 60m, Status = ApartmentStatus.Vacant }
+            );
+            await context.SaveChangesAsync();
+
+            var result = await service.GetAllApartmentsAsync(status: ApartmentStatus.Maintenance);
+
+            Assert.Equal(2, result.Count);
+            Assert.All(result, a => Assert.True(a.Status == ApartmentStatus.Maintenance || a.Status == ApartmentStatus.LegacyMaintenance));
+        }
+
+        [Fact]
+        public async Task GetAllApartments_FiltersByStatus_AllOrNull_ReturnsAll()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (buildingA, _) = await SeedBuildingsAsync(context);
+            var service = new ApartmentService(context, NullLogger<ApartmentService>.Instance);
+
+            context.Apartments.AddRange(
+                new Apartment { BuildingId = buildingA.BuildingId, ApartmentCode = "A-1", Floor = 1, Area = 50m, Status = ApartmentStatus.Occupied },
+                new Apartment { BuildingId = buildingA.BuildingId, ApartmentCode = "A-2", Floor = 2, Area = 55m, Status = ApartmentStatus.Vacant }
+            );
+            await context.SaveChangesAsync();
+
+            var resultAll = await service.GetAllApartmentsAsync(status: "Tất cả");
+            var resultNull = await service.GetAllApartmentsAsync(status: null);
+
+            Assert.Equal(2, resultAll.Count);
+            Assert.Equal(2, resultNull.Count);
+        }
+
+        [Fact]
+        public async Task GetAllApartments_FiltersByStatus_CombinedWithBuildingAndSearch()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (buildingA, buildingB) = await SeedBuildingsAsync(context);
+            var service = new ApartmentService(context, NullLogger<ApartmentService>.Instance);
+
+            context.Apartments.AddRange(
+                new Apartment { BuildingId = buildingA.BuildingId, ApartmentCode = "A-101", Floor = 1, Area = 50m, Status = ApartmentStatus.Occupied },
+                new Apartment { BuildingId = buildingA.BuildingId, ApartmentCode = "A-102", Floor = 1, Area = 55m, Status = ApartmentStatus.Vacant },
+                new Apartment { BuildingId = buildingB.BuildingId, ApartmentCode = "B-101", Floor = 1, Area = 60m, Status = ApartmentStatus.Occupied }
+            );
+            await context.SaveChangesAsync();
+
+            var result = await service.GetAllApartmentsAsync(buildingId: buildingA.BuildingId, searchTerm: "101", status: ApartmentStatus.Occupied);
+
+            Assert.Single(result);
+            Assert.Equal("A-101", result[0].ApartmentCode);
+        }
     }
 }

@@ -1,0 +1,320 @@
+@using ApartmentManagement.Services
+@model BatchMeterReadingViewModel
+@{
+    ViewData["Title"] = "Ghi chỉ số điện nước theo tòa nhà";
+}
+
+<div class="container-fluid px-3 px-lg-4 py-4">
+    <!-- Breadcrumb & Header -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-2">
+                    <li class="breadcrumb-item"><a asp-action="Index">Phí & Hóa đơn</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Ghi chỉ số tòa nhà</li>
+                </ol>
+            </nav>
+            <h1 class="h3 fw-bold mb-1">Ghi chỉ số điện & nước hàng loạt</h1>
+            <p class="text-muted mb-0">Nhập nhanh chỉ số điện nước theo ma trận bảng cho tất cả các căn hộ thuộc tòa nhà.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a asp-action="RecordReading" class="btn btn-outline-primary d-inline-flex align-items-center gap-1">
+                <i class="bi bi-speedometer2"></i> Ghi chỉ số lẻ
+            </a>
+            <a asp-action="Index" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Danh sách
+            </a>
+        </div>
+    </div>
+
+    <!-- Alert Notifications -->
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show rounded-3 shadow-sm mb-4" role="status">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                <div>@TempData["SuccessMessage"]</div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show rounded-3 shadow-sm mb-4" role="alert">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-exclamation-triangle-fill text-danger fs-5"></i>
+                <div>@TempData["ErrorMessage"]</div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    <!-- Selection / Filter Card -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-4">
+            <form method="get" asp-action="RecordBatchReadings" class="row g-3 align-items-end">
+                <div class="col-12 col-md-5">
+                    <label class="form-label fw-semibold">Tòa nhà <span class="text-danger">*</span></label>
+                    <select name="buildingId" asp-items="Model.BuildingOptions" class="form-select form-select-lg">
+                        <option value="">-- Chọn tòa nhà --</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label fw-semibold">Tháng <span class="text-danger">*</span></label>
+                    <input type="number" name="month" value="@Model.BillingMonth" min="1" max="12" class="form-control form-control-lg" />
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label fw-semibold">Năm <span class="text-danger">*</span></label>
+                    <input type="number" name="year" value="@Model.BillingYear" min="2000" max="2200" class="form-control form-control-lg" />
+                </div>
+                <div class="col-12 col-md-3">
+                    <button type="submit" class="btn btn-primary btn-lg w-100 d-inline-flex justify-content-center align-items-center gap-2">
+                        <i class="bi bi-table"></i> Tải bảng ghi chỉ số
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    @if (Model.BuildingId > 0)
+    {
+        @if (Model.Rows.Count == 0)
+        {
+            <div class="card border-0 shadow-sm rounded-4 p-5 text-center text-muted">
+                <i class="bi bi-buildings display-4 mb-3 text-secondary"></i>
+                <h4 class="h5 fw-bold text-dark">Tòa nhà chưa có căn hộ nào</h4>
+                <p class="small mb-0">Vui lòng kiểm tra lại cấu hình căn hộ của tòa nhà hoặc chọn tòa nhà khác.</p>
+            </div>
+        }
+        else
+        {
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                        <div>
+                            <h2 class="h5 fw-bold mb-1">
+                                Danh sách căn hộ: @Model.BuildingName
+                            </h2>
+                            <p class="text-muted small mb-0">
+                                Kỳ ghi chỉ số: Tháng <strong>@Model.BillingMonth/@Model.BillingYear</strong> • Tổng số căn: <strong>@Model.Rows.Count</strong>
+                            </p>
+                        </div>
+                        <div class="badge bg-light text-dark border p-2">
+                            <i class="bi bi-keyboard"></i> Mẹo: Dùng phím <strong>Enter</strong> hoặc <strong>↓/↑</strong> để nhảy nhanh giữa các dòng
+                        </div>
+                    </div>
+
+                    <form asp-action="RecordBatchReadings" method="post" id="batchReadingsForm">
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger rounded-3 mb-3"></div>
+
+                        <input type="hidden" asp-for="BuildingId" />
+                        <input type="hidden" asp-for="BuildingName" />
+                        <input type="hidden" asp-for="BillingYear" />
+                        <input type="hidden" asp-for="BillingMonth" />
+
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0" id="matrixTable">
+                                <thead class="table-light text-center">
+                                    <tr>
+                                        <th scope="col" style="width: 120px;" class="text-start">Căn hộ</th>
+                                        <th scope="col" colspan="3" class="border-start bg-warning bg-opacity-10 text-dark">
+                                            <i class="bi bi-lightning-charge-fill text-warning"></i> Điện sinh hoạt (kWh)
+                                        </th>
+                                        <th scope="col" colspan="3" class="border-start bg-info bg-opacity-10 text-dark">
+                                            <i class="bi bi-droplet-fill text-info"></i> Nước sinh hoạt (m³)
+                                        </th>
+                                        <th scope="col" style="width: 180px;" class="border-start text-start">Trạng thái</th>
+                                    </tr>
+                                    <tr class="small text-muted">
+                                        <th scope="col" class="text-start">Mã căn</th>
+                                        <!-- Điện -->
+                                        <th scope="col" style="width: 110px;" class="border-start">Số cũ</th>
+                                        <th scope="col" style="width: 130px;">Số mới</th>
+                                        <th scope="col" style="width: 100px;">Tiêu thụ</th>
+                                        <!-- Nước -->
+                                        <th scope="col" style="width: 110px;" class="border-start">Số cũ</th>
+                                        <th scope="col" style="width: 130px;">Số mới</th>
+                                        <th scope="col" style="width: 100px;">Tiêu thụ</th>
+                                        <!-- Trạng thái -->
+                                        <th scope="col" class="border-start text-start">Ghi chú</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @for (int i = 0; i < Model.Rows.Count; i++)
+                                    {
+                                        var row = Model.Rows[i];
+                                        <tr class="@(row.IsInvoiceLocked ? "table-light opacity-75" : "")">
+                                            <td class="fw-semibold">
+                                                @row.ApartmentCode
+                                                <input type="hidden" name="Rows[@i].ApartmentId" value="@row.ApartmentId" />
+                                                <input type="hidden" name="Rows[@i].ApartmentCode" value="@row.ApartmentCode" />
+                                            </td>
+
+                                            <!-- Điện cũ -->
+                                            <td class="text-end font-monospace border-start bg-light">
+                                                @row.ElectricityOldReading.ToString("N1")
+                                                <input type="hidden" name="Rows[@i].ElectricityOldReading" value="@row.ElectricityOldReading" />
+                                            </td>
+
+                                            <!-- Điện mới -->
+                                            <td>
+                                                <input type="number" step="0.0001" min="@row.ElectricityOldReading"
+                                                       name="Rows[@i].ElectricityNewReading"
+                                                       value="@(row.ElectricityNewReading?.ToString())"
+                                                       data-old="@row.ElectricityOldReading"
+                                                       data-type="elec"
+                                                       data-row="@i"
+                                                       class="form-control form-control-sm text-end font-monospace meter-input meter-elec"
+                                                       placeholder="Để trống = bỏ qua"
+                                                       @(row.IsInvoiceLocked ? "disabled" : "") />
+                                            </td>
+
+                                            <!-- Tiêu thụ điện -->
+                                            <td class="text-end font-monospace">
+                                                <span class="badge bg-light text-dark border consumption-elec">
+                                                    @(row.ElectricityNewReading.HasValue ? (row.ElectricityNewReading.Value - row.ElectricityOldReading).ToString("N1") : "—")
+                                                </span>
+                                            </td>
+
+                                            <!-- Nước cũ -->
+                                            <td class="text-end font-monospace border-start bg-light">
+                                                @row.WaterOldReading.ToString("N1")
+                                                <input type="hidden" name="Rows[@i].WaterOldReading" value="@row.WaterOldReading" />
+                                            </td>
+
+                                            <!-- Nước mới -->
+                                            <td>
+                                                <input type="number" step="0.0001" min="@row.WaterOldReading"
+                                                       name="Rows[@i].WaterNewReading"
+                                                       value="@(row.WaterNewReading?.ToString())"
+                                                       data-old="@row.WaterOldReading"
+                                                       data-type="water"
+                                                       data-row="@i"
+                                                       class="form-control form-control-sm text-end font-monospace meter-input meter-water"
+                                                       placeholder="Để trống = bỏ qua"
+                                                       @(row.IsInvoiceLocked ? "disabled" : "") />
+                                            </td>
+
+                                            <!-- Tiêu thụ nước -->
+                                            <td class="text-end font-monospace">
+                                                <span class="badge bg-light text-dark border consumption-water">
+                                                    @(row.WaterNewReading.HasValue ? (row.WaterNewReading.Value - row.WaterOldReading).ToString("N1") : "—")
+                                                </span>
+                                            </td>
+
+                                            <!-- Trạng thái -->
+                                            <td class="border-start small">
+                                                @if (row.IsInvoiceLocked)
+                                                {
+                                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle">
+                                                        <i class="bi bi-lock-fill"></i> Đã có hóa đơn
+                                                    </span>
+                                                }
+                                                else if (row.HasExistingReading)
+                                                {
+                                                    <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                                        <i class="bi bi-check2"></i> Đã có chỉ số
+                                                    </span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
+                                                        Chưa ghi
+                                                    </span>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="mt-4 pt-3 border-top d-flex justify-content-between align-items-center">
+                            <span class="text-muted small">
+                                * Lưu ý: Dòng để trống cả điện và nước sẽ được bỏ qua an toàn.
+                            </span>
+                            <div class="d-flex gap-2">
+                                <a asp-action="RecordBatchReadings" asp-route-buildingId="@Model.BuildingId" asp-route-year="@Model.BillingYear" asp-route-month="@Model.BillingMonth" class="btn btn-outline-secondary">
+                                    Tải lại
+                                </a>
+                                <button type="submit" class="btn btn-primary d-inline-flex align-items-center gap-2 px-4">
+                                    <i class="bi bi-save2-fill"></i> Lưu toàn bộ chỉ số
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const table = document.getElementById('matrixTable');
+            if (!table) return;
+
+            // Auto calculate consumption on input & validate New >= Old
+            table.addEventListener('input', function (e) {
+                const target = e.target;
+                if (!target.classList.contains('meter-input')) return;
+
+                const oldVal = parseFloat(target.dataset.old) || 0;
+                const valStr = target.value.trim();
+                const tr = target.closest('tr');
+                const isElec = target.classList.contains('meter-elec');
+                const badge = isElec ? tr.querySelector('.consumption-elec') : tr.querySelector('.consumption-water');
+
+                if (valStr === '') {
+                    target.classList.remove('is-invalid', 'border-danger');
+                    if (badge) badge.textContent = '—';
+                    return;
+                }
+
+                const newVal = parseFloat(valStr);
+                if (isNaN(newVal) || newVal < oldVal) {
+                    target.classList.add('is-invalid', 'border-danger');
+                    if (badge) {
+                        badge.textContent = 'Lỗi (< cũ)';
+                        badge.classList.remove('text-dark', 'bg-light');
+                        badge.classList.add('bg-danger', 'text-white');
+                    }
+                } else {
+                    target.classList.remove('is-invalid', 'border-danger');
+                    const diff = (newVal - oldVal).toFixed(1);
+                    if (badge) {
+                        badge.textContent = diff;
+                        badge.classList.remove('bg-danger', 'text-white');
+                        badge.classList.add('bg-light', 'text-dark');
+                    }
+                }
+            });
+
+            // Fast keyboard navigation: Enter or ArrowDown -> next row same column
+            table.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                    const target = e.target;
+                    if (!target.classList.contains('meter-input')) return;
+
+                    if (e.key === 'Enter') {
+                        e.preventDefault(); // prevent form submit on Enter in input
+                    }
+
+                    const isElec = target.classList.contains('meter-elec');
+                    const currentRow = parseInt(target.dataset.row, 10);
+                    const delta = (e.key === 'ArrowUp') ? -1 : 1;
+                    const nextRow = currentRow + delta;
+
+                    const nextInput = table.querySelector(`input.meter-input.${isElec ? 'meter-elec' : 'meter-water'}[data-row="${nextRow}"]:not([disabled])`);
+                    if (nextInput) {
+                        nextInput.focus();
+                        nextInput.select();
+                    }
+                }
+            });
+        });
+    </script>
+}
+

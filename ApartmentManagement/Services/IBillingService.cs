@@ -16,6 +16,10 @@ public interface IBillingService
     Task<BillingOperationResult> RecordReadingAsync(MeterReadingInput input, string actorUserId);
     Task<BillingOperationResult> GenerateDraftAsync(
         int apartmentId, int year, int month, DateTime dueDate, string actorUserId);
+    Task<BatchBillingOperationResult> GenerateBuildingDraftsAsync(
+        int buildingId, int year, int month, DateTime dueDate, string actorUserId);
+    Task<BatchMeterReadingViewModel> GetBatchMeterReadingSheetAsync(int buildingId, int billingYear, int billingMonth);
+    Task<BatchMeterReadingOperationResult> SaveBatchMeterReadingsAsync(BatchMeterReadingSaveInput input, string actorUserId);
     Task<BillingOperationResult> IssueAsync(int invoiceId, string actorUserId, byte[] rowVersion);
     Task<BillingOperationResult> VoidAsync(int invoiceId, string actorUserId, byte[] rowVersion, string? reason = null);
 }

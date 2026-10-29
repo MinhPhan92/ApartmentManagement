@@ -13,7 +13,7 @@ public class AnnouncementService : IAnnouncementService
         _context = context;
     }
 
-    public Task<List<Announcement>> GetAllAnnouncementsAsync(int? buildingId = null)
+    public Task<List<Announcement>> GetAllAnnouncementsAsync(int? buildingId = null, int? take = null)
     {
         var query = _context.Announcements.AsNoTracking()
             .Include(x => x.Building)
@@ -25,12 +25,13 @@ public class AnnouncementService : IAnnouncementService
             query = query.Where(x => x.BuildingId == null || x.BuildingId == buildingId.Value);
         }
 
-        return query.OrderByDescending(x => x.IsPinned)
-            .ThenByDescending(x => x.CreatedAtUtc)
-            .ToListAsync();
+        var ordered = query.OrderByDescending(x => x.IsPinned)
+            .ThenByDescending(x => x.CreatedAtUtc);
+
+        return (take.HasValue && take.Value > 0 ? ordered.Take(take.Value) : ordered).ToListAsync();
     }
 
-    public async Task<List<Announcement>> GetAnnouncementsForResidentAsync(string userId)
+    public async Task<List<Announcement>> GetAnnouncementsForResidentAsync(string userId, int? take = null)
     {
         // Lấy danh sách buildingId mà cư dân đang cư trú
         var buildingIds = await _context.ApartmentResidents.AsNoTracking()
@@ -39,13 +40,15 @@ public class AnnouncementService : IAnnouncementService
             .Distinct()
             .ToListAsync();
 
-        return await _context.Announcements.AsNoTracking()
+        var query = _context.Announcements.AsNoTracking()
             .Include(x => x.Building)
             .Include(x => x.CreatedByUser)
-            .Where(x => x.BuildingId == null || (x.BuildingId.HasValue && buildingIds.Contains(x.BuildingId.Value)))
-            .OrderByDescending(x => x.IsPinned)
-            .ThenByDescending(x => x.CreatedAtUtc)
-            .ToListAsync();
+            .Where(x => x.BuildingId == null || (x.BuildingId.HasValue && buildingIds.Contains(x.BuildingId.Value)));
+
+        var ordered = query.OrderByDescending(x => x.IsPinned)
+            .ThenByDescending(x => x.CreatedAtUtc);
+
+        return await (take.HasValue && take.Value > 0 ? ordered.Take(take.Value) : ordered).ToListAsync();
     }
 
     public Task<Announcement?> GetAnnouncementByIdAsync(int id) =>

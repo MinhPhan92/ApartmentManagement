@@ -276,22 +276,42 @@
                     </div>
 
                     <!-- Search Bar -->
-                    <div class="header-search position-relative" id="globalSearchContainer">
-                        <i class="bi bi-search"></i>
+                    <form class="header-search position-relative" id="globalSearchContainer" role="search" onsubmit="return false;">
+                        <button type="submit" id="globalSearchBtn" class="search-icon-btn" aria-label="Kích hoạt tìm kiếm" title="Tìm kiếm">
+                            <i class="bi bi-search" aria-hidden="true"></i>
+                        </button>
                         <input type="text" id="globalSearchInput" placeholder="Tìm kiếm căn hộ, cư dân, hợp đồng..." aria-label="Tìm kiếm nhanh" autocomplete="off" spellcheck="false">
                         <div class="search-spinner d-none" id="globalSearchSpinner">
                             <span class="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true"></span>
                         </div>
                         <div class="search-dropdown-menu d-none" id="globalSearchDropdown" role="listbox" aria-label="Kết quả tìm kiếm"></div>
-                    </div>
+                    </form>
 
                     <!-- Topbar Actions & User Menu -->
                     <div class="header-actions">
-                        <!-- Notifications -->
-                        <button class="btn btn-icon-header" type="button" title="Thông báo hệ thống">
-                            <i class="bi bi-bell"></i>
-                            <span class="notification-badge"></span>
-                        </button>
+                        <!-- Notifications Dropdown -->
+                        <div class="dropdown notification-dropdown" id="notificationDropdownContainer">
+                            <button class="btn btn-icon-header position-relative" type="button" id="notificationBellBtn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Thông báo hệ thống" title="Thông báo hệ thống">
+                                <i class="bi bi-bell"></i>
+                                <span class="notification-badge d-none" id="notificationBadge"></span>
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 p-0 notification-menu" id="notificationMenu" aria-labelledby="notificationBellBtn" style="width: 320px; max-width: 90vw;">
+                                <div class="notification-header d-flex align-items-center justify-content-between p-3 border-bottom bg-light rounded-top-3">
+                                    <div class="fw-bold small text-dark"><i class="bi bi-bell-fill me-1 text-primary"></i> Thông Báo Hệ Thống</div>
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle" id="notificationCountBadge">0 tin</span>
+                                </div>
+                                <div class="notification-body" id="notificationList" style="max-height: 340px; overflow-y: auto;">
+                                    <div class="p-3 text-center text-muted small" id="notificationLoading">
+                                        <span class="spinner-border spinner-border-sm text-primary me-2" role="status"></span>Đang tải thông báo...
+                                    </div>
+                                </div>
+                                <div class="notification-footer p-2 border-top text-center bg-light rounded-bottom-3">
+                                    <a asp-controller="Announcements" asp-action="Index" class="btn btn-sm btn-link text-decoration-none fw-semibold text-primary py-1">
+                                        Xem tất cả bảng tin <i class="bi bi-arrow-right ms-1"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
 
                         <!-- User Profile Dropdown -->
                         <partial name="_LoginPartial" />

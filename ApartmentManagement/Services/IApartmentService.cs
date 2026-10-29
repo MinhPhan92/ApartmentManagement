@@ -6,7 +6,8 @@ namespace ApartmentManagement.Services
     {
         Task<List<Apartment>> GetAllApartmentsAsync(
             int? buildingId = null,
-            string? searchTerm = null);
+            string? searchTerm = null,
+            string? status = null);
 
         Task<Apartment?> GetApartmentByIdAsync(
             int id,

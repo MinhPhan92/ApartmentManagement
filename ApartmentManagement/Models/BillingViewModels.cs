@@ -157,3 +157,66 @@ public sealed class ConfirmPaymentViewModel
     [Required]
     public string RowVersionToken { get; set; } = string.Empty;
 }
+
+public sealed class BatchGenerateInvoicesViewModel
+{
+    [Range(1, int.MaxValue, ErrorMessage = "Vui lòng chọn tòa nhà.")]
+    [Display(Name = "Tòa nhà")]
+    public int BuildingId { get; set; }
+
+    [Range(2000, 2200, ErrorMessage = "Năm tính phí từ 2000 đến 2200.")]
+    [Display(Name = "Năm tính phí")]
+    public int BillingYear { get; set; } = DateTime.Today.Year;
+
+    [Range(1, 12, ErrorMessage = "Tháng tính phí từ 1 đến 12.")]
+    [Display(Name = "Tháng tính phí")]
+    public int BillingMonth { get; set; } = DateTime.Today.Month;
+
+    [DataType(DataType.Date)]
+    [Display(Name = "Hạn thanh toán")]
+    public DateTime DueDate { get; set; } = DateTime.Today.AddMonths(1);
+
+    public IReadOnlyList<SelectListItem> BuildingOptions { get; set; } = [];
+
+    public BatchBillingOperationResult? Result { get; set; }
+}
+
+public sealed class BatchMeterReadingRowItem
+{
+    public int ApartmentId { get; set; }
+    public string ApartmentCode { get; set; } = string.Empty;
+    public decimal ElectricityOldReading { get; set; }
+    public decimal? ElectricityNewReading { get; set; }
+    public decimal WaterOldReading { get; set; }
+    public decimal? WaterNewReading { get; set; }
+    public bool HasExistingReading { get; set; }
+    public bool IsInvoiceLocked { get; set; }
+    public string? StatusNote { get; set; }
+}
+
+public sealed class BatchMeterReadingViewModel
+{
+    [Range(1, int.MaxValue, ErrorMessage = "Vui lòng chọn tòa nhà.")]
+    [Display(Name = "Tòa nhà")]
+    public int BuildingId { get; set; }
+
+    public string BuildingName { get; set; } = string.Empty;
+
+    [Range(2000, 2200, ErrorMessage = "Năm từ 2000 đến 2200.")]
+    [Display(Name = "Năm")]
+    public int BillingYear { get; set; } = DateTime.Today.Year;
+
+    [Range(1, 12, ErrorMessage = "Tháng từ 1 đến 12.")]
+    [Display(Name = "Tháng")]
+    public int BillingMonth { get; set; } = DateTime.Today.Month;
+
+    [DataType(DataType.Date)]
+    [Display(Name = "Ngày ghi chỉ số")]
+    public DateTime ReadingDate { get; set; } = DateTime.Today;
+
+    public List<BatchMeterReadingRowItem> Rows { get; set; } = [];
+
+    public IReadOnlyList<SelectListItem> BuildingOptions { get; set; } = [];
+
+    public BatchMeterReadingOperationResult? Result { get; set; }
+}
