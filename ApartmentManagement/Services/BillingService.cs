@@ -350,7 +350,7 @@ public sealed class BillingService : IBillingService
 
         var existing = await _context.ApartmentInvoices.AnyAsync(x =>
             x.ApartmentId == apartmentId && x.BillingYear == year && x.BillingMonth == month);
-        if (existing) return Failure("Căn hộ đã có hóa đơn trong kỳ này.");
+        if (existing) return Failure("Căn hộ đã có hóa đơn trong kỳ này.", BillingFailureReason.AlreadyExists);
 
         var periodStart = new DateTime(year, month, 1);
         var periodEnd = periodStart.AddMonths(1).AddDays(-1);
@@ -358,7 +358,7 @@ public sealed class BillingService : IBillingService
             .Include(x => x.Building)
             .FirstOrDefaultAsync(x => x.ApartmentId == apartmentId);
         if (apartment == null) return Failure("Không tìm thấy căn hộ.");
-        if (apartment.Area <= 0) return Failure("Diện tích căn hộ phải lớn hơn 0 để tính phí quản lý.");
+        if (apartment.Area <= 0) return Failure("Diện tích căn hộ phải lớn hơn 0 để tính phí quản lý.", BillingFailureReason.InvalidArea);
 
         var activeOwners = await _context.ApartmentResidents
             .Where(x => x.ApartmentId == apartmentId && x.IsOwner &&
@@ -366,9 +366,9 @@ public sealed class BillingService : IBillingService
             .Select(x => x.Resident)
             .ToListAsync();
         if (activeOwners.Count == 0)
-            return Failure("Không có chủ hộ đang cư trú tại thời điểm chốt kỳ.");
+            return Failure("Không có chủ hộ đang cư trú tại thời điểm chốt kỳ.", BillingFailureReason.MissingOrInvalidOccupancy);
         if (activeOwners.Count > 1)
-            return Failure("Căn hộ có nhiều Chủ hộ đang cư trú tại ngày chốt kỳ; cần chuẩn hóa dữ liệu trước khi lập hóa đơn.");
+            return Failure("Căn hộ có nhiều Chủ hộ đang cư trú tại ngày chốt kỳ; cần chuẩn hóa dữ liệu trước khi lập hóa đơn.", BillingFailureReason.MissingOrInvalidOccupancy);
         var owner = activeOwners[0];
 
         var tariffs = await _context.FeeTariffs.Include(x => x.Tiers)
@@ -386,7 +386,7 @@ public sealed class BillingService : IBillingService
         var electricityTariff = FindTariff(FeeChargeType.Electricity);
         var waterTariff = FindTariff(FeeChargeType.Water);
         if (managementTariff == null || electricityTariff == null || waterTariff == null)
-            return Failure("Cần có biểu phí quản lý, điện và nước hiệu lực trong toàn bộ kỳ tính phí.");
+            return Failure("Cần có biểu phí quản lý, điện và nước hiệu lực trong toàn bộ kỳ tính phí.", BillingFailureReason.MissingTariff);
 
         var readings = await _context.UtilityMeterReadings.Where(x =>
                 x.ApartmentId == apartmentId && x.BillingYear == year && x.BillingMonth == month)
@@ -394,7 +394,7 @@ public sealed class BillingService : IBillingService
         var electricityReading = readings.FirstOrDefault(x => x.UtilityType == FeeChargeType.Electricity);
         var waterReading = readings.FirstOrDefault(x => x.UtilityType == FeeChargeType.Water);
         if (electricityReading == null || waterReading == null)
-            return Failure("Cần ghi đủ chỉ số điện và nước trước khi lập hóa đơn.");
+            return Failure("Cần ghi đủ chỉ số điện và nước trước khi lập hóa đơn.", BillingFailureReason.MissingMeterReading);
 
         decimal managementAmount;
         decimal electricityAmount;
@@ -411,11 +411,27 @@ public sealed class BillingService : IBillingService
         }
         catch (ArgumentException exception)
         {
-            return Failure($"Cấu hình biểu phí chưa hợp lệ: {exception.Message}");
+            return Failure($"Cấu hình biểu phí chưa hợp lệ: {exception.Message}", BillingFailureReason.TariffCalculationError);
         }
         catch (OverflowException)
         {
-            return Failure("Giá trị tính phí vượt giới hạn số học cho phép.");
+            return Failure("Giá trị tính phí vượt giới hạn số học cho phép.", BillingFailureReason.TariffCalculationError);
+        }
+
+        var parkingResult = await CalculateApartmentParkingFeeAsync(
+            apartment.ApartmentId,
+            apartment.BuildingId,
+            year,
+            month);
+
+        var managementDescription = "Phí quản lý theo diện tích (tính đủ tháng)";
+        var managementRateBreakdown = $"{apartment.Area:N2} m² × {managementTariff.MonthlyRatePerSquareMeter:N4} VND/m²/tháng";
+
+        if (parkingResult.TotalAmount > 0)
+        {
+            managementAmount += parkingResult.TotalAmount;
+            managementDescription += $"\n[Bao gồm] {parkingResult.SummaryDescription}";
+            managementRateBreakdown += $"; Phí gửi xe: {parkingResult.TotalAmount:N0} VND ({parkingResult.ActiveVehicleCount} phương tiện)";
         }
 
         var invoice = new ApartmentInvoice
@@ -436,12 +452,12 @@ public sealed class BillingService : IBillingService
                 new ApartmentInvoiceLine
                 {
                     ChargeType = FeeChargeType.Management,
-                    Description = "Phí quản lý theo diện tích (tính đủ tháng)",
+                    Description = managementDescription,
                     Quantity = apartment.Area,
                     UnitRate = managementTariff.MonthlyRatePerSquareMeter,
                     Amount = managementAmount,
                     SourceTariffId = managementTariff.FeeTariffId,
-                    RateBreakdown = $"{apartment.Area:N2} m² × {managementTariff.MonthlyRatePerSquareMeter:N4} VND/m²/tháng"
+                    RateBreakdown = managementRateBreakdown
                 },
                 new ApartmentInvoiceLine
                 {
@@ -472,7 +488,7 @@ public sealed class BillingService : IBillingService
             ]
         };
         if (invoice.TotalAmount > 9999999999999999.99m)
-            return Failure("Tổng hóa đơn vượt giới hạn lưu trữ cho phép.");
+            return Failure("Tổng hóa đơn vượt giới hạn lưu trữ cho phép.", BillingFailureReason.TariffCalculationError);
 
         _context.ApartmentInvoices.Add(invoice);
         try
@@ -486,9 +502,9 @@ public sealed class BillingService : IBillingService
             if (exception.InnerException?.Message.Contains("IX_ApartmentInvoices_ApartmentId_BillingYear_BillingMonth", StringComparison.OrdinalIgnoreCase) == true ||
                 exception.Message.Contains("IX_ApartmentInvoices_ApartmentId_BillingYear_BillingMonth", StringComparison.OrdinalIgnoreCase))
             {
-                return Failure("Căn hộ đã có hóa đơn trong kỳ này.");
+                return Failure("Căn hộ đã có hóa đơn trong kỳ này.", BillingFailureReason.AlreadyExists);
             }
-            return Failure("Không thể lập hóa đơn. Có thể hóa đơn kỳ này vừa được tạo đồng thời.");
+            return Failure("Không thể lưu hóa đơn do lỗi cơ sở dữ liệu.", BillingFailureReason.PersistenceError);
         }
     }
 
@@ -584,16 +600,62 @@ public sealed class BillingService : IBillingService
                 {
                     _context.ChangeTracker.Clear();
                     var error = draftResult.ErrorMessage ?? "Không thể lập hóa đơn.";
-                    var status = error switch
+
+                    var isAlreadyExistsCandidate = draftResult.FailureReason == BillingFailureReason.AlreadyExists ||
+                        string.Equals(error, "Căn hộ đã có hóa đơn trong kỳ này.", StringComparison.OrdinalIgnoreCase);
+
+                    var isPersistenceErrorCandidate = draftResult.FailureReason == BillingFailureReason.PersistenceError;
+
+                    if (isAlreadyExistsCandidate || isPersistenceErrorCandidate)
                     {
-                        "Căn hộ đã có hóa đơn trong kỳ này." => BatchBillingItemStatus.AlreadyExists,
-                        "Không thể lập hóa đơn. Có thể hóa đơn kỳ này vừa được tạo đồng thời." => BatchBillingItemStatus.AlreadyExists,
-                        "Không có chủ hộ đang cư trú tại thời điểm chốt kỳ." => BatchBillingItemStatus.Skipped,
-                        "Căn hộ có nhiều Chủ hộ đang cư trú tại ngày chốt kỳ; cần chuẩn hóa dữ liệu trước khi lập hóa đơn." => BatchBillingItemStatus.Skipped,
-                        "Cần ghi đủ chỉ số điện và nước trước khi lập hóa đơn." => BatchBillingItemStatus.Skipped,
-                        "Diện tích căn hộ phải lớn hơn 0 để tính phí quản lý." => BatchBillingItemStatus.Skipped,
-                        _ => BatchBillingItemStatus.Failed
-                    };
+                        try
+                        {
+                            var recheckInvoice = await _context.ApartmentInvoices.AsNoTracking()
+                                .FirstOrDefaultAsync(x => x.ApartmentId == apt.ApartmentId && x.BillingYear == year && x.BillingMonth == month);
+
+                            if (recheckInvoice != null)
+                            {
+                                items.Add(new BatchBillingItemResult(
+                                    apt.ApartmentId,
+                                    apt.ApartmentCode,
+                                    BatchBillingItemStatus.AlreadyExists,
+                                    "Căn hộ đã có hóa đơn trong kỳ này.",
+                                    recheckInvoice.ApartmentInvoiceId,
+                                    recheckInvoice.InvoiceCode,
+                                    recheckInvoice.TotalAmount));
+                                continue;
+                            }
+                            else
+                            {
+                                items.Add(new BatchBillingItemResult(
+                                    apt.ApartmentId,
+                                    apt.ApartmentCode,
+                                    BatchBillingItemStatus.Failed,
+                                    error));
+                                continue;
+                            }
+                        }
+                        catch (Exception verifyEx)
+                        {
+                            _logger.LogError(verifyEx, "Lỗi khi xác minh hóa đơn tồn tại cho căn hộ {ApartmentId}, kỳ {Year}-{Month}", apt.ApartmentId, year, month);
+                            items.Add(new BatchBillingItemResult(
+                                apt.ApartmentId,
+                                apt.ApartmentCode,
+                                BatchBillingItemStatus.Failed,
+                                "Không thể kiểm tra trạng thái hóa đơn do lỗi kết nối cơ sở dữ liệu."));
+                            continue;
+                        }
+                    }
+
+                    var isSkipped = draftResult.FailureReason is BillingFailureReason.MissingOrInvalidOccupancy
+                        or BillingFailureReason.MissingMeterReading
+                        or BillingFailureReason.InvalidArea ||
+                        error is "Không có chủ hộ đang cư trú tại thời điểm chốt kỳ."
+                            or "Căn hộ có nhiều Chủ hộ đang cư trú tại ngày chốt kỳ; cần chuẩn hóa dữ liệu trước khi lập hóa đơn."
+                            or "Cần ghi đủ chỉ số điện và nước trước khi lập hóa đơn."
+                            or "Diện tích căn hộ phải lớn hơn 0 để tính phí quản lý.";
+
+                    var status = isSkipped ? BatchBillingItemStatus.Skipped : BatchBillingItemStatus.Failed;
 
                     items.Add(new BatchBillingItemResult(
                         apt.ApartmentId,
@@ -974,6 +1036,182 @@ public async Task<BatchMeterReadingViewModel> GetBatchMeterReadingSheetAsync(
         }
     }
 
+    public async Task<List<DraftInvoiceDto>> GetDraftInvoicesForBatchIssueAsync(int buildingId, int year, int month)
+    {
+        if (buildingId <= 0 || year is < 2000 or > 2200 || month is < 1 or > 12)
+            return [];
+
+        var invoices = await _context.ApartmentInvoices.AsNoTracking()
+            .Include(x => x.Apartment)
+            .Include(x => x.Resident).ThenInclude(r => r.User)
+            .Include(x => x.Lines)
+            .Where(x => x.Apartment.BuildingId == buildingId &&
+                        x.BillingYear == year &&
+                        x.BillingMonth == month &&
+                        x.Status == ApartmentInvoiceStatus.Draft)
+            .OrderBy(x => x.Apartment.ApartmentCode)
+            .ToListAsync();
+
+        return invoices.Select(inv =>
+        {
+            var mgmtFee = inv.Lines.FirstOrDefault(l => l.ChargeType == FeeChargeType.Management)?.Amount ?? 0m;
+            var elecFee = inv.Lines.FirstOrDefault(l => l.ChargeType == FeeChargeType.Electricity)?.Amount ?? 0m;
+            var waterFee = inv.Lines.FirstOrDefault(l => l.ChargeType == FeeChargeType.Water)?.Amount ?? 0m;
+            var residentName = inv.Resident?.User?.FullName ?? inv.Resident?.CitizenId ?? "Chủ hộ";
+            var token = Convert.ToBase64String(inv.RowVersion);
+
+            return new DraftInvoiceDto(
+                inv.ApartmentInvoiceId,
+                inv.InvoiceCode,
+                inv.Apartment?.ApartmentCode ?? string.Empty,
+                residentName,
+                mgmtFee,
+                elecFee,
+                waterFee,
+                inv.TotalAmount,
+                inv.RowVersion,
+                token);
+        }).ToList();
+    }
+
+    public async Task<BatchIssueOperationResult> IssueBuildingInvoicesAsync(BatchIssueInput input, string actorUserId)
+    {
+        if (input == null || input.Invoices.Count == 0)
+            return new BatchIssueOperationResult(false, "Vui lòng chọn ít nhất một hóa đơn để phát hành.", 0, 0, 0, 0, []);
+
+        if (string.IsNullOrWhiteSpace(actorUserId))
+            return new BatchIssueOperationResult(false, "Người thực hiện không hợp lệ.", 0, 0, 0, 0, []);
+
+        var items = new List<BatchIssueItemResult>(input.Invoices.Count);
+        int issuedCount = 0;
+        int alreadyIssuedCount = 0;
+        int failedCount = 0;
+
+        foreach (var item in input.Invoices)
+        {
+            var invoice = await _context.ApartmentInvoices
+                .Include(x => x.Apartment)
+                .FirstOrDefaultAsync(x => x.ApartmentInvoiceId == item.InvoiceId);
+
+            if (invoice == null)
+            {
+                items.Add(new BatchIssueItemResult(
+                    item.InvoiceId,
+                    $"#INV-{item.InvoiceId}",
+                    "—",
+                    BatchIssueItemStatus.Failed,
+                    "Không tìm thấy hóa đơn trong hệ thống.",
+                    0));
+                failedCount++;
+                continue;
+            }
+
+            var aptCode = invoice.Apartment?.ApartmentCode ?? string.Empty;
+            var invCode = invoice.InvoiceCode;
+            var totalAmount = invoice.TotalAmount;
+
+            if (invoice.Status == ApartmentInvoiceStatus.Issued)
+            {
+                items.Add(new BatchIssueItemResult(
+                    invoice.ApartmentInvoiceId,
+                    invCode,
+                    aptCode,
+                    BatchIssueItemStatus.AlreadyIssued,
+                    "Hóa đơn đã được phát hành trước đó.",
+                    totalAmount));
+                alreadyIssuedCount++;
+                continue;
+            }
+
+            if (invoice.Status != ApartmentInvoiceStatus.Draft)
+            {
+                items.Add(new BatchIssueItemResult(
+                    invoice.ApartmentInvoiceId,
+                    invCode,
+                    aptCode,
+                    BatchIssueItemStatus.InvalidStatus,
+                    $"Không thể phát hành hóa đơn ở trạng thái {invoice.Status}.",
+                    totalAmount));
+                failedCount++;
+                continue;
+            }
+
+            if (_context.Database.IsRelational() &&
+                item.RowVersion != null &&
+                item.RowVersion.Length > 0 &&
+                !invoice.RowVersion.AsSpan().SequenceEqual(item.RowVersion))
+            {
+                _context.ChangeTracker.Clear();
+                items.Add(new BatchIssueItemResult(
+                    invoice.ApartmentInvoiceId,
+                    invCode,
+                    aptCode,
+                    BatchIssueItemStatus.ConcurrencyConflict,
+                    "Hóa đơn đã bị sửa đổi đồng thời bởi thao tác khác. Vui lòng tải lại.",
+                    totalAmount));
+                failedCount++;
+                continue;
+            }
+
+            invoice.Status = ApartmentInvoiceStatus.Issued;
+            invoice.IssuedAtUtc = DateTime.UtcNow;
+            invoice.IssuedByUserId = actorUserId;
+
+            if (_context.Database.IsRelational() && item.RowVersion != null && item.RowVersion.Length > 0)
+            {
+                _context.Entry(invoice).Property(x => x.RowVersion).OriginalValue = item.RowVersion;
+            }
+
+            try
+            {
+                await _context.SaveChangesAsync();
+                items.Add(new BatchIssueItemResult(
+                    invoice.ApartmentInvoiceId,
+                    invCode,
+                    aptCode,
+                    BatchIssueItemStatus.Issued,
+                    "Đã phát hành hóa đơn thành công.",
+                    totalAmount));
+                issuedCount++;
+            }
+            catch (DbUpdateConcurrencyException ex)
+            {
+                _context.ChangeTracker.Clear();
+                _logger.LogInformation(ex, "Xung đột đồng thời khi phát hành hóa đơn {InvoiceId}", invoice.ApartmentInvoiceId);
+                items.Add(new BatchIssueItemResult(
+                    invoice.ApartmentInvoiceId,
+                    invCode,
+                    aptCode,
+                    BatchIssueItemStatus.ConcurrencyConflict,
+                    "Hóa đơn đã bị thay đổi đồng thời. Vui lòng thử lại.",
+                    totalAmount));
+                failedCount++;
+            }
+            catch (Exception ex)
+            {
+                _context.ChangeTracker.Clear();
+                _logger.LogError(ex, "Lỗi khi phát hành hóa đơn {InvoiceId}", invoice.ApartmentInvoiceId);
+                items.Add(new BatchIssueItemResult(
+                    invoice.ApartmentInvoiceId,
+                    invCode,
+                    aptCode,
+                    BatchIssueItemStatus.Failed,
+                    $"Lỗi lưu dữ liệu: {ex.Message}",
+                    totalAmount));
+                failedCount++;
+            }
+        }
+
+        return new BatchIssueOperationResult(
+            Success: true,
+            ErrorMessage: null,
+            TotalSelected: input.Invoices.Count,
+            IssuedCount: issuedCount,
+            AlreadyIssuedCount: alreadyIssuedCount,
+            FailedCount: failedCount,
+            Items: items);
+    }
+
     public async Task<BillingOperationResult> VoidAsync(
         int invoiceId,
         string actorUserId,
@@ -1032,6 +1270,78 @@ public async Task<BatchMeterReadingViewModel> GetBatchMeterReadingSheetAsync(
             .Include(x => x.Lines)
             .Include(x => x.PaymentTransactions).ThenInclude(x => x.ConfirmedByUser);
 
+
+    /// <summary>
+    /// Tính toán chi phí gửi xe của căn hộ trong kỳ hóa đơn xác định.
+    /// </summary>
+    public async Task<ParkingFeeCalculationResult> CalculateApartmentParkingFeeAsync(
+        int apartmentId,
+        int buildingId,
+        int billingYear,
+        int billingMonth,
+        CancellationToken cancellationToken = default)
+    {
+        var periodStart = new DateTime(billingYear, billingMonth, 1, 0, 0, 0, DateTimeKind.Utc);
+        var periodEnd = periodStart.AddMonths(1).AddTicks(-1);
+
+        // 1. Quét danh sách xe hợp lệ của căn hộ trong kỳ tính phí
+        // Điều kiện: Xe thuộc căn hộ, đã được duyệt và chưa bị hủy trước ngày đầu kỳ
+        var vehicles = await _context.Vehicles
+            .AsNoTracking()
+            .Include(v => v.ParkingCard)
+            .Where(v => v.ApartmentId == apartmentId
+                     && (v.Status == "Đã duyệt" || (v.ParkingCard != null && v.ParkingCard.Status == "Active"))
+                     && v.CreatedAt <= periodEnd)
+            .ToListAsync(cancellationToken);
+
+        if (vehicles.Count == 0)
+        {
+            return new ParkingFeeCalculationResult(
+                TotalAmount: 0m,
+                ActiveVehicleCount: 0,
+                SummaryDescription: "Không có phương tiện đăng ký",
+                Items: Array.Empty<VehicleParkingChargeItem>());
+        }
+
+        // 2. Tra cứu đơn giá gửi xe theo biểu phí hoặc cấu hình mặc định theo phân loại xe
+        // (Áp dụng đơn giá chuẩn đô thị: Xe máy: 100k, Ô tô: 1.200k, Xe đạp/điện: 50k nếu chưa có bảng tariff riêng)
+        var items = new List<VehicleParkingChargeItem>();
+        decimal totalAmount = 0m;
+
+        foreach (var vehicle in vehicles)
+        {
+            var vehicleType = string.IsNullOrWhiteSpace(vehicle.VehicleType)
+                ? "Xe máy"
+                : vehicle.VehicleType.Trim();
+
+            decimal monthlyRate = vehicleType.ToLowerInvariant() switch
+            {
+                var t when t.Contains("ô tô") || t.Contains("oto") || t.Contains("car") => 1_200_000m,
+                var t when t.Contains("đạp") || t.Contains("bicycle") => 50_000m,
+                _ => 100_000m // Mặc định là xe máy
+            };
+
+            totalAmount += monthlyRate;
+            items.Add(new VehicleParkingChargeItem(
+                vehicle.VehicleId,
+                vehicle.LicensePlate,
+                vehicleType,
+                monthlyRate));
+        }
+
+        // 3. Gom nhóm tạo diễn giải tóm tắt (Ví dụ: "1 Ô tô (1.200.000 ₫), 2 Xe máy (200.000 ₫)")
+        var summaryParts = items
+            .GroupBy(i => i.VehicleType)
+            .Select(g => $"{g.Count()} {g.Key} ({g.Sum(x => x.MonthlyRate):N0} ₫)");
+
+        var summaryDescription = $"Phí gửi xe tháng {billingMonth:D2}/{billingYear}: {string.Join(", ", summaryParts)}";
+
+        return new ParkingFeeCalculationResult(
+            TotalAmount: Math.Round(totalAmount, 0, MidpointRounding.AwayFromZero),
+            ActiveVehicleCount: items.Count,
+            SummaryDescription: summaryDescription,
+            Items: items);
+    }
 
     private static string? ValidateTariff(FeeTariffInput input)
     {
@@ -1098,5 +1408,8 @@ public async Task<BatchMeterReadingViewModel> GetBatchMeterReadingSheetAsync(
     private static decimal RoundCurrency(decimal amount) =>
         decimal.Round(amount, 0, MidpointRounding.AwayFromZero);
 
-    private static BillingOperationResult Failure(string message) => new(false, message, null);
+    private static BillingOperationResult Failure(
+        string message,
+        BillingFailureReason reason = BillingFailureReason.InvalidInput) =>
+        new(false, message, null, reason);
 }

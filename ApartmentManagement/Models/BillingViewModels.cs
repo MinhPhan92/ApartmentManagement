@@ -220,3 +220,38 @@ public sealed class BatchMeterReadingViewModel
 
     public BatchMeterReadingOperationResult? Result { get; set; }
 }
+
+public sealed class BatchIssueItemViewModel
+{
+    public bool IsSelected { get; set; } = true;
+    public int InvoiceId { get; set; }
+    public string InvoiceCode { get; set; } = string.Empty;
+    public string ApartmentCode { get; set; } = string.Empty;
+    public string ResidentName { get; set; } = string.Empty;
+    public decimal ManagementFee { get; set; }
+    public decimal ElectricityFee { get; set; }
+    public decimal WaterFee { get; set; }
+    public decimal TotalAmount { get; set; }
+    public string RowVersionToken { get; set; } = string.Empty;
+}
+
+public sealed class BatchIssueInvoicesViewModel
+{
+    [Range(1, int.MaxValue, ErrorMessage = "Vui lòng chọn tòa nhà.")]
+    [Display(Name = "Tòa nhà")]
+    public int BuildingId { get; set; }
+
+    [Range(2000, 2200, ErrorMessage = "Năm tính phí từ 2000 đến 2200.")]
+    [Display(Name = "Năm tính phí")]
+    public int BillingYear { get; set; } = DateTime.Today.Year;
+
+    [Range(1, 12, ErrorMessage = "Tháng tính phí từ 1 đến 12.")]
+    [Display(Name = "Tháng tính phí")]
+    public int BillingMonth { get; set; } = DateTime.Today.Month;
+
+    public IReadOnlyList<SelectListItem> BuildingOptions { get; set; } = [];
+
+    public List<BatchIssueItemViewModel> DraftInvoices { get; set; } = [];
+
+    public BatchIssueOperationResult? Result { get; set; }
+}

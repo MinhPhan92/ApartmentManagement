@@ -333,6 +333,105 @@ public sealed class BillingController : Controller
     }
 
     [HttpGet]
+    public async Task<IActionResult> BatchIssueInvoices(int? buildingId = null, int? year = null, int? month = null)
+    {
+        var targetYear = year ?? DateTime.Today.Year;
+        var targetMonth = month ?? DateTime.Today.Month;
+        var targetBuildingId = buildingId ?? 0;
+
+        var model = new BatchIssueInvoicesViewModel
+        {
+            BuildingId = targetBuildingId,
+            BillingYear = targetYear,
+            BillingMonth = targetMonth
+        };
+
+        await PopulateBuildingsAsync(model);
+
+        if (targetBuildingId > 0)
+        {
+            var drafts = await _billingService.GetDraftInvoicesForBatchIssueAsync(targetBuildingId, targetYear, targetMonth);
+            model.DraftInvoices = drafts.Select(d => new BatchIssueItemViewModel
+            {
+                IsSelected = true,
+                InvoiceId = d.InvoiceId,
+                InvoiceCode = d.InvoiceCode,
+                ApartmentCode = d.ApartmentCode,
+                ResidentName = d.ResidentName,
+                ManagementFee = d.ManagementFee,
+                ElectricityFee = d.ElectricityFee,
+                WaterFee = d.WaterFee,
+                TotalAmount = d.TotalAmount,
+                RowVersionToken = d.RowVersionToken
+            }).ToList();
+        }
+
+        return View(model);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> BatchIssueInvoices(BatchIssueInvoicesViewModel model)
+    {
+        if (model == null) return BadRequest();
+        var userId = CurrentUserId();
+        if (userId == null) return Forbid();
+
+        var selected = model.DraftInvoices?.Where(x => x.IsSelected).ToList() ?? [];
+        if (selected.Count == 0)
+        {
+            ModelState.AddModelError(string.Empty, "Vui lòng chọn ít nhất một hóa đơn để phát hành.");
+            await PopulateBuildingsAsync(model);
+            return View(model);
+        }
+
+        var issueItems = new List<BatchIssueItemInput>();
+        foreach (var item in selected)
+        {
+            if (TryDecodeRowVersion(item.RowVersionToken, out var rowVersion))
+            {
+                issueItems.Add(new BatchIssueItemInput(item.InvoiceId, rowVersion));
+            }
+            else
+            {
+                issueItems.Add(new BatchIssueItemInput(item.InvoiceId, []));
+            }
+        }
+
+        var input = new BatchIssueInput(model.BuildingId, model.BillingYear, model.BillingMonth, issueItems);
+        var result = await _billingService.IssueBuildingInvoicesAsync(input, userId);
+
+        model.Result = result;
+        await PopulateBuildingsAsync(model);
+
+        if (result.Success)
+        {
+            TempData["SuccessMessage"] = $"Đã phát hành: {result.IssuedCount} thành công, {result.AlreadyIssuedCount} đã phát hành trước, {result.FailedCount} lỗi.";
+            // Tải lại danh sách hóa đơn Draft còn lại
+            var remainingDrafts = await _billingService.GetDraftInvoicesForBatchIssueAsync(model.BuildingId, model.BillingYear, model.BillingMonth);
+            model.DraftInvoices = remainingDrafts.Select(d => new BatchIssueItemViewModel
+            {
+                IsSelected = true,
+                InvoiceId = d.InvoiceId,
+                InvoiceCode = d.InvoiceCode,
+                ApartmentCode = d.ApartmentCode,
+                ResidentName = d.ResidentName,
+                ManagementFee = d.ManagementFee,
+                ElectricityFee = d.ElectricityFee,
+                WaterFee = d.WaterFee,
+                TotalAmount = d.TotalAmount,
+                RowVersionToken = d.RowVersionToken
+            }).ToList();
+        }
+        else
+        {
+            ModelState.AddModelError(string.Empty, result.ErrorMessage ?? "Không thể phát hành hóa đơn hàng loạt.");
+        }
+
+        return View(model);
+    }
+
+    [HttpGet]
     public async Task<IActionResult> Details(int id)
     {
         if (id <= 0) return NotFound();
@@ -468,6 +567,13 @@ private async Task PopulateBuildingsAsync(BatchMeterReadingViewModel model)
     }
 
         private async Task PopulateBuildingsAsync(BatchGenerateInvoicesViewModel model)
+    {
+        var buildings = await _buildingService.GetAllBuildingsAsync();
+        model.BuildingOptions = buildings.Select(x => new SelectListItem(
+            $"{x.BuildingName} ({x.BuildingCode})", x.BuildingId.ToString(), x.BuildingId == model.BuildingId)).ToList();
+    }
+
+    private async Task PopulateBuildingsAsync(BatchIssueInvoicesViewModel model)
     {
         var buildings = await _buildingService.GetAllBuildingsAsync();
         model.BuildingOptions = buildings.Select(x => new SelectListItem(

@@ -540,5 +540,231 @@ public sealed class BatchBillingServiceTests
         Assert.Equal(result.TotalScanned, result.CreatedCount + result.AlreadyExistsCount + result.SkippedCount + result.FailedCount);
         Assert.Equal(result.TotalScanned, result.Items.Count);
     }
+
+    [Fact]
+    public async Task TC_BATCH_11_GenerateBuildingDraftsAsync_PersistenceErrorWithoutInvoice_ClassifiedAsFailed()
+    {
+        await using var context = CreateFaultyContext();
+        var (_, building) = SeedBuildingAndTariffs(context, 1);
+        AddApartmentWithResidentAndReadings(context, building, 1, "A-101");
+
+        context.ShouldThrowOnSaveInvoice = _ => true;
+        var service = new BillingService(context, NullLogger<BillingService>.Instance);
+
+        var result = await service.GenerateBuildingDraftsAsync(1, 2026, 8, new DateTime(2026, 9, 15), "user-manager");
+
+        Assert.True(result.Success);
+        Assert.Equal(1, result.TotalScanned);
+        Assert.Equal(0, result.CreatedCount);
+        Assert.Equal(0, result.AlreadyExistsCount);
+        Assert.Equal(0, result.SkippedCount);
+        Assert.Equal(1, result.FailedCount);
+
+        var item = Assert.Single(result.Items);
+        Assert.Equal(BatchBillingItemStatus.Failed, item.Status);
+        Assert.Equal("Không thể lưu hóa đơn do lỗi cơ sở dữ liệu.", item.Message);
+        Assert.Null(item.InvoiceId);
+
+        Assert.Empty(await context.ApartmentInvoices.ToListAsync());
+    }
+
+    [Fact]
+    public async Task TC_BATCH_12_GenerateBuildingDraftsAsync_PersistenceErrorWithExistingInvoice_ClassifiedAsAlreadyExists()
+    {
+        await using var context = CreateFaultyContext();
+        var (_, building) = SeedBuildingAndTariffs(context, 1);
+        AddApartmentWithResidentAndReadings(context, building, 1, "A-101");
+
+        context.ShouldThrowOnSaveInvoice = _ => true;
+        context.SimulateConcurrentInvoiceOnSaveFailure = true;
+        var service = new BillingService(context, NullLogger<BillingService>.Instance);
+
+        var result = await service.GenerateBuildingDraftsAsync(1, 2026, 8, new DateTime(2026, 9, 15), "user-manager");
+
+        Assert.True(result.Success);
+        Assert.Equal(1, result.TotalScanned);
+        Assert.Equal(0, result.CreatedCount);
+        Assert.Equal(1, result.AlreadyExistsCount);
+        Assert.Equal(0, result.SkippedCount);
+        Assert.Equal(0, result.FailedCount);
+
+        var item = Assert.Single(result.Items);
+        Assert.Equal(BatchBillingItemStatus.AlreadyExists, item.Status);
+        Assert.Equal("Căn hộ đã có hóa đơn trong kỳ này.", item.Message);
+        Assert.NotNull(item.InvoiceId);
+        Assert.Equal("INV-CONCURRENT-1", item.InvoiceCode);
+    }
+
+    [Fact]
+    public async Task TC_BATCH_13_GenerateBuildingDraftsAsync_ExistingVoidInvoice_PreservedAndClassifiedAsAlreadyExists()
+    {
+        await using var context = CreateContext();
+        var (_, building) = SeedBuildingAndTariffs(context, 1);
+        AddApartmentWithResidentAndReadings(context, building, 1, "A-101");
+
+        var voidInvoice = new ApartmentInvoice
+        {
+            InvoiceCode = "INV-VOID-001",
+            ApartmentId = 1,
+            ResidentId = 10,
+            BillingYear = 2026,
+            BillingMonth = 8,
+            DueDate = new DateTime(2026, 9, 15),
+            ApartmentArea = 50,
+            TotalAmount = 250000,
+            Status = ApartmentInvoiceStatus.Void,
+            CreatedAtUtc = DateTime.UtcNow,
+            CreatedByUserId = "user-manager"
+        };
+        context.ApartmentInvoices.Add(voidInvoice);
+        await context.SaveChangesAsync();
+
+        var service = new BillingService(context, NullLogger<BillingService>.Instance);
+
+        var result = await service.GenerateBuildingDraftsAsync(1, 2026, 8, new DateTime(2026, 9, 15), "user-manager");
+
+        Assert.True(result.Success);
+        Assert.Equal(1, result.TotalScanned);
+        Assert.Equal(0, result.CreatedCount);
+        Assert.Equal(1, result.AlreadyExistsCount);
+        Assert.Equal(0, result.SkippedCount);
+        Assert.Equal(0, result.FailedCount);
+
+        var item = Assert.Single(result.Items);
+        Assert.Equal(BatchBillingItemStatus.AlreadyExists, item.Status);
+        Assert.Equal(voidInvoice.ApartmentInvoiceId, item.InvoiceId);
+        Assert.Equal("INV-VOID-001", item.InvoiceCode);
+
+        // Verify status in DB remains Void
+        var invoiceInDb = await context.ApartmentInvoices.SingleAsync();
+        Assert.Equal(ApartmentInvoiceStatus.Void, invoiceInDb.Status);
+        Assert.Equal("INV-VOID-001", invoiceInDb.InvoiceCode);
+    }
+
+    [Fact]
+    public async Task TC_BATCH_14_GenerateBuildingDraftsAsync_RecheckQueryThrowsException_ClassifiedAsFailed()
+    {
+        await using var context = CreateFaultyContext();
+        var (_, building) = SeedBuildingAndTariffs(context, 1);
+        AddApartmentWithResidentAndReadings(context, building, 1, "A-101");
+
+        context.ShouldThrowOnSaveInvoice = _ =>
+        {
+            context.ThrowOnInvoicesQuery = true;
+            return true;
+        };
+        var service = new BillingService(context, NullLogger<BillingService>.Instance);
+
+        var result = await service.GenerateBuildingDraftsAsync(1, 2026, 8, new DateTime(2026, 9, 15), "user-manager");
+
+        Assert.True(result.Success);
+        Assert.Equal(1, result.TotalScanned);
+        Assert.Equal(0, result.CreatedCount);
+        Assert.Equal(0, result.AlreadyExistsCount);
+        Assert.Equal(0, result.SkippedCount);
+        Assert.Equal(1, result.FailedCount);
+
+        var item = Assert.Single(result.Items);
+        Assert.Equal(BatchBillingItemStatus.Failed, item.Status);
+        Assert.Equal("Không thể kiểm tra trạng thái hóa đơn do lỗi kết nối cơ sở dữ liệu.", item.Message);
+    }
+
+    [Fact]
+    public async Task TC_BATCH_15_GenerateBuildingDraftsAsync_PersistenceErrorOnOneApartment_DoesNotBlockNextApartment()
+    {
+        await using var context = CreateFaultyContext();
+        var (_, building) = SeedBuildingAndTariffs(context, 1);
+        AddApartmentWithResidentAndReadings(context, building, 1, "A-101");
+        AddApartmentWithResidentAndReadings(context, building, 2, "A-102");
+
+        // Only throw for Apartment 1
+        context.ShouldThrowOnSaveInvoice = inv => inv.ApartmentId == 1;
+        var service = new BillingService(context, NullLogger<BillingService>.Instance);
+
+        var result = await service.GenerateBuildingDraftsAsync(1, 2026, 8, new DateTime(2026, 9, 15), "user-manager");
+
+        Assert.True(result.Success);
+        Assert.Equal(2, result.TotalScanned);
+        Assert.Equal(1, result.CreatedCount);
+        Assert.Equal(0, result.AlreadyExistsCount);
+        Assert.Equal(0, result.SkippedCount);
+        Assert.Equal(1, result.FailedCount);
+
+        var apt1Result = result.Items.Single(x => x.ApartmentCode == "A-101");
+        Assert.Equal(BatchBillingItemStatus.Failed, apt1Result.Status);
+        Assert.Equal("Không thể lưu hóa đơn do lỗi cơ sở dữ liệu.", apt1Result.Message);
+
+        var apt2Result = result.Items.Single(x => x.ApartmentCode == "A-102");
+        Assert.Equal(BatchBillingItemStatus.Created, apt2Result.Status);
+        Assert.NotNull(apt2Result.InvoiceId);
+
+        var invoices = await context.ApartmentInvoices.ToListAsync();
+        Assert.Single(invoices);
+        Assert.Equal(2, invoices[0].ApartmentId);
+    }
+
+    private static TestFaultyDbContext CreateFaultyContext(string? dbName = null)
+    {
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(dbName ?? Guid.NewGuid().ToString())
+            .Options;
+        return new TestFaultyDbContext(options);
+    }
+
+    private sealed class TestFaultyDbContext : ApplicationDbContext
+    {
+        public Func<ApartmentInvoice, bool>? ShouldThrowOnSaveInvoice { get; set; }
+        public bool SimulateConcurrentInvoiceOnSaveFailure { get; set; }
+        public bool ThrowOnInvoicesQuery { get; set; }
+
+        public TestFaultyDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
+
+        public override DbSet<TEntity> Set<TEntity>()
+        {
+            if (ThrowOnInvoicesQuery && typeof(TEntity) == typeof(ApartmentInvoice))
+            {
+                throw new InvalidOperationException("Mô phỏng lỗi kết nối cơ sở dữ liệu khi truy vấn hóa đơn.");
+            }
+            return base.Set<TEntity>();
+        }
+
+        public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            var invoiceEntry = ChangeTracker.Entries<ApartmentInvoice>()
+                .FirstOrDefault(e => e.State == EntityState.Added);
+
+            if (invoiceEntry != null && ShouldThrowOnSaveInvoice?.Invoke(invoiceEntry.Entity) == true)
+            {
+                if (SimulateConcurrentInvoiceOnSaveFailure)
+                {
+                    var inv = invoiceEntry.Entity;
+                    var concurrentInvoice = new ApartmentInvoice
+                    {
+                        InvoiceCode = $"INV-CONCURRENT-{inv.ApartmentId}",
+                        ApartmentId = inv.ApartmentId,
+                        ResidentId = inv.ResidentId,
+                        BillingYear = inv.BillingYear,
+                        BillingMonth = inv.BillingMonth,
+                        DueDate = inv.DueDate,
+                        ApartmentArea = inv.ApartmentArea,
+                        TotalAmount = inv.TotalAmount,
+                        Status = ApartmentInvoiceStatus.Draft,
+                        CreatedAtUtc = DateTime.UtcNow,
+                        CreatedByUserId = "concurrent-user"
+                    };
+
+                    invoiceEntry.State = EntityState.Detached;
+                    ApartmentInvoices.Add(concurrentInvoice);
+                    await base.SaveChangesAsync(cancellationToken);
+                }
+
+                throw new DbUpdateException(
+                    "Database save failed due to unexpected constraint violation or deadlock.",
+                    new Exception("Deadlock / connection failure"));
+            }
+
+            return await base.SaveChangesAsync(cancellationToken);
+        }
+    }
 }
 
