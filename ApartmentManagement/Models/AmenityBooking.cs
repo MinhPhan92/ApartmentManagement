@@ -32,7 +32,7 @@ public class AmenityBooking
     [Required]
     [StringLength(50)]
     [Display(Name = "Trạng thái")]
-    public string Status { get; set; } = "Đã xác nhận"; // "Chờ duyệt", "Đã xác nhận", "Đã hủy"
+    public string Status { get; set; } = "Chờ duyệt"; // "Chờ duyệt", "Đã xác nhận", "Từ chối", "Đã hủy"
 
     [StringLength(500, ErrorMessage = "Ghi chú không quá 500 ký tự.")]
     [Display(Name = "Ghi chú")]

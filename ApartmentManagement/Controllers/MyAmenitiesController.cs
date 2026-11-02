@@ -68,7 +68,7 @@ public class MyAmenitiesController : Controller
             return View(model);
         }
 
-        TempData["SuccessMessage"] = "Đặt tiện ích thành công!";
+        TempData["SuccessMessage"] = "Gửi yêu cầu đăng ký tiện ích thành công! Yêu cầu đang chờ Ban quản lý phê duyệt.";
         return RedirectToAction(nameof(Index));
     }
 

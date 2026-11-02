@@ -90,7 +90,7 @@ public class AmenityService : IAmenityService
     {
         var amenity = await _context.Amenities.Include(x => x.Bookings).FirstOrDefaultAsync(x => x.AmenityId == id);
         if (amenity == null) return (false, "Không tìm thấy tiện ích.");
-        if (amenity.Bookings.Any(b => b.BookingDate >= OccupancyService.GetApplicationToday() && b.Status != "Đã hủy"))
+        if (amenity.Bookings.Any(b => b.BookingDate >= OccupancyService.GetApplicationToday() && b.Status != "Đã hủy" && b.Status != "Từ chối"))
             return (false, "Không thể xóa tiện ích đang có lịch đặt chỗ sắp tới. Hãy hủy các lịch đặt trước.");
 
         _context.Amenities.Remove(amenity);
@@ -98,7 +98,7 @@ public class AmenityService : IAmenityService
         return (true, null);
     }
 
-    public Task<List<AmenityBooking>> GetBookingsAsync(int? amenityId = null, DateTime? date = null)
+    public Task<List<AmenityBooking>> GetBookingsAsync(int? amenityId = null, DateTime? date = null, string? status = null)
     {
         var query = _context.AmenityBookings.AsNoTracking()
             .Include(x => x.Amenity)
@@ -107,6 +107,7 @@ public class AmenityService : IAmenityService
 
         if (amenityId.HasValue) query = query.Where(x => x.AmenityId == amenityId.Value);
         if (date.HasValue) query = query.Where(x => x.BookingDate.Date == date.Value.Date);
+        if (!string.IsNullOrWhiteSpace(status)) query = query.Where(x => x.Status == status.Trim());
 
         return query.OrderByDescending(x => x.BookingDate).ThenBy(x => x.StartTime).ToListAsync();
     }
@@ -187,16 +188,22 @@ public class AmenityService : IAmenityService
     private async Task<(bool Success, string? ErrorMessage)> CreateBookingInternalAsync(
         int residentId, Amenity amenity, DateTime bookingDate, TimeSpan startTime, TimeSpan endTime, int guests, string? notes)
     {
-        // Kiểm tra trùng lịch và quá tải sức chứa
-        var existingBookings = await _context.AmenityBookings
+        // Lấy tất cả các booking đang chiếm chỗ (Chờ duyệt hoặc Đã xác nhận) trong cùng ngày và giao nhau về khung giờ
+        var activeBookings = await _context.AmenityBookings
             .Where(b => b.AmenityId == amenity.AmenityId &&
                         b.BookingDate.Date == bookingDate.Date &&
-                        b.Status != "Đã hủy" &&
+                        (b.Status == "Chờ duyệt" || b.Status == "Đã xác nhận") &&
                         b.StartTime < endTime &&
                         b.EndTime > startTime)
             .ToListAsync();
 
-        var currentTotalGuests = existingBookings.Sum(b => b.NumberOfGuests);
+        // BR_03: Cùng một cư dân không được tạo nhiều đăng ký trùng thời gian cho cùng một tiện ích
+        if (activeBookings.Any(b => b.ResidentId == residentId))
+        {
+            return (false, "Bạn đã có đơn đăng ký cho tiện ích này trong cùng khung giờ.");
+        }
+
+        var currentTotalGuests = activeBookings.Sum(b => b.NumberOfGuests);
         if (currentTotalGuests + guests > amenity.Capacity)
         {
             return (false, $"Khung giờ này đã có người đặt ({currentTotalGuests}/{amenity.Capacity} người). Không đủ sức chứa cho {guests} người.");
@@ -210,7 +217,7 @@ public class AmenityService : IAmenityService
             StartTime = startTime,
             EndTime = endTime,
             NumberOfGuests = guests,
-            Status = "Đã xác nhận",
+            Status = "Chờ duyệt",
             Notes = notes?.Trim(),
             CreatedAtUtc = DateTime.UtcNow
         };
@@ -220,7 +227,8 @@ public class AmenityService : IAmenityService
         return (true, null);
     }
 
-    public async Task<(bool Success, string? ErrorMessage)> CancelBookingAsync(string userId, int bookingId, bool isManager = false)
+    public async Task<(bool Success, string? ErrorMessage)> CancelBookingAsync(
+        string userId, int bookingId, bool isManager = false, DateTime? currentDateTime = null)
     {
         var booking = await _context.AmenityBookings.Include(x => x.Resident).FirstOrDefaultAsync(x => x.AmenityBookingId == bookingId);
         if (booking == null) return (false, "Không tìm thấy lịch đặt chỗ.");
@@ -231,7 +239,70 @@ public class AmenityService : IAmenityService
         if (booking.Status == "Đã hủy")
             return (false, "Lịch đặt chỗ này đã bị hủy trước đó.");
 
+        if (booking.Status == "Từ chối")
+            return (false, "Không thể hủy lịch đặt chỗ đã bị từ chối.");
+
+        if (booking.Status != "Chờ duyệt" && booking.Status != "Đã xác nhận")
+            return (false, "Chỉ có thể hủy lịch đặt chỗ đang chờ duyệt hoặc đã xác nhận.");
+
+        if (!isManager)
+        {
+            var now = currentDateTime ?? OccupancyService.GetApplicationNow();
+            var startDateTime = booking.BookingDate.Date.Add(booking.StartTime);
+            if (startDateTime <= now)
+            {
+                return (false, "Không thể hủy lịch đặt chỗ khi thời gian sử dụng đã bắt đầu hoặc đã qua.");
+            }
+        }
+
         booking.Status = "Đã hủy";
+        await _context.SaveChangesAsync();
+        return (true, null);
+    }
+
+    public async Task<(bool Success, string? ErrorMessage)> ApproveBookingAsync(string managerUserId, int bookingId)
+    {
+        var booking = await _context.AmenityBookings.Include(x => x.Amenity).FirstOrDefaultAsync(x => x.AmenityBookingId == bookingId);
+        if (booking == null) return (false, "Không tìm thấy lịch đặt chỗ.");
+
+        if (booking.Status == "Đã xác nhận")
+            return (false, "Lịch đặt chỗ này đã được phê duyệt trước đó.");
+
+        if (booking.Status == "Từ chối")
+            return (false, "Không thể phê duyệt lịch đặt chỗ đã bị từ chối.");
+
+        if (booking.Status == "Đã hủy")
+            return (false, "Không thể phê duyệt lịch đặt chỗ đã bị hủy.");
+
+        if (booking.Status != "Chờ duyệt")
+            return (false, "Chỉ có thể phê duyệt lịch đặt chỗ đang ở trạng thái 'Chờ duyệt'.");
+
+        if (booking.Amenity != null && !booking.Amenity.IsActive)
+            return (false, "Không thể phê duyệt vì tiện ích hiện đang tạm đóng.");
+
+        booking.Status = "Đã xác nhận";
+        await _context.SaveChangesAsync();
+        return (true, null);
+    }
+
+    public async Task<(bool Success, string? ErrorMessage)> RejectBookingAsync(string managerUserId, int bookingId, string? reason = null)
+    {
+        var booking = await _context.AmenityBookings.FirstOrDefaultAsync(x => x.AmenityBookingId == bookingId);
+        if (booking == null) return (false, "Không tìm thấy lịch đặt chỗ.");
+
+        if (booking.Status == "Đã xác nhận")
+            return (false, "Không thể từ chối lịch đặt chỗ đã được phê duyệt trước đó.");
+
+        if (booking.Status == "Từ chối")
+            return (false, "Lịch đặt chỗ này đã bị từ chối trước đó.");
+
+        if (booking.Status == "Đã hủy")
+            return (false, "Không thể từ chối lịch đặt chỗ đã bị hủy.");
+
+        if (booking.Status != "Chờ duyệt")
+            return (false, "Chỉ có thể từ chối lịch đặt chỗ đang ở trạng thái 'Chờ duyệt'.");
+
+        booking.Status = "Từ chối";
         await _context.SaveChangesAsync();
         return (true, null);
     }

@@ -1,15 +1,17 @@
+@using ApartmentManagement.Services
 @model IEnumerable<ApartmentManagement.Models.AmenityBooking>
 
 @{
     ViewData["Title"] = "Tiện ích của tôi";
     var amenities = ViewBag.Amenities as IEnumerable<ApartmentManagement.Models.Amenity> ?? Enumerable.Empty<ApartmentManagement.Models.Amenity>();
+    var appNow = OccupancyService.GetApplicationNow();
 }
 
 <div class="container-fluid py-3">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h2 class="h4 mb-1">Dịch vụ & Tiện ích cư dân</h2>
-            <p class="text-muted small mb-0">Đặt chỗ trước các tiện ích chung cư và quản lý lịch sử đặt của bạn</p>
+            <p class="text-muted small mb-0">Đặt chỗ trước các tiện ích chung cư và theo dõi tiến trình phê duyệt của Ban quản lý</p>
         </div>
     </div>
 
@@ -90,22 +92,30 @@
                             <td><span class="badge bg-light text-dark border">@item.StartTime.ToString(@"hh\:mm") - @item.EndTime.ToString(@"hh\:mm")</span></td>
                             <td>@item.NumberOfGuests người</td>
                             <td>
-                                @if (item.Status == "Đã xác nhận")
+                                @if (item.Status == "Chờ duyệt")
                                 {
-                                    <span class="badge bg-success">Đã xác nhận</span>
+                                    <span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split me-1"></i>Chờ duyệt</span>
+                                }
+                                else if (item.Status == "Đã xác nhận")
+                                {
+                                    <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Đã xác nhận</span>
+                                }
+                                else if (item.Status == "Từ chối")
+                                {
+                                    <span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>Từ chối</span>
                                 }
                                 else if (item.Status == "Đã hủy")
                                 {
-                                    <span class="badge bg-secondary">Đã hủy</span>
+                                    <span class="badge bg-secondary"><i class="bi bi-slash-circle me-1"></i>Đã hủy</span>
                                 }
                                 else
                                 {
-                                    <span class="badge bg-warning text-dark">@item.Status</span>
+                                    <span class="badge bg-light text-dark border">@item.Status</span>
                                 }
                             </td>
                             <td><small class="text-muted">@(item.Notes ?? "-")</small></td>
                             <td>
-                                @if (item.Status != "Đã hủy" && item.BookingDate.Date >= DateTime.Today)
+                                @if ((item.Status == "Chờ duyệt" || item.Status == "Đã xác nhận") && item.BookingDate.Date.Add(item.StartTime) > appNow)
                                 {
                                     <form asp-action="Cancel" asp-route-id="@item.AmenityBookingId" method="post" onsubmit="return confirm('Bạn có chắc muốn hủy lịch này?');">
                                         @Html.AntiForgeryToken()

@@ -3,13 +3,14 @@
 @{
     ViewData["Title"] = "Quản lý Lịch đặt Tiện ích";
     var amenities = ViewBag.Amenities as IEnumerable<ApartmentManagement.Models.Amenity> ?? Enumerable.Empty<ApartmentManagement.Models.Amenity>();
+    var selectedStatus = ViewBag.SelectedStatus as string;
 }
 
 <div class="container-fluid py-3">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
             <h2 class="h4 mb-1">Quản lý Lịch đặt Tiện ích</h2>
-            <p class="text-muted small mb-0">Theo dõi toàn bộ lịch đặt tiện ích của cư dân</p>
+            <p class="text-muted small mb-0">Theo dõi và phê duyệt lịch đặt tiện ích của cư dân</p>
         </div>
         <a asp-action="Index" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left"></i> Danh mục tiện ích
@@ -33,7 +34,7 @@
 
     <form method="get" class="card card-body shadow-sm border-0 mb-4">
         <div class="row g-3 align-items-end">
-            <div class="col-md-5">
+            <div class="col-md-4">
                 <label class="form-label small fw-bold">Lọc theo tiện ích</label>
                 <select name="amenityId" class="form-select">
                     <option value="">-- Tất cả tiện ích --</option>
@@ -43,12 +44,22 @@
                     }
                 </select>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <label class="form-label small fw-bold">Ngày sử dụng</label>
                 <input type="date" name="date" class="form-control" value="@ViewBag.SelectedDate" />
             </div>
             <div class="col-md-3">
-                <button type="submit" class="btn btn-primary w-100"><i class="bi bi-filter"></i> Lọc dữ liệu</button>
+                <label class="form-label small fw-bold">Trạng thái</label>
+                <select name="status" class="form-select">
+                    <option value="">-- Tất cả trạng thái --</option>
+                    <!option value="Chờ duyệt" @(selectedStatus == "Chờ duyệt" ? "selected" : "")>Chờ duyệt</!option>
+                    <!option value="Đã xác nhận" @(selectedStatus == "Đã xác nhận" ? "selected" : "")>Đã xác nhận</!option>
+                    <!option value="Từ chối" @(selectedStatus == "Từ chối" ? "selected" : "")>Từ chối</!option>
+                    <!option value="Đã hủy" @(selectedStatus == "Đã hủy" ? "selected" : "")>Đã hủy</!option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100"><i class="bi bi-filter"></i> Lọc</button>
             </div>
         </div>
     </form>
@@ -89,27 +100,56 @@
                             <td><span class="badge bg-light text-dark border">@item.StartTime.ToString(@"hh\:mm") - @item.EndTime.ToString(@"hh\:mm")</span></td>
                             <td>@item.NumberOfGuests người</td>
                             <td>
-                                @if (item.Status == "Đã xác nhận")
+                                @if (item.Status == "Chờ duyệt")
                                 {
-                                    <span class="badge bg-success">Đã xác nhận</span>
+                                    <span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split me-1"></i>Chờ duyệt</span>
+                                }
+                                else if (item.Status == "Đã xác nhận")
+                                {
+                                    <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Đã xác nhận</span>
+                                }
+                                else if (item.Status == "Từ chối")
+                                {
+                                    <span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>Từ chối</span>
                                 }
                                 else if (item.Status == "Đã hủy")
                                 {
-                                    <span class="badge bg-secondary">Đã hủy</span>
+                                    <span class="badge bg-secondary"><i class="bi bi-slash-circle me-1"></i>Đã hủy</span>
                                 }
                                 else
                                 {
-                                    <span class="badge bg-warning text-dark">@item.Status</span>
+                                    <span class="badge bg-light text-dark border">@item.Status</span>
                                 }
                             </td>
                             <td><small class="text-muted">@(item.Notes ?? "-")</small></td>
                             <td>
-                                @if (item.Status != "Đã hủy")
+                                @if (item.Status == "Chờ duyệt")
+                                {
+                                    <div class="d-flex gap-1">
+                                        <form asp-action="ApproveBooking" asp-route-id="@item.AmenityBookingId" method="post" class="d-inline">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="btn btn-sm btn-success" title="Phê duyệt">
+                                                <i class="bi bi-check-lg"></i> Duyệt
+                                            </button>
+                                        </form>
+                                        <form asp-action="RejectBooking" asp-route-id="@item.AmenityBookingId" method="post" class="d-inline" onsubmit="return confirm('Bạn có chắc muốn từ chối yêu cầu đặt tiện ích này?');">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Từ chối">
+                                                <i class="bi bi-x-lg"></i> Từ chối
+                                            </button>
+                                        </form>
+                                    </div>
+                                }
+                                else if (item.Status == "Đã xác nhận")
                                 {
                                     <form asp-action="CancelBooking" asp-route-id="@item.AmenityBookingId" method="post" onsubmit="return confirm('Bạn có chắc muốn hủy lịch này?');">
                                         @Html.AntiForgeryToken()
-                                        <button type="submit" class="btn btn-sm btn-outline-danger">Hủy lịch</button>
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary">Hủy lịch</button>
                                     </form>
+                                }
+                                else
+                                {
+                                    <span class="text-muted small">Không khả dụng</span>
                                 }
                             </td>
                         </tr>

@@ -102,14 +102,53 @@ public class AmenitiesController : Controller
     // GET: /Amenities/Bookings
     [HttpGet]
     [Authorize(Policy = AppPolicies.RequireManagement)]
-    public async Task<IActionResult> Bookings(int? amenityId, DateTime? date)
+    public async Task<IActionResult> Bookings(int? amenityId, DateTime? date, string? status)
     {
         ViewBag.Amenities = await _amenityService.GetAllAmenitiesAsync();
         ViewBag.SelectedAmenityId = amenityId;
         ViewBag.SelectedDate = date?.ToString("yyyy-MM-dd");
+        ViewBag.SelectedStatus = status;
 
-        var bookings = await _amenityService.GetBookingsAsync(amenityId, date);
+        var bookings = await _amenityService.GetBookingsAsync(amenityId, date, status);
         return View(bookings);
+    }
+
+    // POST: /Amenities/ApproveBooking/5
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Policy = AppPolicies.RequireManagement)]
+    public async Task<IActionResult> ApproveBooking(int id)
+    {
+        var managerUserId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var result = await _amenityService.ApproveBookingAsync(managerUserId, id);
+        if (!result.Success)
+        {
+            TempData["ErrorMessage"] = result.ErrorMessage;
+        }
+        else
+        {
+            TempData["SuccessMessage"] = "Đã phê duyệt lịch đặt tiện ích.";
+        }
+        return RedirectToAction(nameof(Bookings));
+    }
+
+    // POST: /Amenities/RejectBooking/5
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Policy = AppPolicies.RequireManagement)]
+    public async Task<IActionResult> RejectBooking(int id, string? reason)
+    {
+        var managerUserId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var result = await _amenityService.RejectBookingAsync(managerUserId, id, reason);
+        if (!result.Success)
+        {
+            TempData["ErrorMessage"] = result.ErrorMessage;
+        }
+        else
+        {
+            TempData["SuccessMessage"] = "Đã từ chối lịch đặt tiện ích.";
+        }
+        return RedirectToAction(nameof(Bookings));
     }
 
     // POST: /Amenities/CancelBooking/5

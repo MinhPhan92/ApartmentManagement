@@ -55,6 +55,11 @@ public sealed class OccupancyService : IOccupancyService
         }
     }
 
+    public static DateTime GetApplicationNow()
+    {
+        return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, VietnamTimeZone);
+    }
+
     public static DateTime GetApplicationToday()
     {
         var vnDate = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, VietnamTimeZone).Date;
