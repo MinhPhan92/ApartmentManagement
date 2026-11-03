@@ -39,6 +39,19 @@ public sealed class SqlServerTestDatabase : IAsyncDisposable
 
     public ApplicationDbContext CreateContext() => new(Options);
 
+    public ApplicationDbContext CreateContext(params IInterceptor[] interceptors)
+    {
+        if (interceptors.Length == 0)
+            return new ApplicationDbContext(Options);
+
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseSqlServer(ConnectionString)
+            .ConfigureWarnings(warnings => warnings.Log(RelationalEventId.PendingModelChangesWarning))
+            .AddInterceptors(interceptors)
+            .Options;
+        return new ApplicationDbContext(options);
+    }
+
     public async ValueTask DisposeAsync()
     {
         await using var context = CreateContext();

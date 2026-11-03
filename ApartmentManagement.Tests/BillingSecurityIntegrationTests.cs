@@ -129,6 +129,31 @@ public sealed class BillingSecurityIntegrationTests : IClassFixture<CustomWebApp
     }
 
     [Fact]
+    public async Task StaffPaymentRejection_RequiresAntiforgeryToken()
+    {
+        using var client = CreateAuthenticatedClient(AppRoles.Accountant, "billing-accountant");
+        using var response = await client.PostAsync(
+            "/Payments/Reject",
+            new FormUrlEncodedContent([]));
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Resident_CannotConfirmOrRejectPayments()
+    {
+        using var client = CreateAuthenticatedClient(AppRoles.Resident, ResidentOneId);
+        using var confirmResponse = await client.PostAsync(
+            "/Payments/Confirm",
+            new FormUrlEncodedContent([new KeyValuePair<string, string>("PaymentTransactionId", "1")]));
+        using var rejectResponse = await client.PostAsync(
+            "/Payments/Reject",
+            new FormUrlEncodedContent([new KeyValuePair<string, string>("PaymentTransactionId", "1")]));
+
+        Assert.Equal(HttpStatusCode.Forbidden, confirmResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, rejectResponse.StatusCode);
+    }
+
+    [Fact]
     public async Task BillingVoid_RequiresAntiforgeryToken()
     {
         using var client = CreateAuthenticatedClient(AppRoles.Accountant, "billing-accountant");

@@ -1,4 +1,4 @@
-using ApartmentManagement.Data;
+﻿using ApartmentManagement.Data;
 using ApartmentManagement.Models;
 using ApartmentManagement.Services;
 using Microsoft.EntityFrameworkCore;
@@ -303,7 +303,11 @@ public sealed class BillingServiceTests
         var voidResult = await service.VoidAsync(draft.Invoice.ApartmentInvoiceId, "user-manager", issue.Invoice!.RowVersion);
         Assert.True(voidResult.Success, voidResult.ErrorMessage);
         Assert.Equal(ApartmentInvoiceStatus.Void, voidResult.Invoice!.Status);
-        Assert.Empty(await context.PaymentTransactions.Where(x => x.ApartmentInvoiceId == draft.Invoice.ApartmentInvoiceId).ToListAsync());
+        var tx = await context.PaymentTransactions.SingleAsync(x => x.ApartmentInvoiceId == draft.Invoice.ApartmentInvoiceId);
+        Assert.Equal(PaymentTransactionStatus.Rejected, tx.Status);
+        Assert.Equal("user-manager", tx.RejectedByUserId);
+        Assert.NotNull(tx.RejectedAtUtc);
+        Assert.Equal("Hóa đơn đã bị hủy bởi BQL", tx.RejectionReason);
     }
 
     [Fact]

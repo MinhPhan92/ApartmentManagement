@@ -133,8 +133,33 @@ public sealed class ResidentInvoiceDetailsViewModel
 {
     public required ApartmentInvoice Invoice { get; init; }
     public PaymentTransaction? Payment { get; init; }
+    public IReadOnlyList<PaymentTransaction> Transactions { get; init; } = [];
+    public decimal ConfirmedAmount { get; init; }
+    public decimal RemainingAmount { get; init; }
     public bool VietQrConfigured { get; init; }
     public bool VietQrAmountSupported { get; init; }
+    public bool CanCreatePaymentAttempt { get; init; }
+    public VietQrOptions? VietQrOptions { get; init; }
+    public bool HasAutoClosedRejections { get; init; }
+    public string QrDisclaimerMessage { get; init; } =
+        "Mã VietQR chỉ cung cấp thông tin chuyển khoản, không phải bằng chứng thanh toán. Hóa đơn chỉ được ghi nhận đã thanh toán sau khi Ban quản lý / Kế toán kiểm tra và xác nhận.";
+    public string ReconciliationWarningMessage { get; init; } =
+        "Lưu ý đối soát: Giao dịch ở trạng thái Đã từ chối (bao gồm giao dịch đóng tự động khi hóa đơn đã thanh toán đủ hoặc đã hủy) không đồng nghĩa với việc ngân hàng chắc chắn chưa nhận tiền. Nếu bạn đã chuyển khoản cho mã tham chiếu đó, vui lòng liên hệ Ban quản lý / Kế toán để kiểm tra sao kê và đối soát.";
+}
+
+public sealed class ResidentPaymentTransactionDetailsViewModel
+{
+    public required PaymentTransaction Transaction { get; init; }
+    public required ApartmentInvoice Invoice { get; init; }
+    public bool VietQrConfigured { get; init; }
+    public bool VietQrAmountSupported { get; init; }
+    public bool CanShowVietQr { get; init; }
+    public VietQrOptions? VietQrOptions { get; init; }
+    public bool IsAutoClosedRejection { get; init; }
+    public string QrDisclaimerMessage { get; init; } =
+        "Mã VietQR chỉ cung cấp thông tin chuyển khoản, không phải bằng chứng thanh toán. Hóa đơn chỉ được ghi nhận đã thanh toán sau khi Ban quản lý / Kế toán kiểm tra và xác nhận.";
+    public string ReconciliationWarningMessage { get; init; } =
+        "Lưu ý đối soát: Giao dịch bị từ chối hoặc đóng tự động không đồng nghĩa với việc ngân hàng chắc chắn chưa nhận tiền chuyển khoản. Nếu bạn đã chuyển tiền theo mã tham chiếu này, vui lòng liên hệ Ban quản lý / Kế toán để đối soát sao kê.";
 }
 
 public sealed class PaymentTransactionsViewModel
@@ -142,20 +167,81 @@ public sealed class PaymentTransactionsViewModel
     public IReadOnlyList<PaymentTransaction> Transactions { get; init; } = [];
     public PaymentTransactionStatus? Status { get; set; }
     public string? SearchTerm { get; set; }
+    public string? Reference { get; set; }
+    public string? Apartment { get; set; }
+    public string? Resident { get; set; }
+    [DataType(DataType.Date)]
+    public DateTime? FromDate { get; set; }
+    [DataType(DataType.Date)]
+    public DateTime? ToDate { get; set; }
     public IReadOnlyList<SelectListItem> StatusOptions { get; set; } = [];
+
+    public int CurrentPage { get; init; } = 1;
+    public int PageSize { get; init; } = 10;
+    public int TotalFilteredCount { get; init; }
+    public int TotalPages { get; init; } = 1;
+    public bool HasPreviousPage => CurrentPage > 1;
+    public bool HasNextPage => CurrentPage < TotalPages;
 
     public int TotalCount { get; init; }
     public int PendingCount { get; init; }
     public int ConfirmedCount { get; init; }
+    public int RejectedCount { get; init; }
     public decimal TotalConfirmedAmount { get; init; }
+    public bool HasAutoClosedRejections { get; init; }
+    public string QrDisclaimerMessage { get; init; } =
+        "Mã VietQR chỉ cung cấp thông tin chuyển khoản, không phải bằng chứng thanh toán. Nhân viên BQL/Kế toán cần kiểm tra sao kê ngân hàng trước khi xác nhận.";
+    public string ReconciliationWarningMessage { get; init; } =
+        "Cảnh báo nghiệp vụ đối soát: Giao dịch chuyển sang trạng thái Đã từ chối (do đóng tự động khi hóa đơn đã thanh toán đủ/đã hủy hoặc từ chối thủ công) không đồng nghĩa với việc ngân hàng chắc chắn chưa nhận tiền. BQL/Kế toán cần kiểm tra sao kê và đối soát để phát hiện trường hợp cư dân chuyển khoản nhiều lần; không tự động kết luận tiền chưa về và không tự động hoàn tiền khi chưa có quy trình phê duyệt.";
+}
+
+public sealed class PaymentTransactionDetailsViewModel
+{
+    public required PaymentTransaction Transaction { get; init; }
+    public required ApartmentInvoice Invoice { get; init; }
+    public IReadOnlyList<PaymentTransaction> InvoiceTransactions { get; init; } = [];
+    public string RowVersionToken { get; init; } = string.Empty;
+    public bool CanConfirm { get; init; }
+    public bool CanReject { get; init; }
+    public bool IsAutoClosedRejection { get; init; }
+    public string QrDisclaimerMessage { get; init; } =
+        "Mã VietQR chỉ cung cấp thông tin chuyển khoản, không phải bằng chứng thanh toán.";
+    public string ReconciliationWarningMessage { get; init; } =
+        "Cảnh báo nghiệp vụ đối soát: Giao dịch ở trạng thái Đã từ chối (đặc biệt khi đóng tự động do hóa đơn đã Paid/Void) không đồng nghĩa với việc ngân hàng chắc chắn chưa nhận tiền. BQL/Kế toán bắt buộc kiểm tra sao kê ngân hàng để đối soát trước khi kết luận hoặc xử lý khoản tiền thừa; không tự động hoàn tiền khi chưa có quy trình được phê duyệt.";
 }
 
 public sealed class ConfirmPaymentViewModel
 {
     public int PaymentTransactionId { get; set; }
 
-    [Required]
+    [Required(ErrorMessage = "Phiên bản dữ liệu không hợp lệ.")]
     public string RowVersionToken { get; set; } = string.Empty;
+
+    public int? ReturnInvoiceId { get; set; }
+    public bool ReturnToDetails { get; set; }
+}
+
+public sealed class RejectPaymentViewModel
+{
+    public int PaymentTransactionId { get; set; }
+
+    [Required(ErrorMessage = "Phiên bản dữ liệu không hợp lệ.")]
+    public string RowVersionToken { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Vui lòng nhập lý do từ chối giao dịch.")]
+    [StringLength(500, ErrorMessage = "Lý do từ chối không được vượt quá 500 ký tự.")]
+    public string Reason { get; set; } = string.Empty;
+
+    public int? ReturnInvoiceId { get; set; }
+    public bool ReturnToDetails { get; set; }
+}
+
+public static class PaymentDisplayHelper
+{
+    public static bool IsAutoClosedRejectionReason(string? reason) =>
+        !string.IsNullOrWhiteSpace(reason) &&
+        (reason.StartsWith("Hóa đơn đã được thanh toán đủ qua giao dịch", StringComparison.OrdinalIgnoreCase) ||
+         reason.StartsWith("Hóa đơn đã bị hủy bởi BQL", StringComparison.OrdinalIgnoreCase));
 }
 
 public sealed class BatchGenerateInvoicesViewModel

@@ -25,7 +25,6 @@ public sealed class SqlServerBatchBillingTests
 
         var building = new Building
         {
-            BuildingId = buildingId,
             BuildingCode = $"SQL-BLD-{buildingId}",
             BuildingName = $"Tòa SQL {buildingId}",
             Address = "123 SQL Street",

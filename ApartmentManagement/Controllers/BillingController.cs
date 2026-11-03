@@ -483,31 +483,88 @@ public sealed class BillingController : Controller
         var invoice = await _billingService.GetInvoiceAsync(id);
         if (invoice == null) return NotFound();
 
-        PaymentTransaction? payment = null;
-        if (_paymentService != null && invoice.Status == ApartmentInvoiceStatus.Issued && invoice.TotalAmount > 0)
-        {
-            payment = await _paymentService.GetOrCreatePaymentForInvoiceAsync(id);
-        }
+        var transactions = (invoice.PaymentTransactions ?? [])
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .ThenByDescending(x => x.PaymentTransactionId)
+            .ToList();
+
+        var payment = transactions
+            .Where(x => x.Status == PaymentTransactionStatus.Confirmed || x.Status == PaymentTransactionStatus.Pending)
+            .OrderByDescending(x => x.Status == PaymentTransactionStatus.Confirmed)
+            .ThenByDescending(x => x.CreatedAtUtc)
+            .ThenByDescending(x => x.PaymentTransactionId)
+            .FirstOrDefault();
+
         ViewBag.Payment = payment;
         ViewBag.VietQrConfigured = _vietQrOptions?.IsConfigured ?? false;
         ViewBag.VietQrOptions = _vietQrOptions;
+        ViewBag.HasAutoClosedRejections = transactions.Any(x =>
+            x.Status == PaymentTransactionStatus.Rejected &&
+            PaymentDisplayHelper.IsAutoClosedRejectionReason(x.RejectionReason));
+        ViewBag.ReconciliationWarningMessage =
+            "Cảnh báo nghiệp vụ đối soát: Giao dịch chuyển sang trạng thái Đã từ chối (do đóng tự động khi hóa đơn đã thanh toán đủ/đã hủy hoặc từ chối thủ công) không đồng nghĩa với việc ngân hàng chắc chắn chưa nhận tiền. BQL/Kế toán cần kiểm tra sao kê và đối soát để phát hiện trường hợp cư dân chuyển khoản nhiều lần; không tự động kết luận tiền chưa về và không tự động hoàn tiền khi chưa có quy trình phê duyệt.";
+        ViewBag.QrDisclaimerMessage =
+            "Mã VietQR chỉ cung cấp thông tin chuyển khoản, không phải bằng chứng thanh toán.";
 
         return View(invoice);
     }
 
-    [HttpGet]
-    public async Task<IActionResult> PaymentQr(int id)
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreatePaymentAttempt(int id)
     {
         if (id <= 0) return NotFound();
-        if (_paymentService == null || _qrCodeGenerator == null || _vietQrOptions == null || !_vietQrOptions.IsConfigured)
+        var userId = CurrentUserId();
+        if (userId == null) return Forbid();
+        if (_paymentService == null)
+            return NotFound();
+
+        if (_vietQrOptions is not { IsConfigured: true })
+        {
+            TempData["ErrorMessage"] = "VietQR chưa khả dụng vì chưa cấu hình tài khoản nhận.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
+        var result = await _paymentService.CreatePaymentAttemptForInvoiceAsync(id);
+        if (!result.Success)
+        {
+            if (result.ErrorMessage == "Không tìm thấy hóa đơn cần thanh toán.")
+                return NotFound();
+
+            TempData["ErrorMessage"] = result.ErrorMessage ?? "Không thể khởi tạo giao dịch thanh toán.";
+        }
+        else
+        {
+            TempData["SuccessMessage"] = "Đã khởi tạo lượt giao dịch thanh toán VietQR mới.";
+        }
+
+        return RedirectToAction(nameof(Details), new { id });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> PaymentQr(int id, int? paymentTransactionId = null)
+    {
+        if (id <= 0) return NotFound();
+        if (_qrCodeGenerator == null || _vietQrOptions == null || !_vietQrOptions.IsConfigured)
             return NotFound();
 
         var invoice = await _billingService.GetInvoiceAsync(id);
         if (invoice == null || invoice.Status != ApartmentInvoiceStatus.Issued || invoice.TotalAmount <= 0)
             return NotFound();
 
-        var payment = await _paymentService.GetOrCreatePaymentForInvoiceAsync(id);
-        if (payment == null || payment.Amount > VietQrCodeGenerator.MaximumVndAmount)
+        var transactions = invoice.PaymentTransactions ?? [];
+        var payment = paymentTransactionId.HasValue
+            ? transactions.FirstOrDefault(x =>
+                x.PaymentTransactionId == paymentTransactionId.Value &&
+                x.Status == PaymentTransactionStatus.Pending)
+            : transactions
+                .Where(x => x.Status == PaymentTransactionStatus.Pending)
+                .OrderByDescending(x => x.CreatedAtUtc)
+                .ThenByDescending(x => x.PaymentTransactionId)
+                .FirstOrDefault();
+
+        if (payment == null || payment.Status != PaymentTransactionStatus.Pending ||
+            payment.Amount is <= 0 or > VietQrCodeGenerator.MaximumVndAmount)
             return NotFound();
 
         Response.Headers.CacheControl = "no-store";

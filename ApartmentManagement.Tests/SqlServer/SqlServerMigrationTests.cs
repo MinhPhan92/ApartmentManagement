@@ -1,4 +1,4 @@
-using ApartmentManagement.Data;
+﻿using ApartmentManagement.Data;
 using ApartmentManagement.Models;
 using ApartmentManagement.Services;
 using Microsoft.EntityFrameworkCore;
@@ -75,14 +75,29 @@ public sealed class SqlServerMigrationTests
 
         var names = await context.Database.SqlQueryRaw<string>(
             "SELECT [name] AS [Value] FROM sys.indexes WHERE [name] IN " +
-            "('IX_PaymentTransactions_ApartmentInvoiceId', 'IX_PaymentTransactions_Reference') " +
+            "('IX_PaymentTransactions_ApartmentInvoiceId', 'UX_PaymentTransactions_ApartmentInvoiceId_Confirmed', 'IX_PaymentTransactions_Reference') " +
             "UNION ALL SELECT [name] FROM sys.check_constraints WHERE [name] IN " +
             "('CK_PaymentTransactions_Amount', 'CK_PaymentTransactions_Status')")
             .ToListAsync();
         Assert.Contains("IX_PaymentTransactions_ApartmentInvoiceId", names);
+        Assert.Contains("UX_PaymentTransactions_ApartmentInvoiceId_Confirmed", names);
         Assert.Contains("IX_PaymentTransactions_Reference", names);
         Assert.Contains("CK_PaymentTransactions_Amount", names);
         Assert.Contains("CK_PaymentTransactions_Status", names);
+
+        var filteredConfirmedIndexCount = await context.Database.SqlQueryRaw<int>(
+            "SELECT COUNT(*) AS [Value] FROM sys.indexes " +
+            "WHERE [name] = 'UX_PaymentTransactions_ApartmentInvoiceId_Confirmed' " +
+            "AND [is_unique] = 1 AND [has_filter] = 1")
+            .SingleAsync();
+        Assert.Equal(1, filteredConfirmedIndexCount);
+
+        var nonUniqueInvoiceIndexCount = await context.Database.SqlQueryRaw<int>(
+            "SELECT COUNT(*) AS [Value] FROM sys.indexes " +
+            "WHERE [name] = 'IX_PaymentTransactions_ApartmentInvoiceId' " +
+            "AND [is_unique] = 0")
+            .SingleAsync();
+        Assert.Equal(1, nonUniqueInvoiceIndexCount);
 
         var rowVersionCount = await context.Database.SqlQueryRaw<int>(
             "SELECT COUNT(*) AS [Value] FROM sys.columns c " +

@@ -947,6 +947,17 @@ namespace ApartmentManagement.Migrations
                         .HasMaxLength(25)
                         .HasColumnType("nvarchar(25)");
 
+                    b.Property<DateTime?>("RejectedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RejectedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .IsRequired()
@@ -960,19 +971,24 @@ namespace ApartmentManagement.Migrations
 
                     b.HasKey("PaymentTransactionId");
 
-                    b.HasIndex("ApartmentInvoiceId")
-                        .IsUnique();
+                    b.HasIndex("ApartmentInvoiceId");
 
                     b.HasIndex("ConfirmedByUserId");
 
                     b.HasIndex("Reference")
                         .IsUnique();
 
+                    b.HasIndex("RejectedByUserId");
+
+                    b.HasIndex(new[] { "ApartmentInvoiceId" }, "UX_PaymentTransactions_ApartmentInvoiceId_Confirmed")
+                        .IsUnique()
+                        .HasFilter("[Status] = N'Confirmed'");
+
                     b.ToTable("PaymentTransactions", t =>
                         {
                             t.HasCheckConstraint("CK_PaymentTransactions_Amount", "[Amount] > 0");
 
-                            t.HasCheckConstraint("CK_PaymentTransactions_Status", "([Status] = N'Pending' AND [ConfirmedAtUtc] IS NULL AND [ConfirmedByUserId] IS NULL) OR ([Status] = N'Confirmed' AND [ConfirmedAtUtc] IS NOT NULL AND [ConfirmedByUserId] IS NOT NULL)");
+                            t.HasCheckConstraint("CK_PaymentTransactions_Status", "([Status] = N'Pending' AND [ConfirmedAtUtc] IS NULL AND [ConfirmedByUserId] IS NULL AND [RejectedAtUtc] IS NULL AND [RejectedByUserId] IS NULL AND [RejectionReason] IS NULL) OR ([Status] = N'Confirmed' AND [ConfirmedAtUtc] IS NOT NULL AND [ConfirmedByUserId] IS NOT NULL AND [RejectedAtUtc] IS NULL AND [RejectedByUserId] IS NULL AND [RejectionReason] IS NULL) OR ([Status] = N'Rejected' AND [ConfirmedAtUtc] IS NULL AND [ConfirmedByUserId] IS NULL AND [RejectedAtUtc] IS NOT NULL AND [RejectedByUserId] IS NOT NULL AND [RejectionReason] IS NOT NULL AND LTRIM(RTRIM([RejectionReason])) <> N'')");
                         });
                 });
 
@@ -1953,9 +1969,16 @@ namespace ApartmentManagement.Migrations
                         .HasForeignKey("ConfirmedByUserId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("ApartmentManagement.Models.ApplicationUser", "RejectedByUser")
+                        .WithMany()
+                        .HasForeignKey("RejectedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("ConfirmedByUser");
 
                     b.Navigation("Invoice");
+
+                    b.Navigation("RejectedByUser");
                 });
 
             modelBuilder.Entity("ApartmentManagement.Models.RepairAssignment", b =>

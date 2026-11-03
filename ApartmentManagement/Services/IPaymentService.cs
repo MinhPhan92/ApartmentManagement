@@ -1,4 +1,4 @@
-using ApartmentManagement.Models;
+﻿using ApartmentManagement.Models;
 
 namespace ApartmentManagement.Services;
 
@@ -9,9 +9,16 @@ public interface IPaymentService
     Task<PaymentTransaction?> GetResidentPaymentForInvoiceAsync(string userId, int invoiceId);
     Task<PaymentTransaction?> GetOrCreateResidentPaymentAsync(string userId, int invoiceId);
     Task<PaymentTransaction?> GetOrCreatePaymentForInvoiceAsync(int invoiceId);
+    Task<PaymentOperationResult> CreateResidentPaymentAttemptAsync(string userId, int invoiceId);
+    Task<PaymentOperationResult> CreatePaymentAttemptForInvoiceAsync(int invoiceId);
     Task<PaymentOperationResult> ConfirmSimulatedPaymentAsync(
         int paymentTransactionId,
         string actorUserId,
+        byte[] rowVersion);
+    Task<PaymentOperationResult> RejectPaymentAsync(
+        int paymentTransactionId,
+        string actorUserId,
+        string reason,
         byte[] rowVersion);
 }
 

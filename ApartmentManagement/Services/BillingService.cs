@@ -1,4 +1,4 @@
-using ApartmentManagement.Data;
+﻿using ApartmentManagement.Data;
 using ApartmentManagement.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -1234,32 +1234,73 @@ public async Task<BatchMeterReadingViewModel> GetBatchMeterReadingSheetAsync(
         if (hasConfirmedPayment)
             return Failure("Hóa đơn đã có giao dịch thanh toán được xác nhận. Không thể hủy hóa đơn đã hoàn tất thanh toán.");
 
-        if (_context.Database.IsRelational() &&
-            (rowVersion.Length == 0 || !invoice.RowVersion.AsSpan().SequenceEqual(rowVersion)))
+        if (_context.Database.IsRelational() && rowVersion.Length == 0)
+            return Failure("Hóa đơn đã thay đổi đồng thời. Tải lại dữ liệu trước khi thử lại.");
+        if (rowVersion.Length > 0 && invoice.RowVersion.Length > 0 &&
+            !invoice.RowVersion.AsSpan().SequenceEqual(rowVersion))
             return Failure("Hóa đơn đã thay đổi đồng thời. Tải lại dữ liệu trước khi thử lại.");
 
-        var pendingPayments = invoice.PaymentTransactions.Where(x => x.Status == PaymentTransactionStatus.Pending).ToList();
-        if (pendingPayments.Count > 0)
+        var nowUtc = DateTime.UtcNow;
+        var rejectionReason = string.IsNullOrWhiteSpace(reason)
+            ? "Hóa đơn đã bị hủy bởi BQL"
+            : $"Hóa đơn đã bị hủy bởi BQL: {reason.Trim()}";
+        if (rejectionReason.Length > 500)
         {
-            _context.PaymentTransactions.RemoveRange(pendingPayments);
+            rejectionReason = rejectionReason[..500];
+        }
+
+        var pendingPayments = invoice.PaymentTransactions
+            .Where(x => x.Status == PaymentTransactionStatus.Pending)
+            .ToList();
+        foreach (var pending in pendingPayments)
+        {
+            pending.Status = PaymentTransactionStatus.Rejected;
+            pending.RejectedAtUtc = nowUtc;
+            pending.RejectedByUserId = actorUserId;
+            pending.RejectionReason = rejectionReason;
+            if (pending.RowVersion.Length > 0)
+            {
+                _context.Entry(pending).Property(x => x.RowVersion).OriginalValue = pending.RowVersion.ToArray();
+            }
         }
 
         invoice.Status = ApartmentInvoiceStatus.Void;
-        if (_context.Database.IsRelational())
+        if (rowVersion.Length > 0)
             _context.Entry(invoice).Property(x => x.RowVersion).OriginalValue = rowVersion;
+
+        await using var transaction = _context.Database.IsRelational() && _context.Database.CurrentTransaction == null
+            ? await _context.Database.BeginTransactionAsync()
+            : null;
 
         try
         {
             await _context.SaveChangesAsync();
+            if (transaction != null)
+            {
+                await transaction.CommitAsync();
+            }
+
             return new BillingOperationResult(true, null, invoice);
         }
         catch (DbUpdateConcurrencyException exception)
         {
+            if (transaction != null)
+            {
+                await transaction.RollbackAsync();
+            }
+
+            _context.ChangeTracker.Clear();
             _logger.LogInformation(exception, "Xung đột khi hủy hóa đơn {InvoiceId}", invoiceId);
             return Failure("Hóa đơn đã thay đổi đồng thời. Tải lại dữ liệu trước khi thử lại.");
         }
         catch (DbUpdateException exception)
         {
+            if (transaction != null)
+            {
+                await transaction.RollbackAsync();
+            }
+
+            _context.ChangeTracker.Clear();
             _logger.LogError(exception, "Không thể hủy hóa đơn {InvoiceId}", invoiceId);
             return Failure("Không thể hủy hóa đơn. Vui lòng kiểm tra ràng buộc dữ liệu và thử lại.");
         }
@@ -1270,7 +1311,8 @@ public async Task<BatchMeterReadingViewModel> GetBatchMeterReadingSheetAsync(
             .Include(x => x.Apartment).ThenInclude(x => x.Building)
             .Include(x => x.Resident).ThenInclude(x => x.User)
             .Include(x => x.Lines)
-            .Include(x => x.PaymentTransactions).ThenInclude(x => x.ConfirmedByUser);
+            .Include(x => x.PaymentTransactions).ThenInclude(x => x.ConfirmedByUser)
+            .Include(x => x.PaymentTransactions).ThenInclude(x => x.RejectedByUser);
 
 
     /// <summary>

@@ -1,0 +1,151 @@
+@model PaymentTransactionDetailsViewModel
+@{
+    var tx = Model.Transaction;
+    var invoice = Model.Invoice;
+    ViewData["Title"] = $"Chi tiết giao dịch {tx.Reference}";
+}
+
+<div class="container-fluid px-3 px-lg-4 py-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1">
+                    <li class="breadcrumb-item"><a asp-action="Index">Giao dịch thanh toán</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">@tx.Reference</li>
+                </ol>
+            </nav>
+            <h1 class="h3 fw-bold mb-0">Giao dịch @tx.Reference</h1>
+            <p class="text-muted small mb-0">
+                Hóa đơn: <a asp-controller="Billing" asp-action="Details" asp-route-id="@invoice.ApartmentInvoiceId">@invoice.InvoiceCode</a>
+                · Căn hộ: <strong>@(invoice.Apartment?.Building?.BuildingName ?? "Chung cư") — @invoice.Apartment?.ApartmentCode</strong>
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <a asp-controller="Billing" asp-action="Details" asp-route-id="@invoice.ApartmentInvoiceId" class="btn btn-outline-primary">
+                Xem hóa đơn
+            </a>
+            <a asp-action="Index" class="btn btn-outline-secondary">Quay lại danh sách</a>
+        </div>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success rounded-3 mb-4">@TempData["SuccessMessage"]</div>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger rounded-3 mb-4">@TempData["ErrorMessage"]</div>
+    }
+
+    @if (tx.Status == PaymentTransactionStatus.Rejected)
+    {
+        <div class="alert alert-warning border-0 rounded-4 mb-4">
+            <i class="bi bi-exclamation-triangle-fill me-1"></i> @Model.ReconciliationWarningMessage
+        </div>
+    }
+
+    <div class="row g-4">
+        <div class="col-12 col-lg-7">
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-white border-0 py-3 px-4">
+                    <h2 class="h5 fw-bold mb-0">Thông tin giao dịch</h2>
+                </div>
+                <div class="card-body p-4 pt-0">
+                    <dl class="row g-3 mb-0">
+                        <dt class="col-sm-4 text-muted">Mã tham chiếu:</dt>
+                        <dd class="col-sm-8 font-monospace fw-bold text-primary">@tx.Reference</dd>
+
+                        <dt class="col-sm-4 text-muted">Số tiền:</dt>
+                        <dd class="col-sm-8 fw-bold text-success fs-5">@tx.Amount.ToString("N0") đ</dd>
+
+                        <dt class="col-sm-4 text-muted">Trạng thái:</dt>
+                        <dd class="col-sm-8">
+                            @if (tx.Status == PaymentTransactionStatus.Confirmed)
+                            {
+                                <span class="badge bg-success-subtle text-success border border-success-subtle">Đã xác nhận</span>
+                            }
+                            else if (tx.Status == PaymentTransactionStatus.Pending)
+                            {
+                                <span class="badge bg-warning-subtle text-warning border border-warning-subtle">Chờ xác nhận</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Đã từ chối</span>
+                            }
+                        </dd>
+
+                        <dt class="col-sm-4 text-muted">Cư dân:</dt>
+                        <dd class="col-sm-8">@(invoice.Resident?.User?.FullName ?? "—")</dd>
+
+                        <dt class="col-sm-4 text-muted">Thời điểm tạo:</dt>
+                        <dd class="col-sm-8">@tx.CreatedAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</dd>
+
+                        @if (tx.Status == PaymentTransactionStatus.Confirmed)
+                        {
+                            <dt class="col-sm-4 text-muted">Thời điểm xác nhận:</dt>
+                            <dd class="col-sm-8">@(tx.ConfirmedAtUtc?.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss") ?? "—")</dd>
+                            <dt class="col-sm-4 text-muted">Người xác nhận:</dt>
+                            <dd class="col-sm-8">@(tx.ConfirmedByUser?.FullName ?? tx.ConfirmedByUserId ?? "—")</dd>
+                        }
+                        else if (tx.Status == PaymentTransactionStatus.Rejected)
+                        {
+                            <dt class="col-sm-4 text-muted">Thời điểm từ chối:</dt>
+                            <dd class="col-sm-8">@(tx.RejectedAtUtc?.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss") ?? "—")</dd>
+                            <dt class="col-sm-4 text-muted">Người từ chối:</dt>
+                            <dd class="col-sm-8">@(tx.RejectedByUser?.FullName ?? tx.RejectedByUserId ?? "—")</dd>
+                            <dt class="col-sm-4 text-muted">Lý do từ chối:</dt>
+                            <dd class="col-sm-8 text-danger fw-semibold">@(tx.RejectionReason ?? "—")</dd>
+                        }
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-5">
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-white border-0 py-3 px-4">
+                    <h2 class="h5 fw-bold mb-0">Xử lý đối soát</h2>
+                </div>
+                <div class="card-body p-4 pt-0">
+                    <p class="small text-muted mb-3">@Model.QrDisclaimerMessage</p>
+
+                    @if (Model.CanConfirm)
+                    {
+                        <form asp-action="Confirm" method="post" class="mb-3">
+                            <input type="hidden" name="PaymentTransactionId" value="@tx.PaymentTransactionId" />
+                            <input type="hidden" name="RowVersionToken" value="@Model.RowVersionToken" />
+                            <input type="hidden" name="ReturnToDetails" value="true" />
+                            <button type="submit" class="btn btn-success w-100">
+                                <i class="bi bi-check-lg"></i> Xác nhận đã nhận tiền chuyển khoản
+                            </button>
+                        </form>
+                    }
+
+                    @if (Model.CanReject)
+                    {
+                        <form asp-action="Reject" method="post">
+                            <input type="hidden" name="PaymentTransactionId" value="@tx.PaymentTransactionId" />
+                            <input type="hidden" name="RowVersionToken" value="@Model.RowVersionToken" />
+                            <input type="hidden" name="ReturnToDetails" value="true" />
+                            <div class="mb-2">
+                                <label for="rejectReason" class="form-label small fw-semibold">Lý do từ chối (bắt buộc):</label>
+                                <textarea id="rejectReason" name="Reason" class="form-control" rows="3" required maxlength="500" placeholder="Nhập lý do từ chối giao dịch sau khi đối chiếu sao kê..."></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-outline-danger w-100">
+                                <i class="bi bi-x-circle"></i> Từ chối giao dịch
+                            </button>
+                        </form>
+                    }
+
+                    @if (!Model.CanConfirm && !Model.CanReject)
+                    {
+                        <div class="alert alert-secondary small mb-0">
+                            Giao dịch đã ở trạng thái kết thúc (<strong>@tx.Status</strong>) và không thể xác nhận hoặc từ chối lại.
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+

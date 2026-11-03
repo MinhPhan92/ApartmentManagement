@@ -40,9 +40,29 @@ public sealed class SqlServerParkingCardConcurrencyTests
             setup.Apartments.Add(apartment);
             await setup.SaveChangesAsync();
 
+            var user = new ApplicationUser
+            {
+                Id = $"user-pk-{Guid.NewGuid():N}",
+                UserName = "pkresident@test.local",
+                NormalizedUserName = "PKRESIDENT@TEST.LOCAL",
+                Email = "pkresident@test.local",
+                NormalizedEmail = "PKRESIDENT@TEST.LOCAL",
+                FullName = "Cư dân thử nghiệm thẻ xe",
+                EmailConfirmed = true,
+                IsActive = true
+            };
+            var resident = new Resident
+            {
+                User = user,
+                CitizenId = $"001{Guid.NewGuid():N}"[..12]
+            };
+            setup.AddRange(user, resident);
+            await setup.SaveChangesAsync();
+
             var v1 = new Vehicle
             {
                 ApartmentId = apartment.ApartmentId,
+                ResidentId = resident.ResidentId,
                 VehicleType = "Ô tô",
                 LicensePlate = $"30A-{Guid.NewGuid():N}"[..10],
                 Status = "Đã duyệt",
@@ -51,6 +71,7 @@ public sealed class SqlServerParkingCardConcurrencyTests
             var v2 = new Vehicle
             {
                 ApartmentId = apartment.ApartmentId,
+                ResidentId = resident.ResidentId,
                 VehicleType = "Xe máy",
                 LicensePlate = $"29B-{Guid.NewGuid():N}"[..10],
                 Status = "Đã duyệt",

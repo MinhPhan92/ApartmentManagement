@@ -186,29 +186,57 @@
                                         <th class="text-end">Số tiền</th>
                                         <th>Trạng thái</th>
                                         <th>Thời điểm tạo</th>
-                                        <th>Thời điểm xác nhận</th>
-                                        <th class="pe-4">Người xác nhận</th>
+                                        <th>Thông tin xử lý</th>
+                                        <th class="pe-4">Người xử lý</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                @foreach (var payment in Model.PaymentTransactions)
+                                @foreach (var payment in Model.PaymentTransactions.OrderByDescending(x => x.CreatedAtUtc).ThenByDescending(x => x.PaymentTransactionId))
                                 {
                                     <tr>
-                                        <td class="ps-4 font-monospace fw-semibold text-primary">@payment.Reference</td>
+                                        <td class="ps-4 font-monospace fw-semibold text-primary">
+                                            <a asp-controller="Payments" asp-action="Details" asp-route-id="@payment.PaymentTransactionId" class="text-decoration-none">
+                                                @payment.Reference
+                                            </a>
+                                        </td>
                                         <td class="text-end fw-semibold text-success">@payment.Amount.ToString("N0") đ</td>
                                         <td>
                                             @if (payment.Status == PaymentTransactionStatus.Confirmed)
                                             {
-                                                <span class="badge bg-success-subtle text-success border border-success-subtle">Đã xác nhận mô phỏng</span>
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle">Đã xác nhận</span>
                                             }
-                                            else
+                                            else if (payment.Status == PaymentTransactionStatus.Pending)
                                             {
                                                 <span class="badge bg-warning-subtle text-warning border border-warning-subtle">Chờ đối soát</span>
                                             }
+                                            else
+                                            {
+                                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Đã từ chối</span>
+                                            }
                                         </td>
                                         <td>@payment.CreatedAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
-                                        <td>@(payment.ConfirmedAtUtc?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")</td>
-                                        <td class="pe-4">@(payment.ConfirmedByUser?.FullName ?? "—")</td>
+                                        <td class="small">
+                                            @if (payment.Status == PaymentTransactionStatus.Confirmed)
+                                            {
+                                                @(payment.ConfirmedAtUtc?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")
+                                            }
+                                            else if (payment.Status == PaymentTransactionStatus.Rejected)
+                                            {
+                                                <div>@(payment.RejectedAtUtc?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")</div>
+                                                <span class="text-danger">Lý do: @(payment.RejectionReason ?? "—")</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">Đang chờ đối soát</span>
+                                            }
+                                        </td>
+                                        <td class="pe-4">
+                                            @(payment.Status == PaymentTransactionStatus.Confirmed
+                                                ? (payment.ConfirmedByUser?.FullName ?? payment.ConfirmedByUserId ?? "—")
+                                                : payment.Status == PaymentTransactionStatus.Rejected
+                                                    ? (payment.RejectedByUser?.FullName ?? payment.RejectedByUserId ?? "—")
+                                                    : "—")
+                                        </td>
                                     </tr>
                                 }
                                 </tbody>

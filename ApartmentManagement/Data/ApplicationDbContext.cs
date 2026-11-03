@@ -1,4 +1,4 @@
-using ApartmentManagement.Models;
+﻿using ApartmentManagement.Models;
 using ApartmentManagement.Common.Validation;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -411,8 +411,14 @@ namespace ApartmentManagement.Data
                 entity.Property(x => x.CreatedAtUtc).HasColumnType("datetime2");
                 entity.Property(x => x.ConfirmedAtUtc).HasColumnType("datetime2");
                 entity.Property(x => x.ConfirmedByUserId).HasMaxLength(450);
+                entity.Property(x => x.RejectedAtUtc).HasColumnType("datetime2");
+                entity.Property(x => x.RejectedByUserId).HasMaxLength(450);
+                entity.Property(x => x.RejectionReason).HasMaxLength(500);
                 entity.Property(x => x.RowVersion).IsRowVersion();
-                entity.HasIndex(x => x.ApartmentInvoiceId).IsUnique();
+                entity.HasIndex(x => x.ApartmentInvoiceId);
+                entity.HasIndex(x => x.ApartmentInvoiceId, "UX_PaymentTransactions_ApartmentInvoiceId_Confirmed")
+                    .IsUnique()
+                    .HasFilter("[Status] = N'Confirmed'");
                 entity.HasIndex(x => x.Reference).IsUnique();
                 entity.ToTable(table =>
                 {
@@ -421,13 +427,16 @@ namespace ApartmentManagement.Data
                         "[Amount] > 0");
                     table.HasCheckConstraint(
                         "CK_PaymentTransactions_Status",
-                        "([Status] = N'Pending' AND [ConfirmedAtUtc] IS NULL AND [ConfirmedByUserId] IS NULL) OR " +
-                        "([Status] = N'Confirmed' AND [ConfirmedAtUtc] IS NOT NULL AND [ConfirmedByUserId] IS NOT NULL)");
+                        "([Status] = N'Pending' AND [ConfirmedAtUtc] IS NULL AND [ConfirmedByUserId] IS NULL AND [RejectedAtUtc] IS NULL AND [RejectedByUserId] IS NULL AND [RejectionReason] IS NULL) OR " +
+                        "([Status] = N'Confirmed' AND [ConfirmedAtUtc] IS NOT NULL AND [ConfirmedByUserId] IS NOT NULL AND [RejectedAtUtc] IS NULL AND [RejectedByUserId] IS NULL AND [RejectionReason] IS NULL) OR " +
+                        "([Status] = N'Rejected' AND [ConfirmedAtUtc] IS NULL AND [ConfirmedByUserId] IS NULL AND [RejectedAtUtc] IS NOT NULL AND [RejectedByUserId] IS NOT NULL AND [RejectionReason] IS NOT NULL AND LTRIM(RTRIM([RejectionReason])) <> N'')");
                 });
                 entity.HasOne(x => x.Invoice).WithMany(x => x.PaymentTransactions)
                     .HasForeignKey(x => x.ApartmentInvoiceId).OnDelete(DeleteBehavior.Restrict);
                 entity.HasOne(x => x.ConfirmedByUser).WithMany()
                     .HasForeignKey(x => x.ConfirmedByUserId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(x => x.RejectedByUser).WithMany()
+                    .HasForeignKey(x => x.RejectedByUserId).OnDelete(DeleteBehavior.Restrict);
             });
 
             // VEHICLE

@@ -1,9 +1,10 @@
-namespace ApartmentManagement.Models;
+﻿namespace ApartmentManagement.Models;
 
 public enum PaymentTransactionStatus
 {
     Pending,
-    Confirmed
+    Confirmed,
+    Rejected
 }
 
 public sealed class PaymentTransaction
@@ -16,8 +17,12 @@ public sealed class PaymentTransaction
     public DateTime CreatedAtUtc { get; set; }
     public DateTime? ConfirmedAtUtc { get; set; }
     public string? ConfirmedByUserId { get; set; }
+    public DateTime? RejectedAtUtc { get; set; }
+    public string? RejectedByUserId { get; set; }
+    public string? RejectionReason { get; set; }
     public byte[] RowVersion { get; set; } = [];
 
     public ApartmentInvoice Invoice { get; set; } = null!;
     public ApplicationUser? ConfirmedByUser { get; set; }
+    public ApplicationUser? RejectedByUser { get; set; }
 }

@@ -146,6 +146,91 @@
                     </table>
                 </div>
             </div>
+
+            <!-- Lịch sử các lượt giao dịch thanh toán của hóa đơn -->
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-white border-0 py-3 px-4 d-flex justify-content-between align-items-center">
+                    <h2 class="h5 fw-bold mb-0">Lịch sử giao dịch thanh toán</h2>
+                    <span class="badge bg-light text-muted border">@Model.Transactions.Count giao dịch</span>
+                </div>
+                <div class="card-body p-0">
+                    @if (Model.HasAutoClosedRejections || Model.Transactions.Any(x => x.Status == PaymentTransactionStatus.Rejected))
+                    {
+                        <div class="alert alert-warning border-0 rounded-0 mb-0 small px-4 py-3">
+                            <i class="bi bi-exclamation-triangle-fill me-1"></i> @Model.ReconciliationWarningMessage
+                        </div>
+                    }
+                    @if (Model.Transactions.Count == 0)
+                    {
+                        <div class="p-4 text-center text-muted small">
+                            Chưa có lượt thanh toán nào được khởi tạo cho hóa đơn này.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="ps-4">Mã tham chiếu</th>
+                                        <th class="text-end">Số tiền</th>
+                                        <th>Trạng thái</th>
+                                        <th>Thời điểm tạo</th>
+                                        <th>Thông tin xử lý</th>
+                                        <th class="text-end pe-4">Chi tiết</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                @foreach (var tx in Model.Transactions)
+                                {
+                                    <tr>
+                                        <td class="ps-4 font-monospace fw-semibold text-primary">@tx.Reference</td>
+                                        <td class="text-end fw-semibold">@tx.Amount.ToString("N0") đ</td>
+                                        <td>
+                                            @if (tx.Status == PaymentTransactionStatus.Confirmed)
+                                            {
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle">Đã xác nhận</span>
+                                            }
+                                            else if (tx.Status == PaymentTransactionStatus.Pending)
+                                            {
+                                                <span class="badge bg-warning-subtle text-warning border border-warning-subtle">Đang chờ xác nhận</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Đã từ chối</span>
+                                            }
+                                        </td>
+                                        <td>@tx.CreatedAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                        <td class="small">
+                                            @if (tx.Status == PaymentTransactionStatus.Confirmed)
+                                            {
+                                                <div>Xác nhận: @(tx.ConfirmedAtUtc?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")</div>
+                                                <span class="text-muted">Bởi: @(tx.ConfirmedByUser?.FullName ?? tx.ConfirmedByUserId ?? "BQL")</span>
+                                            }
+                                            else if (tx.Status == PaymentTransactionStatus.Rejected)
+                                            {
+                                                <div>Từ chối: @(tx.RejectedAtUtc?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")</div>
+                                                <span class="text-muted d-block">Bởi: @(tx.RejectedByUser?.FullName ?? tx.RejectedByUserId ?? "BQL")</span>
+                                                <span class="text-danger">Lý do: @(tx.RejectionReason ?? "—")</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">Đang chờ BQL/Kế toán đối soát</span>
+                                            }
+                                        </td>
+                                        <td class="text-end pe-4">
+                                            <a asp-action="TransactionDetails" asp-route-id="@tx.PaymentTransactionId" class="btn btn-sm btn-outline-primary">
+                                                Chi tiết
+                                            </a>
+                                        </td>
+                                    </tr>
+                                }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
         </div>
 
         <!-- Sidebar Column: Payment & VietQR -->
@@ -164,7 +249,7 @@
                             <p class="small text-muted mb-0">Cảm ơn bạn đã hoàn tất nghĩa vụ phí đúng hạn.</p>
                         </div>
                     }
-                    else if (Model.Payment != null)
+                    else if (Model.Payment != null && Model.Payment.Status == PaymentTransactionStatus.Pending)
                     {
                         <div class="p-3 bg-light rounded-4 text-center mb-3">
                             <div class="mb-2">
@@ -182,7 +267,7 @@
                                     <img src="@Url.Action("PaymentQr", "MyInvoices", new { id = Model.Payment.PaymentTransactionId })"
                                          alt="Mã VietQR thanh toán phí" class="img-fluid" style="max-width: 240px;" />
                                 </div>
-                                <p class="small text-muted mb-0">Mở ứng dụng Ngân hàng để quét mã QR và thanh toán tự động.</p>
+                                <p class="small text-muted mb-2">Mở ứng dụng Ngân hàng để quét mã QR và thanh toán tự động.</p>
                             }
                             else
                             {
@@ -192,11 +277,21 @@
                             }
                         </div>
 
-                        <div class="p-3 bg-warning-subtle text-warning-emphasis rounded-3 small">
-                            <i class="bi bi-info-circle-fill"></i> <strong>Lưu ý:</strong> Hệ thống sử dụng đối soát mô phỏng. Sau khi chuyển khoản, nhân viên Ban quản lý sẽ kiểm tra và xác nhận thủ công trên hệ thống.
+                        <div class="p-3 bg-warning-subtle text-warning-emphasis rounded-3 small mb-3">
+                            <i class="bi bi-info-circle-fill"></i> <strong>Lưu ý:</strong> @Model.QrDisclaimerMessage
                         </div>
+
+                        @if (Model.CanCreatePaymentAttempt)
+                        {
+                            <form asp-action="CreateSimulatedPayment" method="post" class="text-center">
+                                <input type="hidden" name="id" value="@invoice.ApartmentInvoiceId" />
+                                <button type="submit" class="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1">
+                                    <i class="bi bi-plus-circle"></i> Tạo lượt thanh toán mới
+                                </button>
+                            </form>
+                        }
                     }
-                    else if (Model.VietQrConfigured && Model.VietQrAmountSupported)
+                    else if (Model.CanCreatePaymentAttempt)
                     {
                         <div class="text-center py-4">
                             <i class="bi bi-qr-code-scan fs-1 text-primary d-block mb-3"></i>
