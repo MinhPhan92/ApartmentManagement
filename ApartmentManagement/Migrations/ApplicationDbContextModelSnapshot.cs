@@ -624,6 +624,27 @@ namespace ApartmentManagement.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("HandlerUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Priority")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)")
+                        .HasDefaultValue("Bình thường");
+
+                    b.Property<DateTime?>("RatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("Rating")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ResidentFeedback")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
                     b.Property<int>("ResidentId")
                         .HasColumnType("int");
 
@@ -648,9 +669,62 @@ namespace ApartmentManagement.Migrations
 
                     b.HasIndex("ApartmentId");
 
+                    b.HasIndex("HandlerUserId");
+
                     b.HasIndex("ResidentId");
 
-                    b.ToTable("Complaints");
+                    b.ToTable("Complaints", t =>
+                        {
+                            t.HasCheckConstraint("CK_Complaints_Priority", "[Priority] IN (N'Thấp', N'Bình thường', N'Cao', N'Khẩn cấp')");
+
+                            t.HasCheckConstraint("CK_Complaints_Rating", "[Rating] IS NULL OR ([Rating] >= 1 AND [Rating] <= 5)");
+                        });
+                });
+
+            modelBuilder.Entity("ApartmentManagement.Models.ComplaintStatusHistory", b =>
+                {
+                    b.Property<int>("ComplaintStatusHistoryId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ComplaintStatusHistoryId"));
+
+                    b.Property<DateTime>("ChangedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ChangedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("ComplaintId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsInternal")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("NewStatus")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("PreviousStatus")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("ComplaintStatusHistoryId");
+
+                    b.HasIndex("ChangedByUserId");
+
+                    b.HasIndex("ComplaintId", "ChangedAt");
+
+                    b.ToTable("ComplaintStatusHistories");
                 });
 
             modelBuilder.Entity("ApartmentManagement.Models.ContractParty", b =>
@@ -1110,6 +1184,177 @@ namespace ApartmentManagement.Migrations
 
                             t.HasCheckConstraint("CK_Residents_DateOfBirth_Minimum", "[DateOfBirth] IS NULL OR [DateOfBirth] >= '1900-01-01'");
                         });
+                });
+
+            modelBuilder.Entity("ApartmentManagement.Models.TechnicalIncident", b =>
+                {
+                    b.Property<int>("TechnicalIncidentId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TechnicalIncidentId"));
+
+                    b.Property<DateTime?>("AcknowledgedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("AcknowledgedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime?>("AssignedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("AssignedTechnicianUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("BuildingId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ClosedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("IncidentCode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("Location")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<decimal?>("MaterialCost")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Priority")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime>("ReportedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ReportedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("ResolutionNotes")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("ScheduledDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SpareParts")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("TechnicalIncidentId");
+
+                    b.HasIndex("AcknowledgedByUserId");
+
+                    b.HasIndex("AssignedTechnicianUserId");
+
+                    b.HasIndex("BuildingId");
+
+                    b.HasIndex("ClosedByUserId");
+
+                    b.HasIndex("IncidentCode")
+                        .IsUnique();
+
+                    b.HasIndex("ReportedByUserId");
+
+                    b.HasIndex("Status", "ReportedAt");
+
+                    b.ToTable("TechnicalIncidents");
+                });
+
+            modelBuilder.Entity("ApartmentManagement.Models.TechnicalIncidentStatusHistory", b =>
+                {
+                    b.Property<int>("TechnicalIncidentStatusHistoryId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TechnicalIncidentStatusHistoryId"));
+
+                    b.Property<DateTime>("ChangedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ChangedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("NewStatus")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("NewTechnicianUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("PreviousStatus")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("PreviousTechnicianUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("TechnicalIncidentId")
+                        .HasColumnType("int");
+
+                    b.HasKey("TechnicalIncidentStatusHistoryId");
+
+                    b.HasIndex("ChangedByUserId");
+
+                    b.HasIndex("NewTechnicianUserId");
+
+                    b.HasIndex("PreviousTechnicianUserId");
+
+                    b.HasIndex("TechnicalIncidentId", "ChangedAt");
+
+                    b.ToTable("TechnicalIncidentStatusHistories");
                 });
 
             modelBuilder.Entity("ApartmentManagement.Models.UtilityMeterReading", b =>
@@ -1579,6 +1824,11 @@ namespace ApartmentManagement.Migrations
                         .HasForeignKey("ApartmentId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("ApartmentManagement.Models.ApplicationUser", "HandlerUser")
+                        .WithMany()
+                        .HasForeignKey("HandlerUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("ApartmentManagement.Models.Resident", "Resident")
                         .WithMany("Complaints")
                         .HasForeignKey("ResidentId")
@@ -1587,7 +1837,28 @@ namespace ApartmentManagement.Migrations
 
                     b.Navigation("Apartment");
 
+                    b.Navigation("HandlerUser");
+
                     b.Navigation("Resident");
+                });
+
+            modelBuilder.Entity("ApartmentManagement.Models.ComplaintStatusHistory", b =>
+                {
+                    b.HasOne("ApartmentManagement.Models.ApplicationUser", "ChangedByUser")
+                        .WithMany()
+                        .HasForeignKey("ChangedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ApartmentManagement.Models.Complaint", "Complaint")
+                        .WithMany("StatusHistory")
+                        .HasForeignKey("ComplaintId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ChangedByUser");
+
+                    b.Navigation("Complaint");
                 });
 
             modelBuilder.Entity("ApartmentManagement.Models.ContractParty", b =>
@@ -1755,6 +2026,79 @@ namespace ApartmentManagement.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("ApartmentManagement.Models.TechnicalIncident", b =>
+                {
+                    b.HasOne("ApartmentManagement.Models.ApplicationUser", "AcknowledgedByUser")
+                        .WithMany()
+                        .HasForeignKey("AcknowledgedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ApartmentManagement.Models.ApplicationUser", "AssignedTechnicianUser")
+                        .WithMany()
+                        .HasForeignKey("AssignedTechnicianUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ApartmentManagement.Models.Building", "Building")
+                        .WithMany()
+                        .HasForeignKey("BuildingId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ApartmentManagement.Models.ApplicationUser", "ClosedByUser")
+                        .WithMany()
+                        .HasForeignKey("ClosedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ApartmentManagement.Models.ApplicationUser", "ReportedByUser")
+                        .WithMany()
+                        .HasForeignKey("ReportedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AcknowledgedByUser");
+
+                    b.Navigation("AssignedTechnicianUser");
+
+                    b.Navigation("Building");
+
+                    b.Navigation("ClosedByUser");
+
+                    b.Navigation("ReportedByUser");
+                });
+
+            modelBuilder.Entity("ApartmentManagement.Models.TechnicalIncidentStatusHistory", b =>
+                {
+                    b.HasOne("ApartmentManagement.Models.ApplicationUser", "ChangedByUser")
+                        .WithMany()
+                        .HasForeignKey("ChangedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ApartmentManagement.Models.ApplicationUser", "NewTechnicianUser")
+                        .WithMany()
+                        .HasForeignKey("NewTechnicianUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ApartmentManagement.Models.ApplicationUser", "PreviousTechnicianUser")
+                        .WithMany()
+                        .HasForeignKey("PreviousTechnicianUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ApartmentManagement.Models.TechnicalIncident", "Incident")
+                        .WithMany("StatusHistory")
+                        .HasForeignKey("TechnicalIncidentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ChangedByUser");
+
+                    b.Navigation("Incident");
+
+                    b.Navigation("NewTechnicianUser");
+
+                    b.Navigation("PreviousTechnicianUser");
+                });
+
             modelBuilder.Entity("ApartmentManagement.Models.UtilityMeterReading", b =>
                 {
                     b.HasOne("ApartmentManagement.Models.Apartment", "Apartment")
@@ -1915,6 +2259,11 @@ namespace ApartmentManagement.Migrations
                     b.Navigation("FeeTariffs");
                 });
 
+            modelBuilder.Entity("ApartmentManagement.Models.Complaint", b =>
+                {
+                    b.Navigation("StatusHistory");
+                });
+
             modelBuilder.Entity("ApartmentManagement.Models.FeeTariff", b =>
                 {
                     b.Navigation("InvoiceLines");
@@ -1946,6 +2295,11 @@ namespace ApartmentManagement.Migrations
                     b.Navigation("Vehicles");
 
                     b.Navigation("VisitorPasses");
+                });
+
+            modelBuilder.Entity("ApartmentManagement.Models.TechnicalIncident", b =>
+                {
+                    b.Navigation("StatusHistory");
                 });
 
             modelBuilder.Entity("ApartmentManagement.Models.UtilityMeterReading", b =>

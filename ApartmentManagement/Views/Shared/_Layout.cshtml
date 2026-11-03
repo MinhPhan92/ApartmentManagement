@@ -136,7 +136,7 @@
                                 </a>
                             </li>
                             <li class="sidebar-nav-item">
-                                <a asp-controller="MyAmenities" asp-action="Index" class="sidebar-nav-link @(currentController == "MyAmenities" ? "active" : "")">
+                                <a asp-controller="AmenityBooking" asp-action="Index" class="sidebar-nav-link @(currentController == "AmenityBooking" ? "active" : "")">
                                     <i class="bi bi-calendar2-check"></i>
                                     <span>Đặt tiện ích</span>
                                 </a>
@@ -180,15 +180,21 @@
                                 </a>
                             </li>
                             <li class="sidebar-nav-item">
+                                <a asp-controller="TechnicalIncidents" asp-action="Index" class="sidebar-nav-link @(currentController == "TechnicalIncidents" ? "active" : "")">
+                                    <i class="bi bi-exclamation-triangle"></i>
+                                    <span>Sự cố kỹ thuật</span>
+                                </a>
+                            </li>
+                            <li class="sidebar-nav-item">
                                 <a asp-controller="Complaint" asp-action="Index" class="sidebar-nav-link @(currentController == "Complaint" ? "active" : "")">
                                     <i class="bi bi-chat-left-dots"></i>
                                     <span>Tiếp nhận khiếu nại</span>
                                 </a>
                             </li>
                             <li class="sidebar-nav-item">
-                                <a asp-controller="Amenities" asp-action="Index" class="sidebar-nav-link @(currentController == "Amenities" ? "active" : "")">
+                                <a asp-controller="AmenityManagement" asp-action="Index" class="sidebar-nav-link @(currentController == "AmenityManagement" ? "active" : "")">
                                     <i class="bi bi-calendar2-week"></i>
-                                    <span>Quản lý tiện ích</span>
+                                    <span>Duyệt đặt tiện ích</span>
                                 </a>
                             </li>
                             <li class="sidebar-nav-item">

@@ -20,9 +20,14 @@
                 Kỳ: <strong>@($"{invoice.BillingMonth:D2}/{invoice.BillingYear}")</strong> · Căn hộ: <strong>@(invoice.Apartment.Building?.BuildingName ?? "Chung cư") — @invoice.Apartment.ApartmentCode</strong>
             </p>
         </div>
-        <a asp-action="Index" class="btn btn-outline-secondary d-inline-flex align-items-center gap-1">
-            <i class="bi bi-arrow-left"></i> Quay lại danh sách
-        </a>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-primary d-inline-flex align-items-center gap-1" onclick="window.print()">
+                <i class="bi bi-printer-fill"></i> In hóa đơn
+            </button>
+            <a asp-action="Index" class="btn btn-outline-secondary d-inline-flex align-items-center gap-1">
+                <i class="bi bi-arrow-left"></i> Quay lại danh sách
+            </a>
+        </div>
     </div>
 
     <!-- Feedback Alerts -->
@@ -221,3 +226,20 @@
         </div>
     </div>
 </div>
+
+<style>
+    @@media print {
+        header, footer, nav, .btn, .breadcrumb, .alert-dismissible {
+            display: none !important;
+        }
+        body {
+            background-color: #fff !important;
+            font-size: 12pt;
+        }
+        .card {
+            border: 1px solid #ddd !important;
+            box-shadow: none !important;
+            break-inside: avoid;
+        }
+    }
+</style>

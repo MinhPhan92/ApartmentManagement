@@ -35,7 +35,7 @@
                             <span asp-validation-for="Title" class="text-danger small"></span>
                         </div>
 
-                        <!-- Category & Apartment -->
+                        <!-- Category & Priority -->
                         <div class="row g-3 mb-3">
                             <div class="col-12 col-md-6">
                                 <label asp-for="Category" class="form-label fw-semibold">Danh mục <span class="text-danger">*</span></label>
@@ -50,17 +50,29 @@
                             </div>
 
                             <div class="col-12 col-md-6">
-                                <label asp-for="ApartmentId" class="form-label fw-semibold">Căn hộ liên quan</label>
-                                <select asp-for="ApartmentId" class="form-select rounded-3">
-                                    <option value="">-- Khu vực chung (Không chọn) --</option>
-                                    @foreach (var apt in myApartments)
-                                    {
-                                        <option value="@apt.ApartmentId">🚪 Căn @apt.ApartmentCode - Tầng @apt.Floor</option>
-                                    }
+                                <label asp-for="Priority" class="form-label fw-semibold">Mức độ ưu tiên <span class="text-danger">*</span></label>
+                                <select asp-for="Priority" class="form-select rounded-3">
+                                    <option value="Thấp">🟢 Thấp</option>
+                                    <option value="Bình thường" selected>🟡 Bình thường</option>
+                                    <option value="Cao">🟠 Cao</option>
+                                    <option value="Khẩn cấp">🔴 Khẩn cấp</option>
                                 </select>
-                                <small class="text-muted d-block mt-1">Chỉ được chọn căn hộ bạn đang cư trú.</small>
-                                <span asp-validation-for="ApartmentId" class="text-danger small"></span>
+                                <span asp-validation-for="Priority" class="text-danger small"></span>
                             </div>
+                        </div>
+
+                        <!-- Apartment -->
+                        <div class="mb-3">
+                            <label asp-for="ApartmentId" class="form-label fw-semibold">Căn hộ liên quan</label>
+                            <select asp-for="ApartmentId" class="form-select rounded-3">
+                                <option value="">-- Khu vực chung (Không chọn) --</option>
+                                @foreach (var apt in myApartments)
+                                {
+                                    <option value="@apt.ApartmentId">🚪 Căn @apt.ApartmentCode - Tầng @apt.Floor</option>
+                                }
+                            </select>
+                            <small class="text-muted d-block mt-1">Chỉ được chọn căn hộ bạn đang cư trú.</small>
+                            <span asp-validation-for="ApartmentId" class="text-danger small"></span>
                         </div>
 
                         <!-- Content -->

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using System.Reflection;
 using System.Security.Claims;
 using ApartmentManagement.Common.Security;
@@ -751,6 +752,129 @@ public sealed class BillingControllerTests
         Assert.Equal(nameof(BillingController.TariffDetails), redirect.ActionName);
         Assert.Equal(1, redirect.RouteValues?["id"]);
         Assert.Equal("Đã cập nhật thời hạn kết thúc biểu phí.", controller.TempData["SuccessMessage"]);
+    }
+
+    #endregion
+
+    #region VietQR & Payment QR Tests
+
+    [Fact]
+    public async Task PaymentQr_WhenConfiguredAndIssued_ReturnsPngFileResult()
+    {
+        var mockBilling = new Mock<IBillingService>();
+        var mockBuilding = new Mock<IBuildingService>();
+        var mockApartment = new Mock<IApartmentService>();
+        var mockPayment = new Mock<IPaymentService>();
+        var mockQr = new Mock<IVietQrCodeGenerator>();
+
+        var invoice = new ApartmentInvoice
+        {
+            ApartmentInvoiceId = 10,
+            Status = ApartmentInvoiceStatus.Issued,
+            TotalAmount = 1500000
+        };
+        mockBilling.Setup(s => s.GetInvoiceAsync(10)).ReturnsAsync(invoice);
+
+        var payment = new PaymentTransaction
+        {
+            PaymentTransactionId = 1,
+            ApartmentInvoiceId = 10,
+            Reference = "AH00010TEST1234567890",
+            Amount = 1500000,
+            Status = PaymentTransactionStatus.Pending
+        };
+        mockPayment.Setup(s => s.GetOrCreatePaymentForInvoiceAsync(10)).ReturnsAsync(payment);
+
+        var samplePng = new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 };
+        mockQr.Setup(q => q.GeneratePng(payment.Reference, payment.Amount)).Returns(samplePng);
+
+        var options = Options.Create(new VietQrOptions
+        {
+            BankBin = "970415",
+            AccountNumber = "102800123456",
+            AccountName = "BAN QUAN LY CHUNG CU"
+        });
+
+        var controller = new BillingController(
+            mockBilling.Object,
+            mockBuilding.Object,
+            mockApartment.Object,
+            financialReportService: null,
+            paymentService: mockPayment.Object,
+            qrCodeGenerator: mockQr.Object,
+            vietQrOptions: options)
+        {
+            ControllerContext = CreateControllerContext()
+        };
+
+        var result = await controller.PaymentQr(10);
+
+        var fileResult = Assert.IsType<FileContentResult>(result);
+        Assert.Equal("image/png", fileResult.ContentType);
+        Assert.Equal(samplePng, fileResult.FileContents);
+    }
+
+    [Fact]
+    public async Task PaymentQr_WhenUnconfigured_ReturnsNotFound()
+    {
+        var mockBilling = new Mock<IBillingService>();
+        var mockBuilding = new Mock<IBuildingService>();
+        var mockApartment = new Mock<IApartmentService>();
+
+        var unconfiguredOptions = Options.Create(new VietQrOptions());
+
+        var controller = new BillingController(
+            mockBilling.Object,
+            mockBuilding.Object,
+            mockApartment.Object,
+            financialReportService: null,
+            paymentService: new Mock<IPaymentService>().Object,
+            qrCodeGenerator: new Mock<IVietQrCodeGenerator>().Object,
+            vietQrOptions: unconfiguredOptions)
+        {
+            ControllerContext = CreateControllerContext()
+        };
+
+        var result = await controller.PaymentQr(10);
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task PaymentQr_WhenInvoiceNotIssued_ReturnsNotFound()
+    {
+        var mockBilling = new Mock<IBillingService>();
+        var mockBuilding = new Mock<IBuildingService>();
+        var mockApartment = new Mock<IApartmentService>();
+
+        var draftInvoice = new ApartmentInvoice
+        {
+            ApartmentInvoiceId = 10,
+            Status = ApartmentInvoiceStatus.Draft,
+            TotalAmount = 1500000
+        };
+        mockBilling.Setup(s => s.GetInvoiceAsync(10)).ReturnsAsync(draftInvoice);
+
+        var options = Options.Create(new VietQrOptions
+        {
+            BankBin = "970415",
+            AccountNumber = "102800123456",
+            AccountName = "BAN QUAN LY CHUNG CU"
+        });
+
+        var controller = new BillingController(
+            mockBilling.Object,
+            mockBuilding.Object,
+            mockApartment.Object,
+            financialReportService: null,
+            paymentService: new Mock<IPaymentService>().Object,
+            qrCodeGenerator: new Mock<IVietQrCodeGenerator>().Object,
+            vietQrOptions: options)
+        {
+            ControllerContext = CreateControllerContext()
+        };
+
+        var result = await controller.PaymentQr(10);
+        Assert.IsType<NotFoundResult>(result);
     }
 
     #endregion

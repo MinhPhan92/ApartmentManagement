@@ -434,6 +434,46 @@ public sealed class BillingService : IBillingService
             managementRateBreakdown += $"; Phí gửi xe: {parkingResult.TotalAmount:N0} VND ({parkingResult.ActiveVehicleCount} phương tiện)";
         }
 
+        var lines = new List<ApartmentInvoiceLine>
+        {
+            new ApartmentInvoiceLine
+            {
+                ChargeType = FeeChargeType.Management,
+                Description = managementDescription,
+                Quantity = apartment.Area,
+                UnitRate = managementTariff.MonthlyRatePerSquareMeter,
+                Amount = managementAmount,
+                SourceTariffId = managementTariff.FeeTariffId,
+                RateBreakdown = managementRateBreakdown
+            },
+            new ApartmentInvoiceLine
+            {
+                ChargeType = FeeChargeType.Electricity,
+                Description = "Điện sinh hoạt theo bậc lũy tiến",
+                Quantity = electricityReading.CurrentReading - electricityReading.PreviousReading,
+                UnitRate = AverageRate(electricityAmount, electricityReading.CurrentReading - electricityReading.PreviousReading),
+                Amount = electricityAmount,
+                PreviousReading = electricityReading.PreviousReading,
+                CurrentReading = electricityReading.CurrentReading,
+                SourceTariffId = electricityTariff.FeeTariffId,
+                SourceMeterReadingId = electricityReading.UtilityMeterReadingId,
+                RateBreakdown = DescribeTierSchedule(electricityTariff.Tiers, "kWh")
+            },
+            new ApartmentInvoiceLine
+            {
+                ChargeType = FeeChargeType.Water,
+                Description = "Nước sinh hoạt theo bậc lũy tiến",
+                Quantity = waterReading.CurrentReading - waterReading.PreviousReading,
+                UnitRate = AverageRate(waterAmount, waterReading.CurrentReading - waterReading.PreviousReading),
+                Amount = waterAmount,
+                PreviousReading = waterReading.PreviousReading,
+                CurrentReading = waterReading.CurrentReading,
+                SourceTariffId = waterTariff.FeeTariffId,
+                SourceMeterReadingId = waterReading.UtilityMeterReadingId,
+                RateBreakdown = DescribeTierSchedule(waterTariff.Tiers, "m³")
+            }
+        };
+
         var invoice = new ApartmentInvoice
         {
             InvoiceCode = $"INV-{year:D4}{month:D2}-{apartmentId:D6}-{Guid.NewGuid():N}"[..40],
@@ -443,49 +483,11 @@ public sealed class BillingService : IBillingService
             BillingMonth = month,
             DueDate = dueDate.Date,
             ApartmentArea = apartment.Area,
-            TotalAmount = managementAmount + electricityAmount + waterAmount,
+            TotalAmount = lines.Sum(l => l.Amount),
             Status = ApartmentInvoiceStatus.Draft,
             CreatedAtUtc = DateTime.UtcNow,
             CreatedByUserId = actorUserId,
-            Lines =
-            [
-                new ApartmentInvoiceLine
-                {
-                    ChargeType = FeeChargeType.Management,
-                    Description = managementDescription,
-                    Quantity = apartment.Area,
-                    UnitRate = managementTariff.MonthlyRatePerSquareMeter,
-                    Amount = managementAmount,
-                    SourceTariffId = managementTariff.FeeTariffId,
-                    RateBreakdown = managementRateBreakdown
-                },
-                new ApartmentInvoiceLine
-                {
-                    ChargeType = FeeChargeType.Electricity,
-                    Description = "Điện sinh hoạt theo bậc lũy tiến",
-                    Quantity = electricityReading.CurrentReading - electricityReading.PreviousReading,
-                    UnitRate = AverageRate(electricityAmount, electricityReading.CurrentReading - electricityReading.PreviousReading),
-                    Amount = electricityAmount,
-                    PreviousReading = electricityReading.PreviousReading,
-                    CurrentReading = electricityReading.CurrentReading,
-                    SourceTariffId = electricityTariff.FeeTariffId,
-                    SourceMeterReadingId = electricityReading.UtilityMeterReadingId,
-                    RateBreakdown = DescribeTierSchedule(electricityTariff.Tiers, "kWh")
-                },
-                new ApartmentInvoiceLine
-                {
-                    ChargeType = FeeChargeType.Water,
-                    Description = "Nước sinh hoạt theo bậc lũy tiến",
-                    Quantity = waterReading.CurrentReading - waterReading.PreviousReading,
-                    UnitRate = AverageRate(waterAmount, waterReading.CurrentReading - waterReading.PreviousReading),
-                    Amount = waterAmount,
-                    PreviousReading = waterReading.PreviousReading,
-                    CurrentReading = waterReading.CurrentReading,
-                    SourceTariffId = waterTariff.FeeTariffId,
-                    SourceMeterReadingId = waterReading.UtilityMeterReadingId,
-                    RateBreakdown = DescribeTierSchedule(waterTariff.Tiers, "m³")
-                }
-            ]
+            Lines = lines
         };
         if (invoice.TotalAmount > 9999999999999999.99m)
             return Failure("Tổng hóa đơn vượt giới hạn lưu trữ cho phép.", BillingFailureReason.TariffCalculationError);

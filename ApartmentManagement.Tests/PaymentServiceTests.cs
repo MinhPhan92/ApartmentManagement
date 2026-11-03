@@ -98,6 +98,45 @@ public sealed class PaymentServiceTests
         Assert.Empty(searchNoMatch);
     }
 
+    [Fact]
+    public async Task GetOrCreatePaymentForInvoiceAsync_GeneratesStructuredReferenceAndIsIdempotent()
+    {
+        await using var context = CreateContext();
+        SeedInvoice(context);
+        var service = new PaymentService(context, NullLogger<PaymentService>.Instance);
+
+        var payment = await service.GetOrCreatePaymentForInvoiceAsync(1);
+        Assert.NotNull(payment);
+        Assert.StartsWith("AH00001", payment.Reference);
+        Assert.Equal(25, payment.Reference.Length);
+        Assert.True(payment.Reference.All(char.IsAsciiLetterOrDigit));
+        Assert.Equal(1294500m, payment.Amount);
+        Assert.Equal(PaymentTransactionStatus.Pending, payment.Status);
+
+        // Calling again should return the existing transaction idempotently
+        var repeated = await service.GetOrCreatePaymentForInvoiceAsync(1);
+        Assert.NotNull(repeated);
+        Assert.Equal(payment.PaymentTransactionId, repeated.PaymentTransactionId);
+        Assert.Equal(payment.Reference, repeated.Reference);
+        Assert.Single(await context.PaymentTransactions.ToListAsync());
+    }
+
+    [Fact]
+    public void VietQrOptions_BankName_ResolvesKnownBankBins()
+    {
+        var options1 = new VietQrOptions { BankBin = "970415" };
+        Assert.Contains("VietinBank", options1.BankName);
+
+        var options2 = new VietQrOptions { BankBin = "970436" };
+        Assert.Contains("Vietcombank", options2.BankName);
+
+        var options3 = new VietQrOptions { BankBin = "970422" };
+        Assert.Contains("MB Bank", options3.BankName);
+
+        var optionsUnknown = new VietQrOptions { BankBin = "999999" };
+        Assert.Contains("999999", optionsUnknown.BankName);
+    }
+
 
     private static ApplicationDbContext CreateContext()
     {

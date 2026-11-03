@@ -1,0 +1,81 @@
+@model ApartmentManagement.ViewModels.TechnicalIncidentAssignViewModel
+@{
+    ViewData["Title"] = $"Phân công sự cố {Model.IncidentCode} (UC49)";
+}
+
+<div class="container py-4" style="max-width: 750px;">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a asp-action="Index">Sự cố kỹ thuật</a></li>
+            <li class="breadcrumb-item"><a asp-action="Details" asp-route-id="@Model.TechnicalIncidentId">@Model.IncidentCode</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Phân công KTV</li>
+        </ol>
+    </nav>
+
+    <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-header bg-white border-0 pt-4 px-4 pb-0">
+            <h3 class="fw-bold mb-1">👨‍🔧 Phân Công Kỹ Thuật Viên Xử Lý Sự Cố (UC49)</h3>
+            <p class="text-muted small mb-0">Ban quản lý chỉ định nhân sự chuyên môn phụ trách kiểm tra và khắc phục sự cố.</p>
+        </div>
+        <div class="card-body p-4">
+            <!-- Incident Summary Box -->
+            <div class="p-3 bg-light rounded-3 mb-4">
+                <div class="row g-2">
+                    <div class="col-sm-6">
+                        <small class="text-muted d-block">Mã sự cố:</small>
+                        <strong class="text-primary font-monospace">@Model.IncidentCode</strong>
+                    </div>
+                    <div class="col-sm-6">
+                        <small class="text-muted d-block">Mức độ ưu tiên:</small>
+                        <span class="badge bg-secondary">@Model.Priority</span>
+                    </div>
+                    <div class="col-12 mt-2">
+                        <small class="text-muted d-block">Tiêu đề & Vị trí:</small>
+                        <strong>@Model.Title</strong>
+                        <div class="small text-muted"><i class="bi bi-geo-alt"></i> @Model.BuildingName — @Model.Location</div>
+                    </div>
+                </div>
+            </div>
+
+            <form asp-action="Assign" method="post">
+                <div asp-validation-summary="ModelOnly" class="alert alert-danger rounded-3" role="alert"></div>
+                <input type="hidden" asp-for="TechnicalIncidentId" />
+                <input type="hidden" asp-for="RowVersionBase64" />
+
+                <div class="mb-3">
+                    <label asp-for="TechnicianUserId" class="form-label fw-semibold">Chọn Kỹ thuật viên phụ trách <span class="text-danger">*</span></label>
+                    <select asp-for="TechnicianUserId" asp-items="Model.TechnicianOptions" class="form-select rounded-3">
+                        <option value="">-- Chọn kỹ thuật viên --</option>
+                    </select>
+                    <span asp-validation-for="TechnicianUserId" class="text-danger small"></span>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="ScheduledDate" class="form-label fw-semibold">Hạn chót hoàn thành xử lý</label>
+                    <input asp-for="ScheduledDate" class="form-control rounded-3" type="date" />
+                    <span class="form-text small text-muted">Thời hạn cam kết xử lý xong sự cố kỹ thuật.</span>
+                    <span asp-validation-for="ScheduledDate" class="text-danger small"></span>
+                </div>
+
+                <div class="mb-4">
+                    <label asp-for="AssignmentNote" class="form-label fw-semibold">Ghi chú phân công / Chỉ đạo</label>
+                    <textarea asp-for="AssignmentNote" rows="3" class="form-control rounded-3" placeholder="Nhập yêu cầu kiểm tra, lưu ý kỹ thuật hoặc thiết bị cần mang theo..."></textarea>
+                    <span asp-validation-for="AssignmentNote" class="text-danger small"></span>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 pt-2 border-top">
+                    <a asp-action="Details" asp-route-id="@Model.TechnicalIncidentId" class="btn btn-outline-secondary rounded-3 px-4">Hủy bỏ</a>
+                    <button type="submit" class="btn btn-primary fw-semibold rounded-3 px-4">
+                        <i class="bi bi-person-check-fill me-1"></i> Xác nhận phân công
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}
+

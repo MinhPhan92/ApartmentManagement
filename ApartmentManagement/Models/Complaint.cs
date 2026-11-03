@@ -27,6 +27,11 @@ namespace ApartmentManagement.Models
         public string Category { get; set; } = "Dịch vụ khác";
 
         [Required]
+        [StringLength(30)]
+        [Display(Name = "Mức độ ưu tiên")]
+        public string Priority { get; set; } = "Bình thường";
+
+        [Required]
         [StringLength(50)]
         [Display(Name = "Trạng thái")]
         public string Status { get; set; } = "Chờ tiếp nhận";
@@ -41,9 +46,28 @@ namespace ApartmentManagement.Models
         [Display(Name = "Phản hồi từ Ban Quản Lý")]
         public string? ResponseNotes { get; set; }
 
+        [Range(1, 5, ErrorMessage = "Đánh giá từ 1 đến 5 sao.")]
+        [Display(Name = "Đánh giá")]
+        public int? Rating { get; set; }
+
+        [StringLength(1000, ErrorMessage = "Nhận xét không quá 1000 ký tự.")]
+        [Display(Name = "Ý kiến cư dân")]
+        public string? ResidentFeedback { get; set; }
+
+        [Display(Name = "Ngày đánh giá")]
+        public DateTime? RatedAt { get; set; }
+
+        [StringLength(450)]
+        [Display(Name = "Người phụ trách")]
+        public string? HandlerUserId { get; set; }
+
         // Navigation
         public Resident? Resident { get; set; }
 
         public Apartment? Apartment { get; set; }
+
+        public ApplicationUser? HandlerUser { get; set; }
+
+        public ICollection<ComplaintStatusHistory> StatusHistory { get; set; } = new List<ComplaintStatusHistory>();
     }
 }

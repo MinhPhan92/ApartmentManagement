@@ -34,7 +34,6 @@ public sealed class PaymentService : IPaymentService
         return query.OrderByDescending(x => x.CreatedAtUtc).ToListAsync();
     }
 
-
     public Task<PaymentTransaction?> GetResidentPaymentAsync(string userId, int paymentTransactionId) =>
         PaymentQuery().FirstOrDefaultAsync(x =>
             x.PaymentTransactionId == paymentTransactionId &&
@@ -49,11 +48,22 @@ public sealed class PaymentService : IPaymentService
 
     public async Task<PaymentTransaction?> GetOrCreateResidentPaymentAsync(string userId, int invoiceId)
     {
+        var isOwner = await _context.ApartmentInvoices
+            .AnyAsync(x =>
+                x.ApartmentInvoiceId == invoiceId &&
+                x.Resident.UserId == userId &&
+                x.Status == ApartmentInvoiceStatus.Issued);
+        if (!isOwner) return null;
+
+        return await GetOrCreatePaymentForInvoiceAsync(invoiceId);
+    }
+
+    public async Task<PaymentTransaction?> GetOrCreatePaymentForInvoiceAsync(int invoiceId)
+    {
         var invoice = await _context.ApartmentInvoices
             .Include(x => x.Resident)
             .FirstOrDefaultAsync(x =>
                 x.ApartmentInvoiceId == invoiceId &&
-                x.Resident.UserId == userId &&
                 x.Status == ApartmentInvoiceStatus.Issued);
         if (invoice == null || invoice.TotalAmount <= 0 ||
             invoice.TotalAmount > VietQrCodeGenerator.MaximumVndAmount)
@@ -63,11 +73,12 @@ public sealed class PaymentService : IPaymentService
             .FirstOrDefaultAsync(x => x.ApartmentInvoiceId == invoiceId);
         if (existing != null) return existing;
 
+        var reference = $"AH{invoice.ApartmentInvoiceId:D5}{Guid.NewGuid():N}"[..25].ToUpperInvariant();
         var payment = new PaymentTransaction
         {
             ApartmentInvoiceId = invoiceId,
             Invoice = invoice,
-            Reference = $"AH{Guid.NewGuid():N}"[..25].ToUpperInvariant(),
+            Reference = reference,
             Amount = invoice.TotalAmount,
             Status = PaymentTransactionStatus.Pending,
             CreatedAtUtc = DateTime.UtcNow

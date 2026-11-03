@@ -790,5 +790,104 @@ namespace ApartmentManagement.Tests
             Assert.Equal(tech1.Id, list[0].TechnicianUserId);
             Assert.Equal("Việc của Tech 1", list[0].RepairRequest.Title);
         }
+
+        // 20. Phân công KTV có ngày hẹn / hạn hoàn thành (ScheduledDate)
+        [Fact]
+        public async Task Test20_AssignTechnician_WithScheduledDate_RecordsDueDateInAssignmentAndHistory()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (_, apt101, _, resA, _, tech1, _, mgr) = await SeedBaseDataAsync(context);
+
+            var userManagerMock = CreateMockUserManager(tech1, mgr, context.Users.First(u => u.Id == resA.UserId));
+            var service = new RepairRequestService(context, userManagerMock.Object, NullLogger<RepairRequestService>.Instance);
+
+            var createRes = await service.CreateRequestAsync(resA.ResidentId, apt101.ApartmentId, "Hỏng khóa cửa", "Cần thay ổ khóa", RepairPriority.Urgent);
+            var requestId = createRes.RequestId!.Value;
+
+            var scheduledDate = new DateTime(2026, 11, 10);
+            var assignRes = await service.AssignTechnicianAsync(
+                requestId,
+                tech1.Id,
+                mgr.Id,
+                "Mang theo ổ khóa Hafele",
+                rowVersion: null,
+                scheduledDate: scheduledDate);
+
+            Assert.True(assignRes.Success);
+
+            var request = await context.RepairRequests
+                .Include(r => r.Assignments)
+                .Include(r => r.StatusHistory)
+                .FirstOrDefaultAsync(r => r.RepairRequestId == requestId);
+
+            Assert.NotNull(request);
+            Assert.Equal(RepairRequestStatus.Assigned, request.Status);
+
+            var assignment = request.Assignments.First();
+            Assert.NotNull(assignment.Note);
+            Assert.Contains("10/11/2026", assignment.Note);
+            Assert.Contains("Mang theo ổ khóa Hafele", assignment.Note);
+
+            var history = request.StatusHistory.Last();
+            Assert.Contains("10/11/2026", history.Note);
+        }
+
+        // 21. KTV báo cáo hoàn thành ghi nhận vật tư tiêu hao và chi phí phát sinh, cư dân nghiệm thu 5 sao
+        [Fact]
+        public async Task Test21_CompleteWork_WithSparePartsAndMaterialCost_FormatsResultAndResidentConfirms()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (_, apt101, _, resA, _, tech1, _, mgr) = await SeedBaseDataAsync(context);
+
+            var userManagerMock = CreateMockUserManager(tech1, mgr, context.Users.First(u => u.Id == resA.UserId));
+            var service = new RepairRequestService(context, userManagerMock.Object, NullLogger<RepairRequestService>.Instance);
+
+            var createRes = await service.CreateRequestAsync(resA.ResidentId, apt101.ApartmentId, "Rò rỉ ống nước bồn rửa", "Nước chảy rỉ dưới tủ bếp", RepairPriority.Normal);
+            var requestId = createRes.RequestId!.Value;
+
+            await service.AssignTechnicianAsync(requestId, tech1.Id, mgr.Id, "Kiểm tra buổi sáng");
+
+            var request = await context.RepairRequests.Include(r => r.Assignments).FirstAsync(r => r.RepairRequestId == requestId);
+            var assignmentId = request.Assignments.First().AssignmentId;
+
+            // KTV bắt đầu xử lý
+            await service.StartProgressAsync(assignmentId, tech1.Id, "Đã có mặt tại căn hộ");
+
+            // KTV hoàn thành kèm vật tư và chi phí
+            var completeRes = await service.CompleteWorkAsync(
+                assignmentId,
+                tech1.Id,
+                result: "Đã thay van khóa và đoạn ống ruột gà mới, thử áp lực nước không còn rò rỉ.",
+                note: "Nhắc cư dân không để đồ nặng tì vào ống xả.",
+                rowVersion: null,
+                spareParts: "1 van khóa phi 21 Inox 304, 1 ống mềm thoát nước",
+                materialCost: 180000m);
+
+            Assert.True(completeRes.Success);
+
+            var requestAfterWork = await context.RepairRequests
+                .Include(r => r.StatusHistory)
+                .FirstAsync(r => r.RepairRequestId == requestId);
+
+            Assert.Equal(RepairRequestStatus.PendingConfirmation, requestAfterWork.Status);
+            Assert.NotNull(requestAfterWork.Result);
+            Assert.Contains("[Vật tư/Linh kiện]: 1 van khóa phi 21 Inox 304, 1 ống mềm thoát nước", requestAfterWork.Result);
+            Assert.Contains("[Chi phí phát sinh]: 180,000 VND", requestAfterWork.Result);
+
+            // Cư dân nghiệm thu đạt 5 sao
+            var confirmRes = await service.ConfirmCompletionAsync(
+                requestId,
+                resA.ResidentId,
+                rating: 5,
+                feedback: "Thợ kỹ thuật nhiệt tình, thay đồ cẩn thận, dọn dẹp sạch sẽ.");
+
+            Assert.True(confirmRes.Success);
+
+            var finalizedRequest = await context.RepairRequests.FirstAsync(r => r.RepairRequestId == requestId);
+            Assert.Equal(RepairRequestStatus.Completed, finalizedRequest.Status);
+            Assert.Equal((byte)5, finalizedRequest.Rating);
+            Assert.Equal("Thợ kỹ thuật nhiệt tình, thay đồ cẩn thận, dọn dẹp sạch sẽ.", finalizedRequest.ResidentFeedback);
+            Assert.NotNull(finalizedRequest.ConfirmedAt);
+        }
     }
 }

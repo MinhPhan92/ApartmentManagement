@@ -2,7 +2,7 @@
 
 @{
     ViewData["Title"] = "Ý Kiến & Khiếu Nại";
-    var isResident = User.IsInRole("Resident") && !User.IsInRole("SystemAdmin") && !User.IsInRole("Manager");
+    var isResident = User.IsInRole("Resident") && !User.IsInRole("SystemAdmin") && !User.IsInRole("Manager") && !User.IsInRole("SuperAdmin") && !User.IsInRole("BuildingManager");
     var selectedStatus = ViewBag.SelectedStatus as string;
     var selectedCategory = ViewBag.SelectedCategory as string;
     var searchTerm = ViewBag.SearchTerm as string;
@@ -98,6 +98,7 @@
                 <thead class="table-light">
                     <tr>
                         <th class="ps-4">Tiêu đề phản ánh</th>
+                        <th>Mức độ</th>
                         <th>Danh mục</th>
                         @if (!isResident)
                         {
@@ -113,7 +114,7 @@
                     @if (!Model.Any())
                     {
                         <tr>
-                            <td colspan="@(isResident ? 6 : 7)" class="text-center py-5 text-muted">
+                            <td colspan="@(isResident ? 7 : 8)" class="text-center py-5 text-muted">
                                 <div class="fs-1 mb-2">💬</div>
                                 <p class="mb-0">Chưa có phản ánh nào được ghi nhận.</p>
                             </td>
@@ -131,6 +132,23 @@
                                     <small class="text-muted text-truncate d-inline-block" style="max-width: 280px;">
                                         @item.Content
                                     </small>
+                                </td>
+                                <td>
+                                    @switch (item.Priority)
+                                    {
+                                        case "Khẩn cấp":
+                                            <span class="badge bg-danger">🔴 Khẩn cấp</span>
+                                            break;
+                                        case "Cao":
+                                            <span class="badge bg-warning text-dark">🟠 Cao</span>
+                                            break;
+                                        case "Thấp":
+                                            <span class="badge bg-info text-dark">🟢 Thấp</span>
+                                            break;
+                                        default:
+                                            <span class="badge bg-light text-dark border">🟡 @item.Priority</span>
+                                            break;
+                                    }
                                 </td>
                                 <td>
                                     <span class="badge bg-light text-dark border px-2 py-1">
@@ -191,6 +209,22 @@
                                             <span class="badge bg-light text-dark px-3 py-2">@item.Status</span>
                                             break;
                                     }
+                                    @if (item.Rating.HasValue)
+                                    {
+                                        <div class="mt-1 small text-warning" title="@item.Rating/5 sao">
+                                            @for (int i = 1; i <= 5; i++)
+                                            {
+                                                if (i <= item.Rating.Value)
+                                                {
+                                                    <span>★</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">☆</span>
+                                                }
+                                            }
+                                        </div>
+                                    }
                                 </td>
                                 <td class="text-end pe-4">
                                     <div class="d-inline-flex gap-2">
@@ -207,6 +241,9 @@
 
                                         @if (isResident && item.Status == "Chờ tiếp nhận")
                                         {
+                                            <a asp-action="Edit" asp-route-id="@item.ComplaintId" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                                                Sửa
+                                            </a>
                                             <form asp-action="Cancel" asp-route-id="@item.ComplaintId" method="post" class="d-inline" onsubmit="return confirm('Bạn có chắc chắn muốn rút phản ánh này?');">
                                                 @Html.AntiForgeryToken()
                                                 <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-3">

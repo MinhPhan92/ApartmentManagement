@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using System.Globalization;
 using System.Security.Claims;
 using ApartmentManagement.Common.Security;
@@ -15,15 +16,27 @@ public sealed class BillingController : Controller
     private readonly IBillingService _billingService;
     private readonly IBuildingService _buildingService;
     private readonly IApartmentService _apartmentService;
+    private readonly IFinancialReportService? _financialReportService;
+    private readonly IPaymentService? _paymentService;
+    private readonly IVietQrCodeGenerator? _qrCodeGenerator;
+    private readonly VietQrOptions? _vietQrOptions;
 
     public BillingController(
         IBillingService billingService,
         IBuildingService buildingService,
-        IApartmentService apartmentService)
+        IApartmentService apartmentService,
+        IFinancialReportService? financialReportService = null,
+        IPaymentService? paymentService = null,
+        IVietQrCodeGenerator? qrCodeGenerator = null,
+        IOptions<VietQrOptions>? vietQrOptions = null)
     {
         _billingService = billingService;
         _buildingService = buildingService;
         _apartmentService = apartmentService;
+        _financialReportService = financialReportService;
+        _paymentService = paymentService;
+        _qrCodeGenerator = qrCodeGenerator;
+        _vietQrOptions = vietQrOptions?.Value;
     }
 
     [HttpGet]
@@ -88,6 +101,38 @@ public sealed class BillingController : Controller
             StatusOptions = statusOptions,
             PaymentStatusOptions = paymentStatusOptions
         });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ExportMonthlyStatement(
+        int? buildingId = null,
+        int? year = null,
+        int? month = null,
+        ApartmentInvoiceStatus? status = null,
+        string? paymentStatus = null,
+        string? searchTerm = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (_financialReportService == null)
+        {
+            return StatusCode(500, "FinancialReportService chưa được cấu hình.");
+        }
+
+        var filter = new MonthlyStatementFilterInput
+        {
+            BuildingId = buildingId,
+            BillingYear = year,
+            BillingMonth = month,
+            Status = status,
+            PaymentStatus = paymentStatus,
+            SearchTerm = searchTerm
+        };
+
+        var report = await _financialReportService.GenerateMonthlyStatementAsync(filter, cancellationToken);
+        var csvBytes = _financialReportService.ExportMonthlyStatementToCsv(report);
+        var fileName = _financialReportService.GetCsvFileName(report);
+
+        return File(csvBytes, "text/csv; charset=utf-8", fileName);
     }
 
 
@@ -436,7 +481,37 @@ public sealed class BillingController : Controller
     {
         if (id <= 0) return NotFound();
         var invoice = await _billingService.GetInvoiceAsync(id);
-        return invoice == null ? NotFound() : View(invoice);
+        if (invoice == null) return NotFound();
+
+        PaymentTransaction? payment = null;
+        if (_paymentService != null && invoice.Status == ApartmentInvoiceStatus.Issued && invoice.TotalAmount > 0)
+        {
+            payment = await _paymentService.GetOrCreatePaymentForInvoiceAsync(id);
+        }
+        ViewBag.Payment = payment;
+        ViewBag.VietQrConfigured = _vietQrOptions?.IsConfigured ?? false;
+        ViewBag.VietQrOptions = _vietQrOptions;
+
+        return View(invoice);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> PaymentQr(int id)
+    {
+        if (id <= 0) return NotFound();
+        if (_paymentService == null || _qrCodeGenerator == null || _vietQrOptions == null || !_vietQrOptions.IsConfigured)
+            return NotFound();
+
+        var invoice = await _billingService.GetInvoiceAsync(id);
+        if (invoice == null || invoice.Status != ApartmentInvoiceStatus.Issued || invoice.TotalAmount <= 0)
+            return NotFound();
+
+        var payment = await _paymentService.GetOrCreatePaymentForInvoiceAsync(id);
+        if (payment == null || payment.Amount > VietQrCodeGenerator.MaximumVndAmount)
+            return NotFound();
+
+        Response.Headers.CacheControl = "no-store";
+        return File(_qrCodeGenerator.GeneratePng(payment.Reference, payment.Amount), "image/png");
     }
 
     [HttpPost]

@@ -39,8 +39,24 @@
 
                         <div class="mb-3">
                             <label asp-for="Result" class="form-label fw-semibold">Kết quả xử lý chi tiết <span class="text-danger">*</span></label>
-                            <textarea asp-for="Result" class="form-control rounded-3" rows="4" placeholder="Mô tả các công việc đã thực hiện, nguyên nhân sự cố, vật tư đã thay thế (nếu có), tình trạng thiết bị sau sửa chữa..."></textarea>
+                            <textarea asp-for="Result" class="form-control rounded-3" rows="3" placeholder="Mô tả các công việc đã thực hiện, nguyên nhân sự cố, tình trạng thiết bị sau sửa chữa..."></textarea>
                             <span asp-validation-for="Result" class="text-danger small"></span>
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-12 col-md-8">
+                                <label asp-for="SpareParts" class="form-label fw-semibold">Danh mục vật tư / Linh kiện thay thế</label>
+                                <input asp-for="SpareParts" class="form-control rounded-3 py-2" placeholder="Ví dụ: 1 van khóa nước phi 21, 2m ống nhựa Tiền Phong..." />
+                                <span asp-validation-for="SpareParts" class="text-danger small"></span>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <label asp-for="MaterialCost" class="form-label fw-semibold">Chi phí phát sinh (VND)</label>
+                                <div class="input-group">
+                                    <input asp-for="MaterialCost" class="form-control rounded-start-3 py-2" type="number" min="0" step="1000" placeholder="0" />
+                                    <span class="input-group-text rounded-end-3">VND</span>
+                                </div>
+                                <span asp-validation-for="MaterialCost" class="text-danger small"></span>
+                            </div>
                         </div>
 
                         <div class="mb-4">

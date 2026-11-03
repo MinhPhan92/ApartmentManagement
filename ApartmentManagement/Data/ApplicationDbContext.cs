@@ -49,6 +49,7 @@ namespace ApartmentManagement.Data
         public DbSet<ParkingCard> ParkingCards => Set<ParkingCard>();
 
         public DbSet<Complaint> Complaints => Set<Complaint>();
+        public DbSet<ComplaintStatusHistory> ComplaintStatusHistories => Set<ComplaintStatusHistory>();
 
         public DbSet<Amenity> Amenities => Set<Amenity>();
 
@@ -60,6 +61,8 @@ namespace ApartmentManagement.Data
         public DbSet<RepairRequest> RepairRequests => Set<RepairRequest>();
         public DbSet<RepairAssignment> RepairAssignments => Set<RepairAssignment>();
         public DbSet<RepairStatusHistory> RepairStatusHistories => Set<RepairStatusHistory>();
+        public DbSet<TechnicalIncident> TechnicalIncidents => Set<TechnicalIncident>();
+        public DbSet<TechnicalIncidentStatusHistory> TechnicalIncidentStatusHistories => Set<TechnicalIncidentStatusHistory>();
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -465,11 +468,47 @@ namespace ApartmentManagement.Data
                 entity.Property(x => x.Title).HasMaxLength(200).IsRequired();
                 entity.Property(x => x.Content).HasMaxLength(2000).IsRequired();
                 entity.Property(x => x.Category).HasMaxLength(50).IsRequired();
+                entity.Property(x => x.Priority).HasMaxLength(30).IsRequired().HasDefaultValue("Bình thường");
                 entity.Property(x => x.Status).HasMaxLength(50).IsRequired();
+                entity.Property(x => x.HandlerUserId).HasMaxLength(450);
+                entity.Property(x => x.ResidentFeedback).HasMaxLength(1000);
+
+                entity.ToTable(table =>
+                {
+                    table.HasCheckConstraint("CK_Complaints_Priority",
+                        "[Priority] IN (N'Thấp', N'Bình thường', N'Cao', N'Khẩn cấp')");
+                    table.HasCheckConstraint("CK_Complaints_Rating",
+                        "[Rating] IS NULL OR ([Rating] >= 1 AND [Rating] <= 5)");
+                });
+
+                entity.HasIndex(x => x.HandlerUserId);
+
                 entity.HasOne(x => x.Resident).WithMany(x => x.Complaints)
                     .HasForeignKey(x => x.ResidentId).OnDelete(DeleteBehavior.Restrict);
                 entity.HasOne(x => x.Apartment).WithMany(x => x.Complaints)
                     .HasForeignKey(x => x.ApartmentId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(x => x.HandlerUser).WithMany()
+                    .HasForeignKey(x => x.HandlerUserId).OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // COMPLAINT STATUS HISTORY
+            builder.Entity<ComplaintStatusHistory>(entity =>
+            {
+                entity.HasKey(x => x.ComplaintStatusHistoryId);
+                entity.Property(x => x.PreviousStatus).HasMaxLength(50);
+                entity.Property(x => x.NewStatus).HasMaxLength(50).IsRequired();
+                entity.Property(x => x.ChangedByUserId).HasMaxLength(450).IsRequired();
+                entity.Property(x => x.Note).HasMaxLength(1000);
+                entity.Property(x => x.IsInternal).HasDefaultValue(false);
+                entity.Property(x => x.ChangedAt).HasColumnType("datetime2");
+
+                entity.HasIndex(x => new { x.ComplaintId, x.ChangedAt });
+                entity.HasIndex(x => x.ChangedByUserId);
+
+                entity.HasOne(x => x.Complaint).WithMany(x => x.StatusHistory)
+                    .HasForeignKey(x => x.ComplaintId).OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(x => x.ChangedByUser).WithMany()
+                    .HasForeignKey(x => x.ChangedByUserId).OnDelete(DeleteBehavior.Restrict);
             });
 
             // AMENITY
@@ -596,6 +635,70 @@ namespace ApartmentManagement.Data
                     .HasForeignKey(x => x.RepairRequestId).OnDelete(DeleteBehavior.Cascade);
                 entity.HasOne(x => x.ChangedByUser).WithMany()
                     .HasForeignKey(x => x.ChangedByUserId).OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // TECHNICAL INCIDENTS (UC47-UC50)
+            builder.Entity<TechnicalIncident>(entity =>
+            {
+                entity.HasKey(x => x.TechnicalIncidentId);
+                entity.Property(x => x.IncidentCode).HasMaxLength(30).IsRequired();
+                entity.Property(x => x.Location).HasMaxLength(200).IsRequired();
+                entity.Property(x => x.Category).HasMaxLength(50).IsRequired();
+                entity.Property(x => x.Title).HasMaxLength(200).IsRequired();
+                entity.Property(x => x.Description).HasMaxLength(4000).IsRequired();
+                entity.Property(x => x.Priority).HasMaxLength(30).IsRequired();
+                entity.Property(x => x.Status).HasMaxLength(30).IsRequired();
+                entity.Property(x => x.ReportedByUserId).HasMaxLength(450).IsRequired();
+                entity.Property(x => x.AcknowledgedByUserId).HasMaxLength(450);
+                entity.Property(x => x.AssignedTechnicianUserId).HasMaxLength(450);
+                entity.Property(x => x.ClosedByUserId).HasMaxLength(450);
+                entity.Property(x => x.ResolutionNotes).HasMaxLength(4000);
+                entity.Property(x => x.SpareParts).HasMaxLength(2000);
+                entity.Property(x => x.MaterialCost).HasColumnType("decimal(18,2)");
+                entity.Property(x => x.RowVersion).IsRowVersion();
+
+                entity.HasIndex(x => x.IncidentCode).IsUnique();
+                entity.HasIndex(x => new { x.Status, x.ReportedAt });
+                entity.HasIndex(x => x.BuildingId);
+                entity.HasIndex(x => x.AssignedTechnicianUserId);
+
+                entity.HasOne(x => x.Building).WithMany()
+                    .HasForeignKey(x => x.BuildingId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(x => x.ReportedByUser).WithMany()
+                    .HasForeignKey(x => x.ReportedByUserId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(x => x.AcknowledgedByUser).WithMany()
+                    .HasForeignKey(x => x.AcknowledgedByUserId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(x => x.AssignedTechnicianUser).WithMany()
+                    .HasForeignKey(x => x.AssignedTechnicianUserId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(x => x.ClosedByUser).WithMany()
+                    .HasForeignKey(x => x.ClosedByUserId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasMany(x => x.StatusHistory).WithOne(x => x.Incident)
+                    .HasForeignKey(x => x.TechnicalIncidentId).OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // TECHNICAL INCIDENT STATUS HISTORIES
+            builder.Entity<TechnicalIncidentStatusHistory>(entity =>
+            {
+                entity.HasKey(x => x.TechnicalIncidentStatusHistoryId);
+                entity.Property(x => x.PreviousStatus).HasMaxLength(30);
+                entity.Property(x => x.NewStatus).HasMaxLength(30).IsRequired();
+                entity.Property(x => x.ChangedByUserId).HasMaxLength(450).IsRequired();
+                entity.Property(x => x.PreviousTechnicianUserId).HasMaxLength(450);
+                entity.Property(x => x.NewTechnicianUserId).HasMaxLength(450);
+                entity.Property(x => x.Note).HasMaxLength(1000);
+
+                entity.HasIndex(x => new { x.TechnicalIncidentId, x.ChangedAt });
+                entity.HasIndex(x => x.PreviousTechnicianUserId);
+                entity.HasIndex(x => x.NewTechnicianUserId);
+
+                entity.HasOne(x => x.Incident).WithMany(x => x.StatusHistory)
+                    .HasForeignKey(x => x.TechnicalIncidentId).OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(x => x.ChangedByUser).WithMany()
+                    .HasForeignKey(x => x.ChangedByUserId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(x => x.PreviousTechnicianUser).WithMany()
+                    .HasForeignKey(x => x.PreviousTechnicianUserId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(x => x.NewTechnicianUser).WithMany()
+                    .HasForeignKey(x => x.NewTechnicianUserId).OnDelete(DeleteBehavior.Restrict);
             });
         }
     }

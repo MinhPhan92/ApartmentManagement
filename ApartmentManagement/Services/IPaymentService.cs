@@ -8,6 +8,7 @@ public interface IPaymentService
     Task<PaymentTransaction?> GetResidentPaymentAsync(string userId, int paymentTransactionId);
     Task<PaymentTransaction?> GetResidentPaymentForInvoiceAsync(string userId, int invoiceId);
     Task<PaymentTransaction?> GetOrCreateResidentPaymentAsync(string userId, int invoiceId);
+    Task<PaymentTransaction?> GetOrCreatePaymentForInvoiceAsync(int invoiceId);
     Task<PaymentOperationResult> ConfirmSimulatedPaymentAsync(
         int paymentTransactionId,
         string actorUserId,

@@ -17,14 +17,14 @@ public interface IRepairRequestService
     // Ban quản lý & Hàng đợi
     Task<IEnumerable<RepairRequest>> GetQueueAsync(string? status = null, string? priority = null, string? searchTerm = null);
     Task<RepairRequest?> GetRequestDetailsAsync(int requestId);
-    Task<RepairOperationResult> AssignTechnicianAsync(int requestId, string technicianUserId, string managerUserId, string? note, byte[]? rowVersion = null);
+    Task<RepairOperationResult> AssignTechnicianAsync(int requestId, string technicianUserId, string managerUserId, string? note, byte[]? rowVersion = null, DateTime? scheduledDate = null);
     Task<IEnumerable<ApplicationUser>> GetAvailableTechniciansAsync();
 
     // Kỹ thuật viên
     Task<IEnumerable<RepairAssignment>> GetTechnicianAssignmentsAsync(string technicianUserId, string? status = null);
     Task<RepairAssignment?> GetAssignmentDetailsAsync(int assignmentId, string technicianUserId);
     Task<RepairOperationResult> StartProgressAsync(int assignmentId, string technicianUserId, string? note, byte[]? rowVersion = null);
-    Task<RepairOperationResult> CompleteWorkAsync(int assignmentId, string technicianUserId, string result, string? note, byte[]? rowVersion = null);
+    Task<RepairOperationResult> CompleteWorkAsync(int assignmentId, string technicianUserId, string result, string? note, byte[]? rowVersion = null, string? spareParts = null, decimal? materialCost = null);
 
     // Kiểm tra quyền sở hữu / cư trú
     Task<bool> IsResidentActiveInApartmentAsync(int residentId, int apartmentId);

@@ -1,0 +1,265 @@
+@model ApartmentManagement.ViewModels.AmenityManagementViewModel
+@{
+    ViewData["Title"] = "Quản Lý Đặt Tiện Ích";
+}
+
+<div class="container py-4">
+    <!-- Header -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">🛡️ Quản Lý Đăng Ký Tiện Ích</h2>
+            <p class="text-muted mb-0">Tiếp nhận, kiểm tra lịch và phê duyệt yêu cầu sử dụng tiện ích của cư dân toàn khu.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a asp-action="Amenities" class="btn btn-outline-secondary rounded-pill px-3 d-inline-flex align-items-center gap-2">
+                <i class="bi bi-gear-fill"></i> Cấu hình danh mục tiện ích
+            </a>
+            <a asp-controller="AmenityBooking" asp-action="Index" class="btn btn-outline-primary rounded-pill px-3 d-inline-flex align-items-center gap-2">
+                <i class="bi bi-eye"></i> Xem giao diện cư dân
+            </a>
+        </div>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm rounded-3 mb-4" role="alert">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-check-circle-fill fs-5"></i>
+                <div>@TempData["SuccessMessage"]</div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm rounded-3 mb-4" role="alert">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+                <div>@TempData["ErrorMessage"]</div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    <!-- Stat KPI Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-4">
+            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white border-start border-warning border-4">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <span class="text-muted small fw-semibold text-uppercase">Chờ phê duyệt</span>
+                        <h3 class="fw-bold text-warning mb-0">@Model.TotalPending</h3>
+                    </div>
+                    <div class="rounded-circle bg-warning-subtle p-3 text-warning">
+                        <i class="bi bi-hourglass-split fs-4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4">
+            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white border-start border-success border-4">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <span class="text-muted small fw-semibold text-uppercase">Đã xác nhận</span>
+                        <h3 class="fw-bold text-success mb-0">@Model.TotalConfirmed</h3>
+                    </div>
+                    <div class="rounded-circle bg-success-subtle p-3 text-success">
+                        <i class="bi bi-check-circle-fill fs-4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-4">
+            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white border-start border-primary border-4">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <span class="text-muted small fw-semibold text-uppercase">Sử dụng hôm nay</span>
+                        <h3 class="fw-bold text-primary mb-0">@Model.TotalToday</h3>
+                    </div>
+                    <div class="rounded-circle bg-primary-subtle p-3 text-primary">
+                        <i class="bi bi-calendar-day fs-4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Card -->
+    <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label small fw-semibold text-muted">Lọc theo tiện ích:</label>
+                <select name="amenityId" class="form-select rounded-3">
+                    <option value="">-- Tất cả tiện ích --</option>
+                    @foreach (var a in Model.Amenities)
+                    {
+                        <option value="@a.AmenityId" selected="@(Model.SelectedAmenityId == a.AmenityId)">@a.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-semibold text-muted">Lọc theo ngày:</label>
+                <input type="date" name="date" class="form-control rounded-3" value="@(Model.SelectedDate?.ToString("yyyy-MM-dd"))" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-semibold text-muted">Trạng thái:</label>
+                <select name="status" class="form-select rounded-3">
+                    <option value="">-- Tất cả trạng thái --</option>
+                    <option value="Chờ duyệt" selected="@(Model.SelectedStatus == "Chờ duyệt")">Chờ duyệt</option>
+                    <option value="Đã xác nhận" selected="@(Model.SelectedStatus == "Đã xác nhận")">Đã xác nhận</option>
+                    <option value="Từ chối" selected="@(Model.SelectedStatus == "Từ chối")">Từ chối</option>
+                    <option value="Đã hủy" selected="@(Model.SelectedStatus == "Đã hủy")">Đã hủy</option>
+                </select>
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary rounded-3 w-100 fw-semibold">
+                    <i class="bi bi-filter"></i> Lọc
+                </button>
+                <a asp-action="Index" class="btn btn-outline-secondary rounded-3" title="Đặt lại bộ lọc">
+                    <i class="bi bi-arrow-counterclockwise"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Booking Requests Table Card -->
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+        <div class="card-header bg-white border-0 py-3 px-4 d-flex justify-content-between align-items-center">
+            <h5 class="fw-bold mb-0">Danh sách đăng ký sử dụng</h5>
+            <span class="badge bg-light text-muted border">@Model.Bookings.Count đơn đăng ký</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light text-uppercase small text-muted">
+                    <tr>
+                        <th class="ps-4">Cư dân đăng ký</th>
+                        <th>Tiện ích</th>
+                        <th>Ngày & Khung giờ</th>
+                        <th>Số người</th>
+                        <th>Trạng thái</th>
+                        <th>Ghi chú</th>
+                        <th class="text-end pe-4">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!Model.Bookings.Any())
+                    {
+                        <tr>
+                            <td colspan="7" class="text-center py-5 text-muted">
+                                <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+                                Không tìm thấy yêu cầu đặt chỗ nào phù hợp với bộ lọc.
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var item in Model.Bookings)
+                        {
+                            <tr>
+                                <td class="ps-4">
+                                    <div class="fw-semibold text-dark">@(item.Resident?.User?.FullName ?? "Cư dân")</div>
+                                    <small class="text-muted"><i class="bi bi-envelope"></i> @(item.Resident?.User?.Email ?? "--")</small>
+                                </td>
+                                <td>
+                                    <strong>@(item.Amenity?.Name ?? "Tiện ích")</strong>
+                                    <small class="text-muted d-block"><i class="bi bi-geo-alt"></i> @(item.Amenity?.Location ?? "Chung")</small>
+                                </td>
+                                <td>
+                                    <div class="fw-semibold">@item.BookingDate.ToString("dd/MM/yyyy")</div>
+                                    <span class="badge bg-light text-primary border">
+                                        @item.StartTime.ToString(@"hh\:mm") - @item.EndTime.ToString(@"hh\:mm")
+                                    </span>
+                                </td>
+                                <td>
+                                    <span>@item.NumberOfGuests người</span>
+                                </td>
+                                <td>
+                                    @if (item.Status == "Chờ duyệt")
+                                    {
+                                        <span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill px-3 py-1">Chờ duyệt</span>
+                                    }
+                                    else if (item.Status == "Đã xác nhận")
+                                    {
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-1">Đã xác nhận</span>
+                                    }
+                                    else if (item.Status == "Từ chối")
+                                    {
+                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-3 py-1">Từ chối</span>
+                                    }
+                                    else if (item.Status == "Đã hủy")
+                                    {
+                                        <span class="badge bg-secondary-subtle text-secondary border rounded-pill px-3 py-1">Đã hủy</span>
+                                    }
+                                </td>
+                                <td>
+                                    <small class="text-muted" style="max-width: 180px; display: inline-block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="@item.Notes">
+                                        @(string.IsNullOrWhiteSpace(item.Notes) ? "--" : item.Notes)
+                                    </small>
+                                </td>
+                                <td class="text-end pe-4">
+                                    @if (item.Status == "Chờ duyệt")
+                                    {
+                                        <div class="btn-group btn-group-sm">
+                                            <!-- Approve Form -->
+                                            <form asp-action="Approve" method="post" class="d-inline">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@item.AmenityBookingId" />
+                                                <button type="submit" class="btn btn-success" title="Phê duyệt yêu cầu">
+                                                    <i class="bi bi-check-lg"></i> Duyệt
+                                                </button>
+                                            </form>
+                                            <!-- Reject Button triggers modal -->
+                                            <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#rejectModal_@item.AmenityBookingId" title="Từ chối">
+                                                <i class="bi bi-x-lg"></i> Từ chối
+                                            </button>
+                                        </div>
+
+                                        <!-- Reject Modal -->
+                                        <div class="modal fade text-start" id="rejectModal_@item.AmenityBookingId" tabindex="-1" aria-hidden="true">
+                                            <div class="modal-dialog modal-dialog-centered">
+                                                <div class="modal-content rounded-4 border-0 shadow">
+                                                    <div class="modal-header border-0 pb-0">
+                                                        <h5 class="modal-title fw-bold text-danger">Từ chối yêu cầu đặt chỗ</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                    </div>
+                                                    <form asp-action="Reject" method="post">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="id" value="@item.AmenityBookingId" />
+                                                        <div class="modal-body py-4">
+                                                            <p class="mb-2">Từ chối yêu cầu đặt <strong>@item.Amenity?.Name</strong> ngày <strong>@item.BookingDate.ToString("dd/MM/yyyy")</strong> của cư dân <strong>@item.Resident?.User?.FullName</strong>?</p>
+                                                            <label class="form-label small fw-semibold text-muted">Lý do từ chối (tùy chọn):</label>
+                                                            <textarea name="reason" class="form-control rounded-3" rows="3" placeholder="Nhập lý do (ví dụ: Bảo trì đột xuất, trùng sự kiện chung cư...)"></textarea>
+                                                        </div>
+                                                        <div class="modal-footer border-0 pt-0">
+                                                            <button type="button" class="btn btn-outline-secondary rounded-3" data-bs-dismiss="modal">Hủy bỏ</button>
+                                                            <button type="submit" class="btn btn-danger rounded-3 px-4">Xác nhận từ chối</button>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                    else if (item.Status == "Đã xác nhận")
+                                    {
+                                        <form asp-action="Cancel" method="post" class="d-inline" onsubmit="return confirm('Bạn có chắc chắn muốn hủy lịch đặt chỗ đã duyệt này?');">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="id" value="@item.AmenityBookingId" />
+                                            <button type="submit" class="btn btn-outline-secondary btn-sm rounded-pill px-3" title="BQL hủy lịch vì lý do đột xuất">
+                                                <i class="bi bi-slash-circle"></i> Hủy lịch
+                                            </button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted small">--</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+

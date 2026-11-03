@@ -2,7 +2,7 @@
 
 @{
     ViewData["Title"] = "Chi Tiết Phản Ánh: " + Model.Title;
-    var isManagerOrAdmin = User.IsInRole("SystemAdmin") || User.IsInRole("Manager");
+    var isManagerOrAdmin = User.IsInRole("SystemAdmin") || User.IsInRole("Manager") || User.IsInRole("SuperAdmin") || User.IsInRole("BuildingManager");
     var isResident = User.IsInRole("Resident") && !isManagerOrAdmin;
 }
 
@@ -43,9 +43,26 @@
             <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
                 <div class="card-header bg-primary text-white py-4 px-4 bg-gradient" style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);">
                     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-                        <span class="badge bg-white text-dark px-3 py-2 rounded-pill">
-                            🏷️ @Model.Category
-                        </span>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-white text-dark px-3 py-2 rounded-pill">
+                                🏷️ @Model.Category
+                            </span>
+                            @switch (Model.Priority)
+                            {
+                                case "Khẩn cấp":
+                                    <span class="badge bg-danger px-3 py-2 rounded-pill">🔴 Khẩn cấp</span>
+                                    break;
+                                case "Cao":
+                                    <span class="badge bg-warning text-dark px-3 py-2 rounded-pill">🟠 Cao</span>
+                                    break;
+                                case "Thấp":
+                                    <span class="badge bg-info text-dark px-3 py-2 rounded-pill">🟢 Thấp</span>
+                                    break;
+                                default:
+                                    <span class="badge bg-light text-dark px-3 py-2 rounded-pill">🟡 @Model.Priority</span>
+                                    break;
+                            }
+                        </div>
                         @switch (Model.Status)
                         {
                             case "Chờ tiếp nhận":
@@ -105,6 +122,101 @@
                         </div>
                     </div>
 
+                    <!-- Resident Rating & Feedback Block (UC36) -->
+                    @if (Model.Status == "Đã xử lý")
+                    {
+                        <div class="card border-0 rounded-4 bg-light border mb-4">
+                            <div class="card-body p-4">
+                                <h6 class="fw-bold mb-3 text-primary">
+                                    ⭐ ĐÁNH GIÁ MỨC ĐỘ HÀI LÒNG CỦA CƯ DÂN:
+                                </h6>
+                                @if (Model.Rating.HasValue)
+                                {
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <div class="fs-4 text-warning">
+                                            @for (int i = 1; i <= 5; i++)
+                                            {
+                                                if (i <= Model.Rating.Value)
+                                                {
+                                                    <span>★</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">☆</span>
+                                                }
+                                            }
+                                        </div>
+                                        <span class="fw-bold fs-5">@Model.Rating / 5 sao</span>
+                                        @switch (Model.Rating.Value)
+                                        {
+                                            case 5:
+                                                <span class="badge bg-success">Rất hài lòng</span>
+                                                break;
+                                            case 4:
+                                                <span class="badge bg-info text-dark">Hài lòng</span>
+                                                break;
+                                            case 3:
+                                                <span class="badge bg-secondary">Bình thường</span>
+                                                break;
+                                            case 2:
+                                                <span class="badge bg-warning text-dark">Chưa hài lòng</span>
+                                                break;
+                                            case 1:
+                                                <span class="badge bg-danger">Rất không hài lòng</span>
+                                                break;
+                                        }
+                                    </div>
+                                    @if (!string.IsNullOrWhiteSpace(Model.ResidentFeedback))
+                                    {
+                                        <div class="p-3 bg-white rounded-3 border mb-2 text-dark" style="white-space: pre-wrap;">
+                                            @Model.ResidentFeedback
+                                        </div>
+                                    }
+                                    @if (Model.RatedAt.HasValue)
+                                    {
+                                        <small class="text-muted d-block">
+                                            Thời điểm đánh giá: @Model.RatedAt.Value.ToString("dd/MM/yyyy HH:mm:ss")
+                                        </small>
+                                    }
+                                }
+                                else if (isResident)
+                                {
+                                    <p class="text-muted small mb-3">
+                                        Phản ánh của bạn đã được giải quyết. Vui lòng cho biết mức độ hài lòng đối với kết quả xử lý từ Ban Quản Lý:
+                                    </p>
+                                    <form asp-action="Rate" asp-route-id="@Model.ComplaintId" method="post">
+                                        @Html.AntiForgeryToken()
+                                        <div class="row g-3 mb-3">
+                                            <div class="col-12 col-md-5">
+                                                <label class="form-label fw-semibold small">Mức độ hài lòng <span class="text-danger">*</span></label>
+                                                <select name="rating" class="form-select rounded-3" required>
+                                                    <option value="5" selected>⭐⭐⭐⭐⭐ 5 - Rất hài lòng</option>
+                                                    <option value="4">⭐⭐⭐⭐ 4 - Hài lòng</option>
+                                                    <option value="3">⭐⭐⭐ 3 - Bình thường</option>
+                                                    <option value="2">⭐⭐ 2 - Chưa hài lòng</option>
+                                                    <option value="1">⭐ 1 - Rất không hài lòng</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-12">
+                                                <label class="form-label fw-semibold small">Ý kiến đóng góp thêm (Tùy chọn)</label>
+                                                <textarea name="feedback" rows="3" class="form-control rounded-3" maxlength="1000" placeholder="Chia sẻ thêm cảm nhận hoặc góp ý để BQL nâng cao chất lượng dịch vụ..."></textarea>
+                                            </div>
+                                        </div>
+                                        <button type="submit" class="btn btn-warning rounded-pill px-4 fw-semibold shadow-sm">
+                                            ⭐ Gửi đánh giá
+                                        </button>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <p class="text-muted mb-0 fst-italic">
+                                        Cư dân chưa gửi đánh giá cho kết quả xử lý phản ánh này.
+                                    </p>
+                                }
+                            </div>
+                        </div>
+                    }
+
                     <!-- Action Buttons -->
                     <div class="d-flex flex-wrap gap-2 pt-2">
                         <a asp-action="Index" class="btn btn-outline-secondary rounded-pill px-4">
@@ -113,6 +225,9 @@
 
                         @if (isResident && Model.Status == "Chờ tiếp nhận")
                         {
+                            <a asp-action="Edit" asp-route-id="@Model.ComplaintId" class="btn btn-primary rounded-pill px-4">
+                                ✏️ Chỉnh sửa
+                            </a>
                             <form asp-action="Cancel" asp-route-id="@Model.ComplaintId" method="post" onsubmit="return confirm('Bạn có chắc chắn muốn rút phản ánh này?');">
                                 @Html.AntiForgeryToken()
                                 <button type="submit" class="btn btn-outline-danger rounded-pill px-4">
@@ -126,6 +241,19 @@
                             <a asp-action="Process" asp-route-id="@Model.ComplaintId" class="btn btn-primary rounded-pill px-4">
                                 ⚖️ Cập nhật xử lý / Phản hồi
                             </a>
+                        }
+
+                        @if (isManagerOrAdmin && (Model.Status == "Chờ tiếp nhận" || Model.Status == "Đang xử lý"))
+                        {
+                            @if (Model.ResponseNotes == null || !Model.ResponseNotes.Contains("Đã chuyển thành Yêu cầu sửa chữa mã #RR-"))
+                            {
+                                <form asp-action="ConvertToRepairRequest" asp-route-id="@Model.ComplaintId" method="post" class="d-inline" onsubmit="return confirm('Bạn có chắc chắn muốn chuyển phản ánh kỹ thuật này sang Yêu cầu sửa chữa (Repair Request)?');">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="btn btn-warning rounded-pill px-4 text-dark shadow-sm">
+                                        🛠️ Chuyển sang Yêu cầu sửa chữa
+                                    </button>
+                                </form>
+                            }
                         }
                     </div>
                 </div>

@@ -10,7 +10,15 @@ namespace ApartmentManagement.ViewModels
 
         public string Content { get; set; } = string.Empty;
 
-        public string Category { get; set; } = string.Empty;
+        [Required(ErrorMessage = "Vui lòng chọn danh mục phản ánh.")]
+        [StringLength(50)]
+        [Display(Name = "Danh mục")]
+        public string Category { get; set; } = "Vệ sinh";
+
+        [Required(ErrorMessage = "Vui lòng chọn mức độ ưu tiên.")]
+        [StringLength(30)]
+        [Display(Name = "Mức độ ưu tiên")]
+        public string Priority { get; set; } = "Bình thường";
 
         public string? ResidentName { get; set; }
 

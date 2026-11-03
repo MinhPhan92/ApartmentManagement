@@ -44,6 +44,12 @@
                             <span asp-validation-for="TechnicianUserId" class="text-danger small"></span>
                         </div>
 
+                        <div class="mb-3">
+                            <label asp-for="ScheduledDate" class="form-label fw-semibold">Hạn hoàn thành / Lịch hẹn với cư dân</label>
+                            <input asp-for="ScheduledDate" class="form-control rounded-3 py-2" type="date" />
+                            <span asp-validation-for="ScheduledDate" class="text-danger small"></span>
+                        </div>
+
                         <div class="mb-4">
                             <label asp-for="Note" class="form-label fw-semibold">Ghi chú giao việc</label>
                             <textarea asp-for="Note" class="form-control rounded-3" rows="3" placeholder="Ví dụ: Kiểm tra đường ống trước 15:00, mang theo đồng hồ đo điện..."></textarea>

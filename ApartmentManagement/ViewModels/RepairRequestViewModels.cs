@@ -40,6 +40,10 @@ public class RepairRequestAssignViewModel
     [Display(Name = "Kỹ thuật viên")]
     public string TechnicianUserId { get; set; } = string.Empty;
 
+    [DataType(DataType.Date)]
+    [Display(Name = "Hạn hoàn thành / Lịch hẹn")]
+    public DateTime? ScheduledDate { get; set; }
+
     [StringLength(2000, ErrorMessage = "Ghi chú không quá 2000 ký tự.")]
     [Display(Name = "Ghi chú giao việc")]
     public string? Note { get; set; }
@@ -61,6 +65,14 @@ public class RepairRequestProgressViewModel
     [StringLength(4000, ErrorMessage = "Kết quả không quá 4000 ký tự.")]
     [Display(Name = "Kết quả xử lý")]
     public string Result { get; set; } = string.Empty;
+
+    [StringLength(2000, ErrorMessage = "Danh mục vật tư không quá 2000 ký tự.")]
+    [Display(Name = "Vật tư / Linh kiện thay thế (nếu có)")]
+    public string? SpareParts { get; set; }
+
+    [Range(0, 1000000000, ErrorMessage = "Chi phí vật tư từ 0 đến 1 tỷ VND.")]
+    [Display(Name = "Chi phí vật tư phát sinh (VND)")]
+    public decimal? MaterialCost { get; set; }
 
     [StringLength(1000, ErrorMessage = "Ghi chú không quá 1000 ký tự.")]
     [Display(Name = "Ghi chú thêm")]

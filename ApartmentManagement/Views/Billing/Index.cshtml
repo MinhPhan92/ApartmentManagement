@@ -30,6 +30,16 @@
             <a asp-action="BatchIssueInvoices" class="btn btn-primary d-inline-flex align-items-center gap-1">
                 <i class="bi bi-send-check-fill"></i> Phát hành tòa nhà
             </a>
+            <a asp-action="ExportMonthlyStatement" 
+               asp-route-buildingId="@Model.BuildingId" 
+               asp-route-year="@Model.BillingYear" 
+               asp-route-month="@Model.BillingMonth" 
+               asp-route-status="@Model.Status" 
+               asp-route-paymentStatus="@Model.PaymentStatus" 
+               asp-route-searchTerm="@Model.SearchTerm" 
+               class="btn btn-outline-success d-inline-flex align-items-center gap-1">
+                <i class="bi bi-file-earmark-spreadsheet-fill"></i> Xuất Bảng Kê (CSV)
+            </a>
         </div>
     </div>
 
@@ -168,9 +178,12 @@
                     <label for="searchTerm" class="form-label small fw-semibold text-muted">Từ khóa</label>
                     <input id="searchTerm" name="searchTerm" value="@Model.SearchTerm" class="form-control" placeholder="Mã HĐ, căn hộ, cư dân" />
                 </div>
-                <div class="col-12 d-flex gap-2">
+                <div class="col-12 d-flex flex-wrap gap-2">
                     <button type="submit" class="btn btn-primary d-inline-flex align-items-center gap-1">
                         <i class="bi bi-funnel-fill"></i> Lọc dữ liệu
+                    </button>
+                    <button type="submit" formaction="@Url.Action("ExportMonthlyStatement")" class="btn btn-success d-inline-flex align-items-center gap-1">
+                        <i class="bi bi-file-earmark-spreadsheet-fill"></i> Xuất Bảng Kê (CSV/Excel)
                     </button>
                     <a asp-action="Index" class="btn btn-outline-secondary">Đặt lại</a>
                 </div>

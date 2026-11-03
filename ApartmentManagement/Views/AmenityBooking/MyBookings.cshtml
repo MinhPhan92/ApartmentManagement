@@ -1,0 +1,169 @@
+@model IEnumerable<ApartmentManagement.Models.AmenityBooking>
+@{
+    ViewData["Title"] = "Lịch Đặt Chỗ Của Tôi";
+}
+
+<div class="container py-4">
+    <!-- Header -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">📋 Lịch Đặt Tiện Ích Của Tôi</h2>
+            <p class="text-muted mb-0">Theo dõi trạng thái phê duyệt và lịch sử sử dụng tiện ích của căn hộ.</p>
+        </div>
+        <div>
+            <a asp-action="Index" class="btn btn-primary d-inline-flex align-items-center gap-2 shadow-sm rounded-pill px-4">
+                <i class="bi bi-plus-circle-fill"></i> Đặt thêm tiện ích
+            </a>
+        </div>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm rounded-3 mb-4" role="alert">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-check-circle-fill fs-5"></i>
+                <div>@TempData["SuccessMessage"]</div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm rounded-3 mb-4" role="alert">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+                <div>@TempData["ErrorMessage"]</div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    @if (!Model.Any())
+    {
+        <div class="card border-0 shadow-sm rounded-4 p-5 text-center">
+            <div class="py-4">
+                <i class="bi bi-calendar-x text-muted" style="font-size: 3rem;"></i>
+                <h4 class="fw-bold text-dark mt-3">Chưa có lịch đặt tiện ích nào</h4>
+                <p class="text-muted mb-4">Bạn chưa đăng ký sử dụng tiện ích chung cư nào trong thời gian gần đây.</p>
+                <a asp-action="Index" class="btn btn-primary rounded-pill px-4 py-2">
+                    <i class="bi bi-calendar-plus"></i> Khám phá và đặt chỗ ngay
+                </a>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light text-uppercase small text-muted">
+                        <tr>
+                            <th class="ps-4">Tiện ích</th>
+                            <th>Ngày sử dụng</th>
+                            <th>Khung giờ</th>
+                            <th>Số khách</th>
+                            <th>Trạng thái</th>
+                            <th>Thời gian gửi</th>
+                            <th class="text-end pe-4">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model)
+                        {
+                            var isUpcoming = item.BookingDate.Date.Add(item.StartTime) > DateTime.Now;
+                            var canCancel = (item.Status == "Chờ duyệt" || item.Status == "Đã xác nhận") && isUpcoming;
+
+                            <tr>
+                                <td class="ps-4">
+                                    <div class="fw-bold text-dark">@(item.Amenity?.Name ?? "Tiện ích")</div>
+                                    <small class="text-muted"><i class="bi bi-geo-alt"></i> @(item.Amenity?.Location ?? "Khuôn viên chung")</small>
+                                </td>
+                                <td>
+                                    <span class="fw-semibold">@item.BookingDate.ToString("dd/MM/yyyy")</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-dark border">
+                                        <i class="bi bi-clock me-1 text-primary"></i>
+                                        @item.StartTime.ToString(@"hh\:mm") - @item.EndTime.ToString(@"hh\:mm")
+                                    </span>
+                                </td>
+                                <td>
+                                    <span>@item.NumberOfGuests người</span>
+                                </td>
+                                <td>
+                                    @if (item.Status == "Chờ duyệt")
+                                    {
+                                        <span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill px-3 py-1">
+                                            <i class="bi bi-hourglass-split"></i> Chờ duyệt
+                                        </span>
+                                    }
+                                    else if (item.Status == "Đã xác nhận")
+                                    {
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-1">
+                                            <i class="bi bi-check-circle-fill"></i> Đã xác nhận
+                                        </span>
+                                    }
+                                    else if (item.Status == "Từ chối")
+                                    {
+                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-3 py-1">
+                                            <i class="bi bi-x-circle-fill"></i> Từ chối
+                                        </span>
+                                    }
+                                    else if (item.Status == "Đã hủy")
+                                    {
+                                        <span class="badge bg-secondary-subtle text-secondary border rounded-pill px-3 py-1">
+                                            <i class="bi bi-slash-circle"></i> Đã hủy
+                                        </span>
+                                    }
+                                </td>
+                                <td>
+                                    <small class="text-muted">@item.CreatedAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</small>
+                                </td>
+                                <td class="text-end pe-4">
+                                    @if (canCancel)
+                                    {
+                                        <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#cancelModal_@item.AmenityBookingId">
+                                            <i class="bi bi-x"></i> Hủy đặt
+                                        </button>
+
+                                        <!-- Cancel Modal -->
+                                        <div class="modal fade text-start" id="cancelModal_@item.AmenityBookingId" tabindex="-1" aria-hidden="true">
+                                            <div class="modal-dialog modal-dialog-centered">
+                                                <div class="modal-content rounded-4 border-0 shadow">
+                                                    <div class="modal-header border-0 pb-0">
+                                                        <h5 class="modal-title fw-bold text-danger">Hủy lịch đặt tiện ích</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                    </div>
+                                                    <form asp-action="Cancel" method="post">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="id" value="@item.AmenityBookingId" />
+                                                        <div class="modal-body py-4">
+                                                            <p class="mb-1">Bạn có chắc chắn muốn hủy đặt tiện ích <strong>@item.Amenity?.Name</strong>?</p>
+                                                            <div class="p-2 bg-light rounded-3 small text-muted">
+                                                                <div>Ngày: <strong>@item.BookingDate.ToString("dd/MM/yyyy")</strong></div>
+                                                                <div>Khung giờ: <strong>@item.StartTime.ToString(@"hh\:mm") - @item.EndTime.ToString(@"hh\:mm")</strong></div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="modal-footer border-0 pt-0">
+                                                            <button type="button" class="btn btn-outline-secondary rounded-3" data-bs-dismiss="modal">Đóng</button>
+                                                            <button type="submit" class="btn btn-danger rounded-3 px-4">Xác nhận hủy</button>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted small">--</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+

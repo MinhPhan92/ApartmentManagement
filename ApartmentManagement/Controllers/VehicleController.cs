@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using ApartmentManagement.Services;
 using ApartmentManagement.ViewModels;
 using Microsoft.AspNetCore.Authorization;
@@ -113,38 +114,50 @@ namespace ApartmentManagement.Controllers
                 VehicleId = vehicle.VehicleId,
                 LicensePlate = vehicle.LicensePlate,
                 VehicleType = vehicle.VehicleType,
-                ResidentName = vehicle.Resident?.User?.FullName
+                ResidentName = vehicle.Resident?.User?.FullName ?? string.Empty
             };
 
             return View(model);
         }
 
-        // POST: /Vehicle/Approve/5
+        // POST: /Vehicle/Approve
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "SuperAdmin,BuildingManager")]
-        public async Task<IActionResult> Approve(int id, string? notes)
+        [Authorize(Roles = "SuperAdmin,BuildingManager,SystemAdmin,Manager")]
+        public async Task<IActionResult> Approve(int? vehicleId, int? id, string? cardCode, string? reviewNotes, string? notes)
         {
-            var result = await _vehicleService.ApproveVehicleAsync(id, notes);
+            var targetId = vehicleId ?? id ?? 0;
+            if (targetId <= 0) return NotFound();
+
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+            var notesToUse = reviewNotes ?? notes;
+
+            var result = await _vehicleService.ApproveVehicleAsync(targetId, cardCode, notesToUse, currentUserId);
             if (!result.Success)
             {
                 TempData["ErrorMessage"] = result.ErrorMessage;
             }
             else
             {
-                TempData["SuccessMessage"] = "Đã phê duyệt đăng ký phương tiện thành công.";
+                TempData["SuccessMessage"] = "Phê duyệt phương tiện và cấp thẻ bãi đỗ thành công!";
             }
 
-            return RedirectToAction(nameof(Details), new { id });
+            return RedirectToAction(nameof(Details), new { id = targetId });
         }
 
-        // POST: /Vehicle/Reject/5
+        // POST: /Vehicle/Reject
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "SuperAdmin,BuildingManager")]
-        public async Task<IActionResult> Reject(int id, string reason)
+        [Authorize(Roles = "SuperAdmin,BuildingManager,SystemAdmin,Manager")]
+        public async Task<IActionResult> Reject(int? vehicleId, int? id, string? rejectReason, string? reason)
         {
-            var result = await _vehicleService.RejectVehicleAsync(id, reason);
+            var targetId = vehicleId ?? id ?? 0;
+            if (targetId <= 0) return NotFound();
+
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+            var reasonToUse = rejectReason ?? reason ?? string.Empty;
+
+            var result = await _vehicleService.RejectVehicleAsync(targetId, reasonToUse, currentUserId);
             if (!result.Success)
             {
                 TempData["ErrorMessage"] = result.ErrorMessage;
@@ -154,7 +167,66 @@ namespace ApartmentManagement.Controllers
                 TempData["SuccessMessage"] = "Đã từ chối đơn đăng ký phương tiện.";
             }
 
-            return RedirectToAction(nameof(Details), new { id });
+            return RedirectToAction(nameof(Details), new { id = targetId });
+        }
+
+        // POST: /Vehicle/LockCard
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> LockCard(int? vehicleId, int? id, string? reason)
+        {
+            var targetId = vehicleId ?? id ?? 0;
+            if (targetId <= 0) return NotFound();
+
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+            var isManagerOrAdmin = User.IsInRole("SuperAdmin") || User.IsInRole("BuildingManager") || User.IsInRole("SystemAdmin") || User.IsInRole("Manager");
+
+            if (!isManagerOrAdmin)
+            {
+                var vehicle = await _vehicleService.GetVehicleByIdAsync(targetId);
+                if (vehicle == null) return NotFound();
+                if (vehicle.Resident?.UserId != currentUserId)
+                {
+                    return Forbid();
+                }
+            }
+
+            var result = await _vehicleService.ReportLostOrLockCardAsync(targetId, reason ?? "Báo mất thẻ", currentUserId);
+            if (!result.Success)
+            {
+                TempData["ErrorMessage"] = result.ErrorMessage;
+            }
+            else
+            {
+                TempData["SuccessMessage"] = "Đã khóa thẻ bãi đỗ xe thành công.";
+            }
+
+            return RedirectToAction(nameof(Details), new { id = targetId });
+        }
+
+        // POST: /Vehicle/ReplaceCard
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "SuperAdmin,BuildingManager,SystemAdmin,Manager")]
+        public async Task<IActionResult> ReplaceCard(int? vehicleId, int? id, string? newCardCode, string? cardCode)
+        {
+            var targetId = vehicleId ?? id ?? 0;
+            if (targetId <= 0) return NotFound();
+
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+            var codeToUse = newCardCode ?? cardCode ?? string.Empty;
+
+            var result = await _vehicleService.IssueOrReplaceCardAsync(targetId, codeToUse, currentUserId);
+            if (!result.Success)
+            {
+                TempData["ErrorMessage"] = result.ErrorMessage;
+            }
+            else
+            {
+                TempData["SuccessMessage"] = "Cấp đổi thẻ bãi đỗ xe thành công!";
+            }
+
+            return RedirectToAction(nameof(Details), new { id = targetId });
         }
     }
 }

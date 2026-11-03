@@ -50,9 +50,11 @@ builder.Services.AddScoped<IAccountManagementService, AccountManagementService>(
 builder.Services.AddScoped<IOccupancyService, OccupancyService>();
 builder.Services.AddScoped<IContractService, ContractService>();
 builder.Services.AddScoped<IBillingService, BillingService>();
+builder.Services.AddScoped<IFinancialReportService, FinancialReportService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<ISearchService, SearchService>();
 builder.Services.AddScoped<IRepairRequestService, RepairRequestService>();
+builder.Services.AddScoped<ITechnicalIncidentService, TechnicalIncidentService>();
 builder.Services.AddSingleton<IVietQrCodeGenerator, VietQrCodeGenerator>();
 builder.Services.Configure<VietQrOptions>(builder.Configuration.GetSection("Payments:VietQr"));
 

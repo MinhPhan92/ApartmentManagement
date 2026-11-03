@@ -1,0 +1,76 @@
+@model ApartmentManagement.ViewModels.TechnicalIncidentResolveViewModel
+@{
+    ViewData["Title"] = $"Báo cáo hoàn tất sự cố {Model.IncidentCode}";
+}
+
+<div class="container py-4" style="max-width: 750px;">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a asp-action="Index">Sự cố kỹ thuật</a></li>
+            <li class="breadcrumb-item"><a asp-action="Details" asp-route-id="@Model.TechnicalIncidentId">@Model.IncidentCode</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Báo cáo xử lý</li>
+        </ol>
+    </nav>
+
+    <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-header bg-white border-0 pt-4 px-4 pb-0">
+            <h3 class="fw-bold mb-1">📋 Báo Cáo Kết Quả Xử Lý Sự Cố</h3>
+            <p class="text-muted small mb-0">Kỹ thuật viên ghi nhận nguyên nhân, nội dung đã khắc phục và vật tư tiêu hao.</p>
+        </div>
+        <div class="card-body p-4">
+            <!-- Incident Summary Box -->
+            <div class="p-3 bg-light rounded-3 mb-4">
+                <div class="row g-2">
+                    <div class="col-sm-6">
+                        <small class="text-muted d-block">Mã sự cố:</small>
+                        <strong class="text-primary font-monospace">@Model.IncidentCode</strong>
+                    </div>
+                    <div class="col-12 mt-2">
+                        <small class="text-muted d-block">Tiêu đề & Vị trí:</small>
+                        <strong>@Model.Title</strong>
+                        <div class="small text-muted"><i class="bi bi-geo-alt"></i> @Model.BuildingName — @Model.Location</div>
+                    </div>
+                </div>
+            </div>
+
+            <form asp-action="Resolve" method="post">
+                <div asp-validation-summary="ModelOnly" class="alert alert-danger rounded-3" role="alert"></div>
+                <input type="hidden" asp-for="TechnicalIncidentId" />
+                <input type="hidden" asp-for="RowVersionBase64" />
+
+                <div class="mb-3">
+                    <label asp-for="ResolutionNotes" class="form-label fw-semibold">Nội dung & Kết quả xử lý <span class="text-danger">*</span></label>
+                    <textarea asp-for="ResolutionNotes" rows="4" class="form-control rounded-3" placeholder="Mô tả nguyên nhân sự cố, các bước khắc phục kỹ thuật đã thực hiện và tình trạng hệ thống hiện tại sau khi xử lý..."></textarea>
+                    <span asp-validation-for="ResolutionNotes" class="text-danger small"></span>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="SpareParts" class="form-label fw-semibold">Vật tư / Linh kiện thay thế (nếu có)</label>
+                    <input asp-for="SpareParts" class="form-control rounded-3" placeholder="Ví dụ: Rơle nhiệt 25A (1 cái), Van bi đồng phi 27 (2 cái)..." />
+                    <span class="form-text small text-muted">Liệt kê danh mục vật tư đã thay thế để BQL đối soát kho.</span>
+                    <span asp-validation-for="SpareParts" class="text-danger small"></span>
+                </div>
+
+                <div class="mb-4">
+                    <label asp-for="MaterialCost" class="form-label fw-semibold">Chi phí vật tư phát sinh (VNĐ)</label>
+                    <input asp-for="MaterialCost" class="form-control rounded-3" type="number" step="1000" min="0" placeholder="0" />
+                    <span class="form-text small text-muted">Nhập tổng số tiền vật tư mua ngoài (nếu có).</span>
+                    <span asp-validation-for="MaterialCost" class="text-danger small"></span>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 pt-2 border-top">
+                    <a asp-action="Details" asp-route-id="@Model.TechnicalIncidentId" class="btn btn-outline-secondary rounded-3 px-4">Hủy bỏ</a>
+                    <button type="submit" class="btn btn-success fw-semibold rounded-3 px-4">
+                        <i class="bi bi-check2-circle me-1"></i> Báo cáo hoàn tất
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}
+

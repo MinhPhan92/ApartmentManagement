@@ -1,0 +1,78 @@
+@model ApartmentManagement.ViewModels.TechnicalIncidentCreateViewModel
+@{
+    ViewData["Title"] = "Báo Cáo Sự Cố Kỹ Thuật (UC47)";
+}
+
+<div class="container py-4" style="max-width: 800px;">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a asp-action="Index">Sự cố kỹ thuật</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Báo cáo sự cố mới</li>
+        </ol>
+    </nav>
+
+    <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-header bg-white border-0 pt-4 px-4 pb-0">
+            <h3 class="fw-bold mb-1">🛠️ Báo Cáo Sự Cố Kỹ Thuật (UC47)</h3>
+            <p class="text-muted small mb-0">Dành cho kỹ thuật viên ghi nhận sự cố hạ tầng, thiết bị trong quá trình tuần tra và kiểm tra định kỳ.</p>
+        </div>
+        <div class="card-body p-4">
+            <form asp-action="Create" method="post">
+                <div asp-validation-summary="ModelOnly" class="alert alert-danger rounded-3" role="alert"></div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label asp-for="BuildingId" class="form-label fw-semibold">Tòa nhà <span class="text-danger">*</span></label>
+                        <select asp-for="BuildingId" asp-items="Model.BuildingOptions" class="form-select rounded-3">
+                            <option value="">-- Chọn tòa nhà --</option>
+                        </select>
+                        <span asp-validation-for="BuildingId" class="text-danger small"></span>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label asp-for="Category" class="form-label fw-semibold">Loại sự cố <span class="text-danger">*</span></label>
+                        <select asp-for="Category" asp-items="Model.CategoryOptions" class="form-select rounded-3"></select>
+                        <span asp-validation-for="Category" class="text-danger small"></span>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="Location" class="form-label fw-semibold">Vị trí cụ thể <span class="text-danger">*</span></label>
+                    <input asp-for="Location" class="form-control rounded-3" placeholder="Ví dụ: Tầng hầm B1 - Cụm bơm cấp nước sinh hoạt, Thang máy số 2 tháp A..." />
+                    <span asp-validation-for="Location" class="text-danger small"></span>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="Title" class="form-label fw-semibold">Tiêu đề sự cố <span class="text-danger">*</span></label>
+                    <input asp-for="Title" class="form-control rounded-3" placeholder="Tóm tắt ngắn gọn vấn đề kỹ thuật phát hiện..." />
+                    <span asp-validation-for="Title" class="text-danger small"></span>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="Priority" class="form-label fw-semibold">Mức độ ưu tiên <span class="text-danger">*</span></label>
+                    <select asp-for="Priority" asp-items="Model.PriorityOptions" class="form-select rounded-3"></select>
+                    <span asp-validation-for="Priority" class="text-danger small"></span>
+                </div>
+
+                <div class="mb-4">
+                    <label asp-for="Description" class="form-label fw-semibold">Mô tả chi tiết tình trạng sự cố <span class="text-danger">*</span></label>
+                    <textarea asp-for="Description" rows="5" class="form-control rounded-3" placeholder="Mô tả hiện tượng, triệu chứng hỏng hóc, nguy cơ tiềm ẩn và đề xuất phương án xử lý sơ bộ..."></textarea>
+                    <span asp-validation-for="Description" class="text-danger small"></span>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 pt-2 border-top">
+                    <a asp-action="Index" class="btn btn-outline-secondary rounded-3 px-4">Hủy bỏ</a>
+                    <button type="submit" class="btn btn-warning text-dark fw-semibold rounded-3 px-4">
+                        <i class="bi bi-send-fill me-1"></i> Gửi báo cáo sự cố
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}
+

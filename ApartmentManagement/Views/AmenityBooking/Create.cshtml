@@ -1,0 +1,213 @@
+@model ApartmentManagement.ViewModels.AmenityBookingCreateViewModel
+@{
+    ViewData["Title"] = "Đăng Ký Đặt Chỗ: " + Model.AmenityName;
+}
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-8">
+            <!-- Navigation Back -->
+            <div class="mb-3">
+                <a asp-action="Index" class="btn btn-outline-secondary btn-sm rounded-pill px-3 d-inline-flex align-items-center gap-1">
+                    <i class="bi bi-arrow-left"></i> Quay lại danh sách tiện ích
+                </a>
+            </div>
+
+            <!-- Main Booking Card -->
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+                <div class="card-header bg-primary text-white py-3 px-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h3 class="h5 fw-bold mb-0 d-flex align-items-center gap-2">
+                            <i class="bi bi-calendar-check-fill"></i> Đăng ký sử dụng: @Model.AmenityName
+                        </h3>
+                        <span class="badge bg-light text-primary rounded-pill px-3 py-1">
+                            Sức chứa: @Model.Capacity người
+                        </span>
+                    </div>
+                </div>
+
+                <div class="card-body p-4">
+                    <!-- Facility Summary Info -->
+                    <div class="p-3 bg-light rounded-3 mb-4 small">
+                        <div class="row g-2">
+                            <div class="col-md-4">
+                                <span class="text-muted d-block">Vị trí:</span>
+                                <strong>@(string.IsNullOrWhiteSpace(Model.Location) ? "Khuôn viên chung" : Model.Location)</strong>
+                            </div>
+                            <div class="col-md-4">
+                                <span class="text-muted d-block">Khung giờ hoạt động:</span>
+                                <strong>@Model.OpenTime.ToString(@"hh\:mm") - @Model.CloseTime.ToString(@"hh\:mm")</strong>
+                            </div>
+                            <div class="col-md-4">
+                                <span class="text-muted d-block">Đơn giá:</span>
+                                <strong class="text-success">@(Model.PricePerHour > 0 ? $"{Model.PricePerHour:N0} đ/giờ" : "Miễn phí")</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <form asp-action="Create" method="post" id="bookingForm">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" asp-for="AmenityId" />
+                        <input type="hidden" asp-for="Capacity" id="maxCapacity" />
+                        <input type="hidden" asp-for="PricePerHour" id="pricePerHour" />
+
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger rounded-3 small mb-4" role="alert"></div>
+
+                        <div class="row g-3 mb-3">
+                            <!-- Booking Date -->
+                            <div class="col-md-12">
+                                <label asp-for="BookingDate" class="form-label fw-semibold small text-muted"></label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white"><i class="bi bi-calendar-event"></i></span>
+                                    <input asp-for="BookingDate" type="date" class="form-control" id="bookingDateInput" min="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                                </div>
+                                <span asp-validation-for="BookingDate" class="text-danger small"></span>
+                            </div>
+
+                            <!-- Start Time -->
+                            <div class="col-md-6">
+                                <label asp-for="StartTime" class="form-label fw-semibold small text-muted"></label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white"><i class="bi bi-clock"></i></span>
+                                    <input asp-for="StartTime" type="time" class="form-control" id="startTimeInput" />
+                                </div>
+                                <span asp-validation-for="StartTime" class="text-danger small"></span>
+                            </div>
+
+                            <!-- End Time -->
+                            <div class="col-md-6">
+                                <label asp-for="EndTime" class="form-label fw-semibold small text-muted"></label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white"><i class="bi bi-clock-history"></i></span>
+                                    <input asp-for="EndTime" type="time" class="form-control" id="endTimeInput" />
+                                </div>
+                                <span asp-validation-for="EndTime" class="text-danger small"></span>
+                            </div>
+
+                            <!-- Number of Guests -->
+                            <div class="col-md-12">
+                                <label asp-for="NumberOfGuests" class="form-label fw-semibold small text-muted"></label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white"><i class="bi bi-people"></i></span>
+                                    <input asp-for="NumberOfGuests" type="number" min="1" max="@Model.Capacity" class="form-control" id="guestsInput" />
+                                </div>
+                                <small class="text-muted">Tối đa không quá @Model.Capacity người tham gia cùng lúc.</small>
+                                <span asp-validation-for="NumberOfGuests" class="text-danger small d-block"></span>
+                            </div>
+
+                            <!-- Notes -->
+                            <div class="col-md-12">
+                                <label asp-for="Notes" class="form-label fw-semibold small text-muted"></label>
+                                <textarea asp-for="Notes" class="form-control rounded-3" rows="3" placeholder="Nhập ghi chú hoặc yêu cầu bàn giao dụng cụ nếu có..."></textarea>
+                                <span asp-validation-for="Notes" class="text-danger small"></span>
+                            </div>
+                        </div>
+
+                        <!-- Live Cost Preview Card -->
+                        <div class="card border-0 bg-light-subtle border-start border-4 border-info rounded-3 p-3 mb-4 shadow-sm">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span class="text-muted small d-block">Tổng thời gian dự kiến:</span>
+                                    <strong id="durationPreview">-- giờ</strong>
+                                </div>
+                                <div class="text-end">
+                                    <span class="text-muted small d-block">Phí dịch vụ tạm tính:</span>
+                                    <strong class="fs-5 text-success" id="costPreview">0 đ</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center pt-2">
+                            <a asp-action="Index" class="btn btn-outline-secondary rounded-3 px-4">Hủy bỏ</a>
+                            <button type="submit" class="btn btn-primary rounded-3 px-4 py-2 fw-semibold shadow-sm d-inline-flex align-items-center gap-2">
+                                <i class="bi bi-send-check"></i> Xác nhận gửi yêu cầu đặt chỗ
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Occupied Slots Display Card -->
+            <div class="card border-0 shadow-sm rounded-4 p-4">
+                <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                    <i class="bi bi-info-circle text-primary"></i> Khung giờ đã có người đăng ký trong ngày:
+                </h5>
+                <div id="occupiedSlotsList" class="small text-muted">
+                    <em>Chọn ngày để kiểm tra các khung giờ đã có người đặt trước.</em>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const dateInput = document.getElementById('bookingDateInput');
+            const startInput = document.getElementById('startTimeInput');
+            const endInput = document.getElementById('endTimeInput');
+            const pricePerHour = parseFloat(document.getElementById('pricePerHour').value) || 0;
+            const durationPreview = document.getElementById('durationPreview');
+            const costPreview = document.getElementById('costPreview');
+            const slotsContainer = document.getElementById('occupiedSlotsList');
+            const amenityId = @Model.AmenityId;
+
+            function calculateCost() {
+                if (!startInput.value || !endInput.value) {
+                    durationPreview.textContent = '--';
+                    costPreview.textContent = '0 đ';
+                    return;
+                }
+                const [startH, startM] = startInput.value.split(':').map(Number);
+                const [endH, endM] = endInput.value.split(':').map(Number);
+                const totalMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+
+                if (totalMinutes > 0) {
+                    const hours = totalMinutes / 60;
+                    durationPreview.textContent = hours.toFixed(1) + ' giờ';
+                    const cost = Math.round(hours * pricePerHour);
+                    costPreview.textContent = cost.toLocaleString('vi-VN') + ' đ';
+                } else {
+                    durationPreview.textContent = 'Giờ không hợp lệ';
+                    costPreview.textContent = '0 đ';
+                }
+            }
+
+            function fetchOccupiedSlots() {
+                const dateVal = dateInput.value;
+                if (!dateVal) return;
+                slotsContainer.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang tải khung giờ...';
+
+                fetch(`/AmenityBooking/GetBookedSlots?amenityId=${amenityId}&date=${dateVal}`)
+                    .then(res => res.json())
+                    .then(slots => {
+                        if (!slots || slots.length === 0) {
+                            slotsContainer.innerHTML = '<div class="alert alert-success-subtle text-success py-2 px-3 rounded-3 mb-0"><i class="bi bi-check-circle"></i> Chưa có ai đặt lịch trong ngày này. Tất cả khung giờ đều sẵn sàng!</div>';
+                            return;
+                        }
+                        let html = '<ul class="list-group list-group-flush">';
+                        slots.forEach(s => {
+                            html += `<li class="list-group-item d-flex justify-content-between align-items-center px-0 py-2">
+                                <span><i class="bi bi-clock text-danger me-1"></i> Khung giờ: <strong>${s.startTime} - ${s.endTime}</strong> (${s.guests} người)</span>
+                                <span class="badge bg-warning-subtle text-warning border border-warning-subtle">${s.status}</span>
+                            </li>`;
+                        });
+                        html += '</ul>';
+                        slotsContainer.innerHTML = html;
+                    })
+                    .catch(() => {
+                        slotsContainer.innerHTML = '<span class="text-danger">Không thể kiểm tra khung giờ hiện tại.</span>';
+                    });
+            }
+
+            dateInput.addEventListener('change', fetchOccupiedSlots);
+            startInput.addEventListener('change', calculateCost);
+            endInput.addEventListener('change', calculateCost);
+
+            calculateCost();
+            fetchOccupiedSlots();
+        });
+    </script>
+}
+

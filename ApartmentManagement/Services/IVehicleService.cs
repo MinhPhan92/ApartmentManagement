@@ -13,8 +13,16 @@ namespace ApartmentManagement.Services
 
         Task<(bool Success, string? ErrorMessage)> CancelRegistrationAsync(int vehicleId);
 
-        Task<(bool Success, string? ErrorMessage)> ApproveVehicleAsync(int vehicleId, string? notes = null);
+        Task<VehicleReviewResult> ApproveVehicleAsync(int vehicleId, string? notes = null);
 
-        Task<(bool Success, string? ErrorMessage)> RejectVehicleAsync(int vehicleId, string reason);
+        Task<VehicleReviewResult> RejectVehicleAsync(int vehicleId, string reason);
+
+        Task<VehicleReviewResult> ApproveVehicleAsync(int vehicleId, string? cardCode, string? notes, string reviewerUserId);
+
+        Task<VehicleReviewResult> RejectVehicleAsync(int vehicleId, string reason, string reviewerUserId);
+
+        Task<VehicleReviewResult> IssueOrReplaceCardAsync(int vehicleId, string newCardCode, string reviewerUserId);
+
+        Task<VehicleReviewResult> ReportLostOrLockCardAsync(int vehicleId, string reason, string actorUserId);
     }
 }

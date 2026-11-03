@@ -13,6 +13,11 @@ namespace ApartmentManagement.ViewModels
         [Display(Name = "Danh mục phản ánh")]
         public string Category { get; set; } = "Vệ sinh";
 
+        [Required(ErrorMessage = "Vui lòng chọn mức độ ưu tiên.")]
+        [StringLength(30)]
+        [Display(Name = "Mức độ ưu tiên")]
+        public string Priority { get; set; } = "Bình thường";
+
         [Display(Name = "Căn hộ liên quan (Tùy chọn)")]
         public int? ApartmentId { get; set; }
 

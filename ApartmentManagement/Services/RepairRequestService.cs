@@ -303,7 +303,8 @@ public class RepairRequestService : IRepairRequestService
         string technicianUserId,
         string managerUserId,
         string? note,
-        byte[]? rowVersion = null)
+        byte[]? rowVersion = null,
+        DateTime? scheduledDate = null)
     {
         var request = await _context.RepairRequests
             .Include(r => r.Assignments)
@@ -339,13 +340,18 @@ public class RepairRequestService : IRepairRequestService
             activeAssignment.Note = (activeAssignment.Note + $" [Chuyển giao cho KTV {techUser.FullName}]").Trim();
         }
 
+        var scheduleText = scheduledDate.HasValue ? $" Hạn hoàn thành: {scheduledDate.Value:dd/MM/yyyy}." : string.Empty;
+        var assignmentNote = string.IsNullOrWhiteSpace(note)
+            ? (scheduledDate.HasValue ? $"Hạn hoàn thành: {scheduledDate.Value:dd/MM/yyyy}" : null)
+            : (note.Trim() + scheduleText);
+
         var newAssignment = new RepairAssignment
         {
             RepairRequestId = requestId,
             TechnicianUserId = technicianUserId,
             AssignedAt = DateTime.UtcNow,
             Status = RepairAssignmentStatus.Assigned,
-            Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim()
+            Note = assignmentNote
         };
 
         request.Assignments.Add(newAssignment);
@@ -359,7 +365,7 @@ public class RepairRequestService : IRepairRequestService
             NewStatus = RepairRequestStatus.Assigned,
             ChangedByUserId = managerUserId,
             ChangedAt = DateTime.UtcNow,
-            Note = $"Ban quản lý phân công cho KTV {techUser.FullName}. Ghi chú: {note ?? "Không có"}"
+            Note = $"Ban quản lý phân công cho KTV {techUser.FullName}.{scheduleText} Ghi chú: {note ?? "Không có"}"
         });
 
         SetOriginalRowVersion(request, rowVersion);
@@ -456,7 +462,9 @@ public class RepairRequestService : IRepairRequestService
         string technicianUserId,
         string result,
         string? note,
-        byte[]? rowVersion = null)
+        byte[]? rowVersion = null,
+        string? spareParts = null,
+        decimal? materialCost = null)
     {
         if (string.IsNullOrWhiteSpace(result))
             return Failure("Bắt buộc phải nhập kết quả xử lý trước khi gửi nghiệm thu.");
@@ -487,8 +495,28 @@ public class RepairRequestService : IRepairRequestService
 
         var prevStatus = request.Status;
         request.Status = RepairRequestStatus.PendingConfirmation;
-        request.Result = result.Trim();
+
+        var formattedResult = result.Trim();
+        if (!string.IsNullOrWhiteSpace(spareParts))
+        {
+            formattedResult += "\n[Vật tư/Linh kiện]: " + spareParts.Trim();
+        }
+        if (materialCost.HasValue && materialCost.Value > 0)
+        {
+            formattedResult += "\n[Chi phí phát sinh]: " + materialCost.Value.ToString("N0") + " VND";
+        }
+        request.Result = formattedResult;
         request.CompletedAt = DateTime.UtcNow;
+
+        var historyNote = $"Kỹ thuật viên hoàn tất công việc và gửi chờ cư dân nghiệm thu. Kết quả: {result.Trim()}";
+        if (!string.IsNullOrWhiteSpace(spareParts))
+        {
+            historyNote += $". Vật tư: {spareParts.Trim()}";
+        }
+        if (materialCost.HasValue && materialCost.Value > 0)
+        {
+            historyNote += $". Chi phí: {materialCost.Value:N0} VND";
+        }
 
         request.StatusHistory.Add(new RepairStatusHistory
         {
@@ -496,7 +524,7 @@ public class RepairRequestService : IRepairRequestService
             NewStatus = RepairRequestStatus.PendingConfirmation,
             ChangedByUserId = technicianUserId,
             ChangedAt = DateTime.UtcNow,
-            Note = $"Kỹ thuật viên hoàn tất công việc và gửi chờ cư dân nghiệm thu. Kết quả: {result.Trim()}"
+            Note = historyNote
         });
 
         SetOriginalRowVersion(request, rowVersion);

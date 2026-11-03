@@ -11,8 +11,14 @@ namespace ApartmentManagement.Services
 
         Task<(bool Success, string? ErrorMessage)> CreateComplaintAsync(ComplaintCreateViewModel model);
 
+        Task<(bool Success, string? ErrorMessage)> UpdateComplaintAsync(ComplaintEditViewModel model);
+
         Task<(bool Success, string? ErrorMessage)> CancelComplaintAsync(int complaintId);
 
         Task<(bool Success, string? ErrorMessage)> ProcessComplaintAsync(ComplaintProcessViewModel model);
+
+        Task<(bool Success, string? ErrorMessage)> RateComplaintAsync(int complaintId, int rating, string? feedback);
+
+        Task<(bool Success, int? RepairRequestId, string? ErrorMessage)> ConvertToRepairRequestAsync(int complaintId);
     }
 }

@@ -133,7 +133,8 @@ public class RepairQueueController : Controller
             model.TechnicianUserId,
             managerUserId,
             model.Note,
-            model.RowVersion);
+            model.RowVersion,
+            model.ScheduledDate);
 
         if (!result.Success)
         {
@@ -220,7 +221,9 @@ public class RepairQueueController : Controller
             technicianUserId,
             model.Result,
             model.Note,
-            model.RowVersion);
+            model.RowVersion,
+            model.SpareParts,
+            model.MaterialCost);
 
         if (!result.Success)
         {

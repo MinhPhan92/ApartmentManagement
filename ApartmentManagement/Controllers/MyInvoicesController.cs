@@ -48,10 +48,18 @@ public sealed class MyInvoicesController : Controller
         var invoice = await _billingService.GetResidentInvoiceAsync(userId, id);
         if (invoice == null) return NotFound();
 
+        var payment = await _paymentService.GetResidentPaymentForInvoiceAsync(userId, id);
+        if (payment == null && invoice.Status == ApartmentInvoiceStatus.Issued &&
+            _vietQrOptions.IsConfigured &&
+            invoice.TotalAmount is > 0 and <= VietQrCodeGenerator.MaximumVndAmount)
+        {
+            payment = await _paymentService.GetOrCreateResidentPaymentAsync(userId, id);
+        }
+
         return View(new ResidentInvoiceDetailsViewModel
         {
             Invoice = invoice,
-            Payment = await _paymentService.GetResidentPaymentForInvoiceAsync(userId, id),
+            Payment = payment,
             VietQrConfigured = _vietQrOptions.IsConfigured,
             VietQrAmountSupported = invoice.TotalAmount is > 0 and <= VietQrCodeGenerator.MaximumVndAmount
         });
