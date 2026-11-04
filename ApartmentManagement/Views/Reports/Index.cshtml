@@ -1,0 +1,429 @@
+@model ApartmentManagement.ViewModels.ReportsViewModel
+
+@{
+    ViewData["Title"] = "Báo Cáo & Thống Kê";
+    var report = Model.FinancialReport;
+}
+
+<div class="d-flex flex-column gap-4">
+    <!-- Header -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+        <div>
+            <h3 class="fw-bold text-dark mb-1">
+                <i class="bi bi-file-earmark-bar-graph text-primary me-2"></i>Trung Tâm Báo Cáo & Thống Kê
+            </h3>
+            <p class="text-muted small mb-0">Tổng hợp số liệu vận hành, doanh thu thu phí, công nợ và kỹ thuật</p>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <a asp-action="ExportCsv"
+               asp-route-buildingId="@Model.SelectedBuildingId"
+               asp-route-year="@Model.SelectedYear"
+               asp-route-month="@Model.SelectedMonth"
+               asp-route-searchTerm="@Model.SearchTerm"
+               class="btn btn-success">
+                <i class="bi bi-file-earmark-spreadsheet me-1"></i> Xuất Bảng Kê (CSV)
+            </a>
+        </div>
+    </div>
+
+    <!-- Filter Bar Card -->
+    <div class="card-enterprise">
+        <div class="card-enterprise-body p-3">
+            <form method="get" asp-action="Index" class="row g-2 align-items-end">
+                <div class="col-12 col-md-3">
+                    <label class="form-label small text-muted mb-1">Tòa nhà</label>
+                    <select name="buildingId" class="form-select form-select-sm">
+                        <option value="">-- Tất cả tòa nhà --</option>
+                        @foreach (var b in Model.Buildings)
+                        {
+                            <option value="@b.BuildingId" selected="@(Model.SelectedBuildingId == b.BuildingId)">@b.BuildingName (@b.BuildingCode)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small text-muted mb-1">Năm</label>
+                    <select name="year" class="form-select form-select-sm">
+                        <option value="">-- Tất cả --</option>
+                        @for (int y = DateTime.Today.Year + 1; y >= 2024; y--)
+                        {
+                            <option value="@y" selected="@(Model.SelectedYear == y)">Năm @y</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small text-muted mb-1">Tháng</label>
+                    <select name="month" class="form-select form-select-sm">
+                        <option value="">-- Tất cả --</option>
+                        @for (int m = 1; m <= 12; m++)
+                        {
+                            <option value="@m" selected="@(Model.SelectedMonth == m)">Tháng @m</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-12 col-md-3">
+                    <label class="form-label small text-muted mb-1">Tìm kiếm</label>
+                    <input type="text" name="searchTerm" value="@Model.SearchTerm" class="form-control form-control-sm" placeholder="Mã HĐ, căn hộ, cư dân..." />
+                </div>
+                <div class="col-12 col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-sm btn-brand-primary flex-grow-1">
+                        <i class="bi bi-funnel me-1"></i> Lọc
+                    </button>
+                    <a asp-action="Index" class="btn btn-sm btn-outline-secondary" title="Đặt lại">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <ul class="nav nav-pills gap-2 bg-light p-2 rounded-3" id="reportTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active fw-semibold" id="finance-tab" data-bs-toggle="tab" data-bs-target="#finance" type="button" role="tab">
+                <i class="bi bi-cash-stack me-1"></i> Thu Phí & Công Nợ
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link fw-semibold" id="repairs-tab" data-bs-toggle="tab" data-bs-target="#repairs" type="button" role="tab">
+                <i class="bi bi-tools me-1"></i> Sửa Chữa & Kỹ Thuật (@Model.TotalRepairs)
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link fw-semibold" id="vehicles-tab" data-bs-toggle="tab" data-bs-target="#vehicles" type="button" role="tab">
+                <i class="bi bi-car-front me-1"></i> Xe & Khách Thăm
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link fw-semibold" id="complaints-tab" data-bs-toggle="tab" data-bs-target="#complaints" type="button" role="tab">
+                <i class="bi bi-chat-left-dots me-1"></i> Ý Kiến & Phản Ánh (@Model.TotalComplaints)
+            </button>
+        </li>
+    </ul>
+
+    <!-- Tab Contents -->
+    <div class="tab-content" id="reportTabContent">
+        <!-- ========================================== -->
+        <!-- TAB 1: THU PHÍ & CÔNG NỢ                   -->
+        <!-- ========================================== -->
+        <div class="tab-pane fade show active" id="finance" role="tabpanel">
+            <div class="d-flex flex-column gap-3">
+                <!-- Summary KPI Cards -->
+                <div class="row g-3">
+                    <div class="col-12 col-sm-6 col-xl-3">
+                        <div class="metric-card">
+                            <div class="metric-label">Tổng Số Hóa Đơn</div>
+                            <div class="metric-value">@report.TotalInvoices</div>
+                            <div class="metric-subtext">Hóa đơn phát hành trong phạm vi lọc</div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-sm-6 col-xl-3">
+                        <div class="metric-card">
+                            <div class="metric-label">Tổng Tiền Phải Thu</div>
+                            <div class="metric-value text-dark">@report.GrandTotalAmount.ToString("N0") <span class="fs-6 fw-normal text-muted">đ</span></div>
+                            <div class="metric-subtext">Hợp chuẩn toàn bộ phí dịch vụ</div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-sm-6 col-xl-3">
+                        <div class="metric-card">
+                            <div class="metric-label">Doanh Thu Đã Thu</div>
+                            <div class="metric-value text-success">@report.GrandTotalPaidAmount.ToString("N0") <span class="fs-6 fw-normal text-muted">đ</span></div>
+                            <div class="metric-subtext">
+                                @if (report.GrandTotalAmount > 0)
+                                {
+                                    <span>Tỷ lệ thu hồi: @((report.GrandTotalPaidAmount * 100m / report.GrandTotalAmount).ToString("0.0"))%</span>
+                                }
+                                else
+                                {
+                                    <span>0.0%</span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-sm-6 col-xl-3">
+                        <div class="metric-card">
+                            <div class="metric-label">Tổng Công Nợ Còn Lại</div>
+                            <div class="metric-value text-danger">@report.GrandTotalOutstandingDebt.ToString("N0") <span class="fs-6 fw-normal text-muted">đ</span></div>
+                            <div class="metric-subtext">Cần đôn đốc thanh toán</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fee Breakdown Strip -->
+                <div class="card-enterprise">
+                    <div class="card-enterprise-body p-3">
+                        <div class="row text-center g-2 small">
+                            <div class="col-6 col-md">
+                                <span class="text-muted d-block">Phí quản lý</span>
+                                <strong class="text-dark">@report.TotalPureManagementFee.ToString("N0") đ</strong>
+                            </div>
+                            <div class="col-6 col-md border-start-md">
+                                <span class="text-muted d-block">Phí gửi xe</span>
+                                <strong class="text-dark">@report.TotalParkingFee.ToString("N0") đ</strong>
+                            </div>
+                            <div class="col-6 col-md border-start-md">
+                                <span class="text-muted d-block">Tiền điện</span>
+                                <strong class="text-dark">@report.TotalElectricityFee.ToString("N0") đ</strong>
+                            </div>
+                            <div class="col-6 col-md border-start-md">
+                                <span class="text-muted d-block">Tiền nước</span>
+                                <strong class="text-dark">@report.TotalWaterFee.ToString("N0") đ</strong>
+                            </div>
+                            <div class="col-6 col-md border-start-md">
+                                <span class="text-muted d-block">Khoản khác</span>
+                                <strong class="text-dark">@report.TotalOtherFee.ToString("N0") đ</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detailed Statement Table -->
+                <div class="card-enterprise">
+                    <div class="card-enterprise-header d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="fw-bold mb-0">Bảng Kê Chi Tiết Từng Hóa Đơn & Căn Hộ</h6>
+                            <span class="text-muted small">Dữ liệu nguồn theo chuẩn kế toán chung cư</span>
+                        </div>
+                        <span class="badge bg-light text-dark border">@report.Items.Count bản ghi</span>
+                    </div>
+                    <div class="card-enterprise-body p-0">
+                        @if (report.Items.Any())
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-hover table-sm align-middle mb-0 small">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>STT</th>
+                                            <th>Mã HĐ</th>
+                                            <th>Căn hộ</th>
+                                            <th>Tòa nhà</th>
+                                            <th>Cư dân đại diện</th>
+                                            <th class="text-end">Phải thu (đ)</th>
+                                            <th class="text-end">Đã thu (đ)</th>
+                                            <th class="text-end">Còn nợ (đ)</th>
+                                            <th class="text-center">Trạng thái</th>
+                                            <th>Hạn trả</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var item in report.Items)
+                                        {
+                                            <tr>
+                                                <td class="text-muted">@item.Stt</td>
+                                                <td class="font-monospace">@item.InvoiceCode</td>
+                                                <td class="fw-bold text-dark">@item.ApartmentCode</td>
+                                                <td>@item.BuildingName</td>
+                                                <td>@item.ResidentName</td>
+                                                <td class="text-end fw-semibold">@item.TotalAmount.ToString("N0")</td>
+                                                <td class="text-end text-success fw-bold">@item.PaidAmount.ToString("N0")</td>
+                                                <td class="text-end text-danger fw-bold">@item.OutstandingDebt.ToString("N0")</td>
+                                                <td class="text-center">
+                                                    @if (item.PaymentStatus == "Paid")
+                                                    {
+                                                        <span class="badge bg-success">Đã trả</span>
+                                                    }
+                                                    else if (item.PaymentStatus == "PartiallyPaid")
+                                                    {
+                                                        <span class="badge bg-warning text-dark">Trả 1 phần</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="badge bg-danger">Chưa trả</span>
+                                                    }
+                                                </td>
+                                                <td class="text-muted">@item.DueDate.ToString("dd/MM/yyyy")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                    <tfoot class="table-light fw-bold">
+                                        <tr>
+                                            <td colspan="5" class="text-end">TỔNG CỘNG:</td>
+                                            <td class="text-end">@report.GrandTotalAmount.ToString("N0")</td>
+                                            <td class="text-end text-success">@report.GrandTotalPaidAmount.ToString("N0")</td>
+                                            <td class="text-end text-danger">@report.GrandTotalOutstandingDebt.ToString("N0")</td>
+                                            <td colspan="2"></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-center py-5 text-muted">
+                                <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+                                <p class="mb-0">Không có hóa đơn nào phù hợp với bộ lọc đã chọn.</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- TAB 2: SỬA CHỮA & KỸ THUẬT                 -->
+        <!-- ========================================== -->
+        <div class="tab-pane fade" id="repairs" role="tabpanel">
+            <div class="row g-4">
+                <div class="col-12 col-md-6">
+                    <div class="card-enterprise h-100">
+                        <div class="card-enterprise-header">
+                            <h6 class="fw-bold mb-0">Phân Bố Theo Trạng Thái Sửa Chữa</h6>
+                        </div>
+                        <div class="card-enterprise-body p-3">
+                            <div class="d-flex flex-column gap-3">
+                                @foreach (var s in Model.RepairStatusDistribution)
+                                {
+                                    var percent = Model.TotalRepairs > 0 ? (s.Count * 100.0 / Model.TotalRepairs) : 0.0;
+                                    <div>
+                                        <div class="d-flex justify-content-between align-items-center mb-1 small">
+                                            <span class="fw-semibold">@s.Label</span>
+                                            <span><strong>@s.Count</strong> (@percent.ToString("0.0")%)</span>
+                                        </div>
+                                        <div class="progress" style="height: 8px;">
+                                            <div class="progress-bar @s.BadgeClass" role="progressbar" style="width: @percent.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)%;"></div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-12 col-md-6">
+                    <div class="card-enterprise h-100">
+                        <div class="card-enterprise-header">
+                            <h6 class="fw-bold mb-0">Phân Bố Theo Mức Độ Ưu Tiên</h6>
+                        </div>
+                        <div class="card-enterprise-body p-3">
+                            <div class="d-flex flex-column gap-3">
+                                @foreach (var p in Model.RepairPriorityDistribution)
+                                {
+                                    var percent = Model.TotalRepairs > 0 ? (p.Count * 100.0 / Model.TotalRepairs) : 0.0;
+                                    <div>
+                                        <div class="d-flex justify-content-between align-items-center mb-1 small">
+                                            <span class="fw-semibold">@p.Label</span>
+                                            <span><strong>@p.Count</strong> (@percent.ToString("0.0")%)</span>
+                                        </div>
+                                        <div class="progress" style="height: 8px;">
+                                            <div class="progress-bar @p.BadgeClass" role="progressbar" style="width: @percent.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)%;"></div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- TAB 3: XE & KHÁCH THĂM                     -->
+        <!-- ========================================== -->
+        <div class="tab-pane fade" id="vehicles" role="tabpanel">
+            <div class="row g-4">
+                <div class="col-12 col-md-6">
+                    <div class="card-enterprise h-100">
+                        <div class="card-enterprise-header d-flex justify-content-between align-items-center">
+                            <h6 class="fw-bold mb-0">Thống Kê Phương Tiện (@Model.TotalVehicles)</h6>
+                        </div>
+                        <div class="card-enterprise-body p-3">
+                            <h6 class="small text-muted fw-bold text-uppercase mb-2">Theo Loại Xe</h6>
+                            <div class="d-flex flex-wrap gap-2 mb-3">
+                                @foreach (var t in Model.VehicleTypeDistribution)
+                                {
+                                    <div class="p-2 border rounded-3 bg-light flex-fill text-center">
+                                        <span class="small text-muted d-block">@t.Label</span>
+                                        <strong class="fs-5 text-dark">@t.Count</strong>
+                                    </div>
+                                }
+                            </div>
+
+                            <h6 class="small text-muted fw-bold text-uppercase mb-2">Theo Trạng Thái Duyệt</h6>
+                            <div class="d-flex flex-wrap gap-2">
+                                @foreach (var s in Model.VehicleStatusDistribution)
+                                {
+                                    <div class="p-2 border rounded-3 bg-light flex-fill text-center">
+                                        <span class="small text-muted d-block">@s.Label</span>
+                                        <strong class="fs-5 text-dark">@s.Count</strong>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-12 col-md-6">
+                    <div class="card-enterprise h-100">
+                        <div class="card-enterprise-header d-flex justify-content-between align-items-center">
+                            <h6 class="fw-bold mb-0">Thống Kê Khách Đến Thăm</h6>
+                            <span class="badge bg-success">Hôm nay: @Model.TodayVisitors lượt</span>
+                        </div>
+                        <div class="card-enterprise-body p-3">
+                            <h6 class="small text-muted fw-bold text-uppercase mb-2">Phân Bố Lượt Khách (@Model.TotalVisitors tổng lượt)</h6>
+                            <div class="d-flex flex-wrap gap-2">
+                                @foreach (var vs in Model.VisitorStatusDistribution)
+                                {
+                                    <div class="p-2 border rounded-3 bg-light flex-fill text-center">
+                                        <span class="small text-muted d-block">@vs.Label</span>
+                                        <strong class="fs-5 text-dark">@vs.Count</strong>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- TAB 4: Ý KIẾN & PHẢN ÁNH                   -->
+        <!-- ========================================== -->
+        <div class="tab-pane fade" id="complaints" role="tabpanel">
+            <div class="row g-4">
+                <div class="col-12 col-md-6">
+                    <div class="card-enterprise h-100">
+                        <div class="card-enterprise-header">
+                            <h6 class="fw-bold mb-0">Tiến Độ Xử Lý Ý Kiến & Phản Ánh</h6>
+                        </div>
+                        <div class="card-enterprise-body p-3">
+                            <div class="d-flex flex-column gap-3">
+                                @foreach (var cs in Model.ComplaintStatusDistribution)
+                                {
+                                    var percent = Model.TotalComplaints > 0 ? (cs.Count * 100.0 / Model.TotalComplaints) : 0.0;
+                                    <div>
+                                        <div class="d-flex justify-content-between align-items-center mb-1 small">
+                                            <span class="fw-semibold">@cs.Label</span>
+                                            <span><strong>@cs.Count</strong> (@percent.ToString("0.0")%)</span>
+                                        </div>
+                                        <div class="progress" style="height: 8px;">
+                                            <div class="progress-bar @cs.BadgeClass" role="progressbar" style="width: @percent.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)%;"></div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-12 col-md-6">
+                    <div class="card-enterprise h-100">
+                        <div class="card-enterprise-header">
+                            <h6 class="fw-bold mb-0">Phân Loại Theo Danh Mục</h6>
+                        </div>
+                        <div class="card-enterprise-body p-3">
+                            <div class="d-flex flex-wrap gap-2">
+                                @foreach (var cat in Model.ComplaintCategoryDistribution)
+                                {
+                                    <div class="p-3 border rounded-3 bg-light flex-fill text-center" style="min-width: 120px;">
+                                        <span class="small text-muted d-block text-truncate">@cat.Label</span>
+                                        <strong class="fs-4 text-dark">@cat.Count</strong>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+

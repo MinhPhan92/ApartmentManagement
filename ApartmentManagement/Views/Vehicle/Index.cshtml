@@ -64,6 +64,7 @@
                         <option value="Đã duyệt" selected="@(selectedStatus == "Đã duyệt")">✅ Đã duyệt</option>
                         <option value="Từ chối" selected="@(selectedStatus == "Từ chối")">❌ Từ chối</option>
                         <option value="Đã hủy" selected="@(selectedStatus == "Đã hủy")">⚪ Đã hủy</option>
+                        <option value="Ngừng sử dụng" selected="@(selectedStatus == "Ngừng sử dụng")">⛔ Ngừng sử dụng</option>
                     </select>
                 </div>
                 <div class="col-12 col-md-2 col-lg-4 d-flex align-items-end gap-2">
@@ -159,6 +160,11 @@
                                         case "Đã hủy":
                                             <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 py-2">
                                                 ⚪ Đã hủy
+                                            </span>
+                                            break;
+                                        case "Ngừng sử dụng":
+                                            <span class="badge bg-secondary-subtle text-dark border border-secondary-subtle px-3 py-2">
+                                                ⛔ Ngừng sử dụng
                                             </span>
                                             break;
                                         default:

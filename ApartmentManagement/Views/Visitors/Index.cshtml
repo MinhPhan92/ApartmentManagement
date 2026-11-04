@@ -92,7 +92,11 @@
                                 <div class="fw-bold">@item.VisitorName</div>
                                 @if (!string.IsNullOrEmpty(item.IdCardNumber))
                                 {
-                                    <small class="text-muted">CCCD: @item.IdCardNumber</small>
+                                    <small class="text-muted d-block">CCCD: @item.IdCardNumber</small>
+                                }
+                                @if (!string.IsNullOrEmpty(item.Purpose))
+                                {
+                                    <small class="text-muted d-block fst-italic">Mục đích: @item.Purpose</small>
                                 }
                             </td>
                             <td>@(item.PhoneNumber ?? "-")</td>

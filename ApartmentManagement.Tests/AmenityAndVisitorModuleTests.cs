@@ -345,5 +345,147 @@ namespace ApartmentManagement.Tests
             Assert.False(updateSuccess);
             Assert.Contains("đã tồn tại trong hệ thống", updateError);
         }
+
+        [Fact]
+        public async Task Visitor_Register_RejectsApartmentNotBelongingToResident()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (_, apt, resident) = await SeedBuildingAndResidentAsync(context);
+
+            // Tạo một căn hộ khác mà resident không ở
+            var foreignApt = new Apartment
+            {
+                BuildingId = apt.BuildingId,
+                ApartmentCode = "X999",
+                Floor = 9,
+                Area = 70m
+            };
+            context.Apartments.Add(foreignApt);
+            await context.SaveChangesAsync();
+
+            var service = new VisitorService(context);
+
+            var (success, error) = await service.RegisterVisitorAsync(
+                resident.UserId,
+                foreignApt.ApartmentId,
+                "Khách Lạ",
+                "0912345678",
+                "001122334455",
+                DateTime.Today.AddDays(1),
+                "Thăm căn hộ khác");
+
+            Assert.False(success);
+            Assert.Contains("Căn hộ không hợp lệ hoặc bạn không cư trú tại căn hộ này", error);
+        }
+
+        [Fact]
+        public async Task Visitor_Register_RejectsPastArrivalDate()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (_, apt, resident) = await SeedBuildingAndResidentAsync(context);
+
+            var service = new VisitorService(context);
+
+            var (success, error) = await service.RegisterVisitorAsync(
+                resident.UserId,
+                apt.ApartmentId,
+                "Khách Quá Khứ",
+                "0912345678",
+                "001122334455",
+                DateTime.Today.AddDays(-2),
+                "Thăm quá khứ");
+
+            Assert.False(success);
+            Assert.Contains("Ngày đến dự kiến không được trong quá khứ", error);
+        }
+
+        [Fact]
+        public async Task Visitor_Cancel_ForeignResidentCannotCancel()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (_, apt, residentA) = await SeedBuildingAndResidentAsync(context);
+
+            var userB = new ApplicationUser
+            {
+                Id = "user-b",
+                UserName = "resident_b",
+                Email = "b@test.com",
+                FullName = "Trần Văn B"
+            };
+            context.Users.Add(userB);
+            var residentB = new Resident
+            {
+                UserId = userB.Id,
+                CitizenId = "009988776655"
+            };
+            context.Residents.Add(residentB);
+            await context.SaveChangesAsync();
+
+            var service = new VisitorService(context);
+
+            // Cư dân A đăng ký khách
+            await service.RegisterVisitorAsync(
+                residentA.UserId,
+                apt.ApartmentId,
+                "Khách Của A",
+                "0912345678",
+                null,
+                DateTime.Today,
+                "Thăm");
+
+            var passes = await service.GetResidentVisitorPassesAsync(residentA.UserId);
+            var passId = passes[0].VisitorPassId;
+
+            // Cư dân B cố gắng hủy pass của A -> Bị từ chối (Anti-IDOR)
+            var (cancelSuccess, cancelError) = await service.CancelVisitorPassAsync(userB.Id, passId, isManager: false);
+            Assert.False(cancelSuccess);
+            Assert.Contains("Bạn không có quyền hủy đăng ký của cư dân khác", cancelError);
+
+            // Cư dân A tự hủy pass của mình -> Thành công
+            var (ownCancelSuccess, _) = await service.CancelVisitorPassAsync(residentA.UserId, passId, isManager: false);
+            Assert.True(ownCancelSuccess);
+        }
+
+        [Fact]
+        public async Task Visitor_CheckIn_InvalidState_IsRejected()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (_, apt, resident) = await SeedBuildingAndResidentAsync(context);
+            var service = new VisitorService(context);
+
+            await service.RegisterVisitorAsync(resident.UserId, apt.ApartmentId, "Khách Test", "0987654321", null, DateTime.Today, "Thử nghiệm");
+            var pass = (await service.GetResidentVisitorPassesAsync(resident.UserId))[0];
+
+            // 1. Check-in lần đầu -> Thành công ("Đã vào")
+            var (in1, _) = await service.CheckInVisitorAsync(pass.VisitorPassId);
+            Assert.True(in1);
+
+            // 2. Cố tình Check-in lần hai khi đang "Đã vào" -> Bị từ chối
+            var (in2, err2) = await service.CheckInVisitorAsync(pass.VisitorPassId);
+            Assert.False(in2);
+            Assert.Contains("không thể Check-in", err2);
+
+            // 3. Sau khi Check-out -> Cố tình Check-in lại -> Bị từ chối
+            await service.CheckOutVisitorAsync(pass.VisitorPassId);
+            var (in3, err3) = await service.CheckInVisitorAsync(pass.VisitorPassId);
+            Assert.False(in3);
+            Assert.Contains("không thể Check-in", err3);
+        }
+
+        [Fact]
+        public async Task Visitor_CheckOut_InvalidState_IsRejected()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (_, apt, resident) = await SeedBuildingAndResidentAsync(context);
+            var service = new VisitorService(context);
+
+            await service.RegisterVisitorAsync(resident.UserId, apt.ApartmentId, "Khách Test Out", "0987654321", null, DateTime.Today, "Thử nghiệm");
+            var pass = (await service.GetResidentVisitorPassesAsync(resident.UserId))[0];
+
+            // Cố tình Check-out khi khách chưa Check-in (đang "Đã đăng ký") -> Bị từ chối
+            var (outBeforeIn, err) = await service.CheckOutVisitorAsync(pass.VisitorPassId);
+            Assert.False(outBeforeIn);
+            Assert.Contains("chỉ có thể Check-out khi khách đã vào", err);
+        }
     }
 }

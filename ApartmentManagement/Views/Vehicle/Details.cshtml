@@ -62,6 +62,9 @@
                             case "Đã hủy":
                                 <span class="badge bg-secondary px-3 py-2">⚪ Đã hủy</span>
                                 break;
+                            case "Ngừng sử dụng":
+                                <span class="badge bg-secondary text-white px-3 py-2">⛔ Ngừng sử dụng</span>
+                                break;
                             default:
                                 <span class="badge bg-light text-dark px-3 py-2">@Model.Status</span>
                                 break;
@@ -97,9 +100,33 @@
                         {
                             <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
                                 <span class="text-muted">Thẻ bãi đỗ xe (RFID):</span>
-                                <div>
+                                <div class="d-flex align-items-center gap-2">
                                     <span class="badge bg-primary font-monospace fs-6 px-3 py-1">💳 @Model.ParkingCard?.CardCode</span>
-                                    <span class="badge @(Model.ParkingCard.Status == "Active" ? "bg-success" : (Model.ParkingCard.Status == "Lost" ? "bg-danger" : "bg-secondary")) ms-1">@Model.ParkingCard?.Status</span>
+                                    <span class="badge @(Model.ParkingCard!.Status == "Active" ? "bg-success" : (Model.ParkingCard!.Status == "Lost" ? "bg-danger" : "bg-secondary"))">@Model.ParkingCard?.Status</span>
+                                    @if (Model.Status == "Đã duyệt" && Model.ParkingCard!.Status == "Active" && (isManagerOrAdmin || isOwnerResident))
+                                    {
+                                        <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-2 py-0" data-bs-toggle="modal" data-bs-target="#lockCardModal" title="Báo mất / Khóa thẻ">
+                                            🔒 Khóa thẻ
+                                        </button>
+                                    }
+                                    @if (Model.Status == "Đã duyệt" && (Model.ParkingCard!.Status == "Lost" || Model.ParkingCard!.Status == "Locked") && isManagerOrAdmin)
+                                    {
+                                        <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-2 py-0" data-bs-toggle="modal" data-bs-target="#replaceCardModal" title="Cấp đổi thẻ mới">
+                                            💳 Đổi thẻ
+                                        </button>
+                                    }
+                                </div>
+                            </li>
+                        }
+                        else if (Model.Status == "Đã duyệt" && isManagerOrAdmin)
+                        {
+                            <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                                <span class="text-muted">Thẻ bãi đỗ xe (RFID):</span>
+                                <div>
+                                    <span class="text-muted fst-italic me-2">Chưa cấp thẻ</span>
+                                    <button type="button" class="btn btn-sm btn-primary rounded-pill px-3 py-1" data-bs-toggle="modal" data-bs-target="#replaceCardModal">
+                                        💳 Cấp thẻ mới
+                                    </button>
                                 </div>
                             </li>
                         }
@@ -141,6 +168,17 @@
                             <a asp-action="Review" asp-route-id="@Model.VehicleId" class="btn btn-primary rounded-pill px-4">
                                 ⚖️ Xét duyệt phương tiện
                             </a>
+                        }
+                    
+
+                        @if (Model.Status == "Đã duyệt" && (isOwnerResident || isManagerOrAdmin))
+                        {
+                            <form asp-action="Decommission" asp-route-id="@Model.VehicleId" method="post" class="d-inline" onsubmit="return confirm('Bạn có chắc chắn muốn NGỪNG SỬ DỤNG phương tiện này? Thẻ bãi đỗ (nếu có) sẽ bị khóa.');">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn-outline-warning rounded-pill px-4">
+                                    ⛔ Ngừng sử dụng
+                                </button>
+                            </form>
                         }
                     </div>
                 </div>
@@ -243,7 +281,7 @@
 
 
 <!-- Modal Báo mất / Khóa thẻ -->
-@if (Model.Status == "Đã duyệt" && Model.ParkingCard != null && Model.ParkingCard.Status == "Active" && (isManagerOrAdmin || isOwnerResident))
+@if (Model.Status == "Đã duyệt" && Model.ParkingCard != null && Model.ParkingCard!.Status == "Active" && (isManagerOrAdmin || isOwnerResident))
 {
     <div class="modal fade" id="lockCardModal" tabindex="-1" aria-labelledby="lockCardModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
@@ -275,7 +313,7 @@
 }
 
 <!-- Modal Cấp đổi thẻ mới -->
-@if (Model.Status == "Đã duyệt" && (Model.ParkingCard == null || Model.ParkingCard.Status == "Lost" || Model.ParkingCard.Status == "Locked") && isManagerOrAdmin)
+@if (Model.Status == "Đã duyệt" && (Model.ParkingCard == null || Model.ParkingCard!.Status == "Lost" || Model.ParkingCard!.Status == "Locked") && isManagerOrAdmin)
 {
     <div class="modal fade" id="replaceCardModal" tabindex="-1" aria-labelledby="replaceCardModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">

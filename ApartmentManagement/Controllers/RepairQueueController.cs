@@ -160,9 +160,11 @@ public class RepairQueueController : Controller
         if (assignmentId <= 0) return NotFound();
 
         var technicianUserId = _currentUserService.UserId ?? string.Empty;
-        byte[]? rowVersion = !string.IsNullOrEmpty(rowVersionBase64)
-            ? Convert.FromBase64String(rowVersionBase64)
-            : null;
+        if (!TryDecodeRowVersion(rowVersionBase64, out var rowVersion))
+        {
+            TempData["ErrorMessage"] = "Phiên bản dữ liệu không hợp lệ. Vui lòng tải lại trang.";
+            return RedirectToAction(nameof(Index), new { tab = "my-tasks" });
+        }
 
         var result = await _repairService.StartProgressAsync(assignmentId, technicianUserId, note, rowVersion);
         if (!result.Success)
@@ -233,5 +235,25 @@ public class RepairQueueController : Controller
 
         TempData["SuccessMessage"] = "Đã hoàn thành công việc và gửi phiếu chờ cư dân nghiệm thu!";
         return RedirectToAction(nameof(Details), new { id = model.RepairRequestId });
+    }
+
+    private static bool TryDecodeRowVersion(string? token, out byte[]? rowVersion)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            rowVersion = null;
+            return true;
+        }
+
+        try
+        {
+            rowVersion = Convert.FromBase64String(token.Trim());
+            return true;
+        }
+        catch (FormatException)
+        {
+            rowVersion = null;
+            return false;
+        }
     }
 }

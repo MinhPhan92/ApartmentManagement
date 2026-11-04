@@ -1,0 +1,171 @@
+@model IEnumerable<ApartmentManagement.Models.Notification>
+@{
+    ViewData["Title"] = "Thông Báo Của Tôi";
+    var unreadOnly = ViewBag.UnreadOnly as bool?;
+    var unreadCount = (int)(ViewBag.UnreadCount ?? 0);
+    var currentPage = (int)(ViewBag.CurrentPage ?? 1);
+}
+
+<div class="container py-4">
+    <!-- Header -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <h2 class="fw-bold mb-1 d-flex align-items-center gap-2">
+                <i class="bi bi-bell-fill text-primary"></i> Thông Báo Của Tôi
+                @if (unreadCount > 0)
+                {
+                    <span class="badge bg-danger rounded-pill fs-6">@unreadCount chưa đọc</span>
+                }
+            </h2>
+            <p class="text-muted mb-0">Theo dõi thông báo hóa đơn, thanh toán, sửa chữa, phương tiện và khách đến thăm</p>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+            @if (unreadCount > 0)
+            {
+                <form asp-action="MarkAllAsRead" method="post" class="d-inline">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                    <button type="submit" class="btn btn-outline-primary rounded-pill px-3 shadow-sm">
+                        <i class="bi bi-check2-all me-1"></i> Đánh dấu tất cả đã đọc
+                    </button>
+                </form>
+            }
+        </div>
+    </div>
+
+    <!-- Alert Notifications -->
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm rounded-3 mb-4" role="alert">
+            <i class="bi bi-check-circle-fill me-2"></i> @TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm rounded-3 mb-4" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> @TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <!-- Filter Nav -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-2 d-flex gap-2">
+            <a asp-action="Index" class="btn rounded-pill px-4 @(unreadOnly != true ? "btn-primary" : "btn-light text-muted")">
+                Tất cả thông báo
+            </a>
+            <a asp-action="Index" asp-route-unreadOnly="true" class="btn rounded-pill px-4 @(unreadOnly == true ? "btn-primary" : "btn-light text-muted")">
+                Chưa đọc @(unreadCount > 0 ? $"({unreadCount})" : "")
+            </a>
+        </div>
+    </div>
+
+    <!-- Notifications List -->
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+        @if (!Model.Any())
+        {
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-bell-slash fs-1 d-block mb-3 text-secondary opacity-50"></i>
+                <h5 class="fw-semibold">Không có thông báo nào</h5>
+                <p class="small mb-0">@(unreadOnly == true ? "Bạn đã đọc hết tất cả các thông báo." : "Chưa có thông báo nào được gửi đến bạn.")</p>
+            </div>
+        }
+        else
+        {
+            <div class="list-group list-group-flush">
+                @foreach (var item in Model)
+                {
+                    var iconClass = item.Type switch
+                    {
+                        "Phí" => "bi-receipt text-danger bg-danger-subtle",
+                        "Thanh toán" => "bi-credit-card text-success bg-success-subtle",
+                        "Sửa chữa" => "bi-tools text-warning text-warning-emphasis bg-warning-subtle",
+                        "Phương tiện" => "bi-car-front text-info text-info-emphasis bg-info-subtle",
+                        "Khách" => "bi-person-check text-primary bg-primary-subtle",
+                        "Phản ánh" => "bi-chat-dots text-purple bg-purple-subtle",
+                        _ => "bi-info-circle text-primary bg-primary-subtle"
+                    };
+
+                    <div class="list-group-item p-3 p-md-4 border-bottom @(!item.IsRead ? "bg-primary-subtle bg-opacity-10" : "")">
+                        <div class="d-flex align-items-start gap-3">
+                            <!-- Icon -->
+                            <div class="rounded-circle d-flex align-items-center justify-content-center p-3 @iconClass" style="width: 44px; height: 44px; min-width: 44px;">
+                                <i class="bi @iconClass.Split(' ')[0] fs-5"></i>
+                            </div>
+
+                            <!-- Content -->
+                            <div class="flex-grow-1 min-w-0">
+                                <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                                    <span class="badge bg-light text-dark border">@item.Type</span>
+                                    @if (!item.IsRead)
+                                    {
+                                        <span class="badge bg-danger rounded-pill" style="font-size: 0.65rem;">Mới</span>
+                                    }
+                                    <small class="text-muted ms-auto">
+                                        <i class="bi bi-clock me-1"></i>@item.CreatedAtUtc.ToString("dd/MM/yyyy HH:mm")
+                                    </small>
+                                </div>
+
+                                <h6 class="fw-bold mb-1 @(!item.IsRead ? "text-dark" : "text-secondary")">
+                                    @item.Title
+                                </h6>
+                                <p class="text-secondary small mb-2 text-break">
+                                    @item.Content
+                                </p>
+
+                                <div class="d-flex flex-wrap align-items-center gap-2 pt-1">
+                                    @if (!string.IsNullOrWhiteSpace(item.TargetUrl))
+                                    {
+                                        <a asp-action="Details" asp-route-id="@item.NotificationId" class="btn btn-sm btn-primary rounded-pill px-3">
+                                            Xem chi tiết <i class="bi bi-arrow-right ms-1"></i>
+                                        </a>
+                                    }
+
+                                    @if (!item.IsRead)
+                                    {
+                                        <form asp-action="MarkAsRead" asp-route-id="@item.NotificationId" method="post" class="d-inline">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                                            <button type="submit" class="btn btn-sm btn-outline-secondary rounded-pill px-3">
+                                                <i class="bi bi-check2"></i> Đã đọc
+                                            </button>
+                                        </form>
+                                    }
+
+                                    <form asp-action="Delete" asp-route-id="@item.NotificationId" method="post" class="d-inline ms-auto" onsubmit="return confirm('Bạn có chắc muốn xóa thông báo này?');">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="btn btn-sm btn-link text-danger p-0 text-decoration-none" title="Xóa thông báo">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <!-- Pagination -->
+            <div class="card-footer bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                <span class="small text-muted">Trang @currentPage</span>
+                <div class="d-flex gap-2">
+                    @if (currentPage > 1)
+                    {
+                        <a asp-action="Index" asp-route-page="@(currentPage - 1)" asp-route-unreadOnly="@unreadOnly" class="btn btn-sm btn-outline-secondary rounded-pill px-3">
+                            ← Trang trước
+                        </a>
+                    }
+                    @if (Model.Count() == 15)
+                    {
+                        <a asp-action="Index" asp-route-page="@(currentPage + 1)" asp-route-unreadOnly="@unreadOnly" class="btn btn-sm btn-outline-secondary rounded-pill px-3">
+                            Trang sau →
+                        </a>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>
+

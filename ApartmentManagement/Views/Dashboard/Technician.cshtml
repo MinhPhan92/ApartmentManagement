@@ -1,0 +1,261 @@
+@model ApartmentManagement.ViewModels.TechnicianDashboardViewModel
+
+@{
+    ViewData["Title"] = "Không Gian Kỹ Thuật Viên";
+}
+
+<div class="d-flex flex-column gap-4">
+    <!-- Header Greeting & Status -->
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden" style="background: linear-gradient(135deg, #0d3b66 0%, #001e3d 100%);">
+        <div class="card-body p-4 text-white">
+            <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="bg-white bg-opacity-25 rounded-circle p-3 fs-2">
+                        🔧
+                    </div>
+                    <div>
+                        <h3 class="fw-bold mb-1">Xin chào, KTV @Model.UserFullName!</h3>
+                        <p class="mb-0 text-white-50">Bảng điều khiển kỹ thuật viên vận hành · Email: @Model.UserEmail</p>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <a asp-controller="RepairQueue" asp-action="Index" class="btn btn-warning text-dark fw-bold">
+                        <i class="bi bi-list-task me-1"></i> Xem Toàn Bộ Hàng Đợi
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 1. Task Metrics Overview Grid (4 Columns) -->
+    <div class="row g-3">
+        <!-- Metric 1: Assigned -->
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="metric-card h-100">
+                <div class="d-flex align-items-start justify-content-between mb-3">
+                    <div>
+                        <div class="metric-label">Công Việc Được Giao</div>
+                        <div class="metric-value text-info">@Model.AssignedCount</div>
+                    </div>
+                    <div class="metric-icon-box info">
+                        <i class="bi bi-inbox"></i>
+                    </div>
+                </div>
+                <div class="metric-subtext">
+                    <span>Mới phân công, cần tiếp nhận</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Metric 2: In Progress -->
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="metric-card h-100">
+                <div class="d-flex align-items-start justify-content-between mb-3">
+                    <div>
+                        <div class="metric-label">Đang Tiến Hành</div>
+                        <div class="metric-value text-primary">@Model.InProgressCount</div>
+                    </div>
+                    <div class="metric-icon-box">
+                        <i class="bi bi-gear-wide-connected"></i>
+                    </div>
+                </div>
+                <div class="metric-subtext">
+                    <span>Đang trực tiếp xử lý / sửa chữa</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Metric 3: Pending Confirmation -->
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="metric-card h-100">
+                <div class="d-flex align-items-start justify-content-between mb-3">
+                    <div>
+                        <div class="metric-label">Chờ Cư Dân Nghiệm Thu</div>
+                        <div class="metric-value text-warning">@Model.PendingConfirmationCount</div>
+                    </div>
+                    <div class="metric-icon-box warning">
+                        <i class="bi bi-hourglass-split"></i>
+                    </div>
+                </div>
+                <div class="metric-subtext">
+                    <span>Đã báo xong, chờ xác nhận</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Metric 4: Completed -->
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="metric-card h-100">
+                <div class="d-flex align-items-start justify-content-between mb-3">
+                    <div>
+                        <div class="metric-label">Đã Nghiệm Thu</div>
+                        <div class="metric-value text-success">@Model.CompletedCount</div>
+                    </div>
+                    <div class="metric-icon-box success">
+                        <i class="bi bi-check2-circle"></i>
+                    </div>
+                </div>
+                <div class="metric-subtext">
+                    <span>Tổng nhiệm vụ hoàn thành đạt chuẩn</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. Active Tasks Table -->
+    <div class="card-enterprise">
+        <div class="card-enterprise-header d-flex justify-content-between align-items-center">
+            <div>
+                <h5 class="fw-bold mb-1"><i class="bi bi-tools text-primary me-2"></i>Nhiệm Vụ Đang Phụ Trách</h5>
+                <p class="text-muted small mb-0">Các công việc cần tiếp nhận hoặc đang tiến hành sửa chữa</p>
+            </div>
+            <span class="badge bg-primary">@Model.ActiveTasks.Count nhiệm vụ</span>
+        </div>
+        <div class="card-enterprise-body p-0">
+            @if (Model.ActiveTasks.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light small">
+                            <tr>
+                                <th>Mức độ</th>
+                                <th>Tiêu đề sự cố</th>
+                                <th>Vị trí / Căn hộ</th>
+                                <th>Người yêu cầu</th>
+                                <th>Thời gian giao</th>
+                                <th>Trạng thái</th>
+                                <th class="text-end pe-3">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var task in Model.ActiveTasks)
+                            {
+                                var req = task.RepairRequest;
+                                <tr>
+                                    <td>
+                                        @if (req.Priority == ApartmentManagement.Models.RepairPriority.Urgent)
+                                        {
+                                            <span class="badge bg-danger">Khẩn cấp</span>
+                                        }
+                                        else if (req.Priority == ApartmentManagement.Models.RepairPriority.High)
+                                        {
+                                            <span class="badge bg-warning text-dark">Cao</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">Bình thường</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <div class="fw-bold text-dark">@req.Title</div>
+                                        <span class="text-muted small text-truncate d-inline-block" style="max-width: 250px;">@req.Description</span>
+                                    </td>
+                                    <td>
+                                        <span class="fw-semibold">Căn @(req.Apartment?.ApartmentCode ?? "N/A")</span>
+                                        <div class="text-muted small">@(req.Apartment?.Building?.BuildingName ?? "Tòa nhà") · Tầng @(req.Apartment?.Floor.ToString() ?? "-")</div>
+                                    </td>
+                                    <td>
+                                        <span class="small fw-medium">@(req.Resident?.User?.FullName ?? "Cư dân")</span>
+                                        <div class="text-muted small">CCCD: @(req.Resident?.CitizenId ?? "N/A")</div>
+                                    </td>
+                                    <td class="small text-muted">
+                                        @task.AssignedAt.ToString("dd/MM/yyyy HH:mm")
+                                    </td>
+                                    <td>
+                                        @if (req.Status == ApartmentManagement.Models.RepairRequestStatus.Assigned)
+                                        {
+                                            <span class="badge bg-info text-dark">Đã phân công</span>
+                                        }
+                                        else if (req.Status == ApartmentManagement.Models.RepairRequestStatus.InProgress)
+                                        {
+                                            <span class="badge bg-primary">Đang sửa chữa</span>
+                                        }
+                                        else if (req.Status == ApartmentManagement.Models.RepairRequestStatus.Reopened)
+                                        {
+                                            <span class="badge bg-danger">Yêu cầu làm lại</span>
+                                        }
+                                    </td>
+                                    <td class="text-end pe-3">
+                                        <a asp-controller="RepairQueue" asp-action="Details" asp-route-id="@req.RepairRequestId" class="btn btn-sm btn-brand-primary">
+                                            <span>Xử lý</span>
+                                            <i class="bi bi-arrow-right ms-1"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-5 text-muted">
+                    <i class="bi bi-clipboard-check fs-1 text-success d-block mb-2"></i>
+                    <p class="mb-0">Hiện tại bạn không có nhiệm vụ nào tồn đọng cần xử lý.</p>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- 3. Recently Completed Tasks -->
+    <div class="card-enterprise">
+        <div class="card-enterprise-header d-flex justify-content-between align-items-center">
+            <h6 class="fw-bold mb-0"><i class="bi bi-clock-history text-muted me-2"></i>Lịch Sử Hoàn Thành Gần Đây</h6>
+            <a asp-controller="RepairQueue" asp-action="Index" asp-route-tab="my-tasks" class="small text-decoration-none">Xem toàn bộ lịch sử</a>
+        </div>
+        <div class="card-enterprise-body p-0">
+            @if (Model.RecentCompletedTasks.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle mb-0 small">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Tiêu đề</th>
+                                <th>Căn hộ</th>
+                                <th>Trạng thái</th>
+                                <th>Kết quả / Đánh giá</th>
+                                <th class="text-end pe-3">Chi tiết</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var task in Model.RecentCompletedTasks)
+                            {
+                                var req = task.RepairRequest;
+                                <tr>
+                                    <td class="fw-semibold">@req.Title</td>
+                                    <td>Căn @(req.Apartment?.ApartmentCode ?? "N/A")</td>
+                                    <td>
+                                        <span class="badge @(req.Status == ApartmentManagement.Models.RepairRequestStatus.Completed ? "bg-success" : "bg-secondary")">
+                                            @req.Status
+                                        </span>
+                                    </td>
+                                    <td>
+                                        @if (req.Rating.HasValue)
+                                        {
+                                            <span class="text-warning">@(new string('★', req.Rating.Value))</span>
+                                            <span class="text-muted ms-1">(@req.Rating/5)</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">Chờ đánh giá</span>
+                                        }
+                                    </td>
+                                    <td class="text-end pe-3">
+                                        <a asp-controller="RepairQueue" asp-action="Details" asp-route-id="@req.RepairRequestId" class="btn btn-sm btn-brand-ghost">
+                                            <i class="bi bi-eye"></i> Xem
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <p class="text-muted small text-center my-3">Chưa có lịch sử công việc hoàn thành.</p>
+            }
+        </div>
+    </div>
+</div>
+

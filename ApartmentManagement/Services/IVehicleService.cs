@@ -24,5 +24,7 @@ namespace ApartmentManagement.Services
         Task<VehicleReviewResult> IssueOrReplaceCardAsync(int vehicleId, string newCardCode, string reviewerUserId);
 
         Task<VehicleReviewResult> ReportLostOrLockCardAsync(int vehicleId, string reason, string actorUserId);
+
+        Task<(bool Success, string? ErrorMessage)> DecommissionVehicleAsync(int vehicleId, string? notes = null);
     }
 }

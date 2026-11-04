@@ -63,6 +63,7 @@ namespace ApartmentManagement.Data
         public DbSet<RepairStatusHistory> RepairStatusHistories => Set<RepairStatusHistory>();
         public DbSet<TechnicalIncident> TechnicalIncidents => Set<TechnicalIncident>();
         public DbSet<TechnicalIncidentStatusHistory> TechnicalIncidentStatusHistories => Set<TechnicalIncidentStatusHistory>();
+        public DbSet<Notification> Notifications => Set<Notification>();
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -708,6 +709,25 @@ namespace ApartmentManagement.Data
                     .HasForeignKey(x => x.PreviousTechnicianUserId).OnDelete(DeleteBehavior.Restrict);
                 entity.HasOne(x => x.NewTechnicianUser).WithMany()
                     .HasForeignKey(x => x.NewTechnicianUserId).OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // NOTIFICATIONS
+            builder.Entity<Notification>(entity =>
+            {
+                entity.HasKey(x => x.NotificationId);
+                entity.Property(x => x.UserId).IsRequired().HasMaxLength(450);
+                entity.Property(x => x.Title).IsRequired().HasMaxLength(200);
+                entity.Property(x => x.Type).IsRequired().HasMaxLength(50);
+                entity.Property(x => x.TargetUrl).HasMaxLength(500);
+                entity.Property(x => x.CreatedAtUtc).HasColumnType("datetime2");
+                entity.Property(x => x.ReadAtUtc).HasColumnType("datetime2");
+
+                entity.HasIndex(x => new { x.UserId, x.IsRead, x.CreatedAtUtc });
+
+                entity.HasOne(x => x.User)
+                    .WithMany()
+                    .HasForeignKey(x => x.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
         }
     }

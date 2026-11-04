@@ -34,13 +34,16 @@ namespace ApartmentManagement.Services
 
         private readonly ApplicationDbContext _context;
         private readonly ICurrentUserService _currentUserService;
+        private readonly INotificationService? _notificationService;
 
         public ComplaintService(
             ApplicationDbContext context,
-            ICurrentUserService currentUserService)
+            ICurrentUserService currentUserService,
+            INotificationService? notificationService = null)
         {
             _context = context;
             _currentUserService = currentUserService;
+            _notificationService = notificationService;
         }
 
         private bool IsManagementUser()
@@ -437,7 +440,7 @@ namespace ApartmentManagement.Services
                 return (false, "Mức độ ưu tiên không hợp lệ.");
             }
 
-            var complaint = await _context.Complaints.FirstOrDefaultAsync(c => c.ComplaintId == model.ComplaintId);
+            var complaint = await _context.Complaints.Include(c => c.Resident).FirstOrDefaultAsync(c => c.ComplaintId == model.ComplaintId);
             if (complaint == null)
             {
                 return (false, "Không tìm thấy phản ánh.");
@@ -480,6 +483,15 @@ namespace ApartmentManagement.Services
             try
             {
                 await _context.SaveChangesAsync();
+                if (_notificationService != null && complaint.Resident?.UserId != null)
+                {
+                    _ = _notificationService.CreateNotificationAsync(
+                        complaint.Resident.UserId,
+                        $"Phản ánh #{complaint.ComplaintId} đã được cập nhật",
+                        $"Phản ánh của bạn đã chuyển sang trạng thái '{targetStatus}'. Phản hồi từ BQL: {responseNotes ?? "Không có"}",
+                        "Phản ánh",
+                        $"/Complaint/Details/{complaint.ComplaintId}");
+                }
                 return (true, null);
             }
             catch (DbUpdateException)

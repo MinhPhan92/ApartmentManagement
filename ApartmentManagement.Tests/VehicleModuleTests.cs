@@ -427,5 +427,107 @@ namespace ApartmentManagement.Tests
             var vehicles = await context.Vehicles.Where(v => v.LicensePlate == vA.LicensePlate).ToListAsync();
             Assert.Single(vehicles);
         }
+
+        // 15. Cư dân có thể chuyển phương tiện của mình sang trạng thái Ngừng sử dụng, và khóa thẻ bãi đỗ Active
+        [Fact]
+        public async Task Resident_CanDecommissionOwnApprovedVehicle_AndLocksParkingCard()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (_, _, vA, _) = await SeedDataAsync(context);
+
+            // Phê duyệt xe A và gán thẻ từ
+            vA.Status = "Đã duyệt";
+            var card = new ParkingCard
+            {
+                VehicleId = vA.VehicleId,
+                CardCode = "CARD-A-01",
+                Status = "Active",
+                IssuedAtUtc = DateTime.UtcNow
+            };
+            context.ParkingCards.Add(card);
+            await context.SaveChangesAsync();
+
+            var currentUserServiceMock = new Mock<ICurrentUserService>();
+            currentUserServiceMock.Setup(s => s.UserId).Returns("user-a");
+
+            var vehicleService = new VehicleService(context, currentUserServiceMock.Object);
+
+            var (success, error) = await vehicleService.DecommissionVehicleAsync(vA.VehicleId, "Cư dân bán xe");
+            Assert.True(success, error);
+
+            var updated = await context.Vehicles.Include(v => v.ParkingCard).FirstOrDefaultAsync(v => v.VehicleId == vA.VehicleId);
+            Assert.NotNull(updated);
+            Assert.Equal("Ngừng sử dụng", updated.Status);
+            Assert.Contains("Cư dân bán xe", updated.ReviewNotes);
+            Assert.NotNull(updated.ParkingCard);
+            Assert.Equal("Locked", updated.ParkingCard.Status);
+        }
+
+        // 16. Ban quản lý có thể ngừng sử dụng phương tiện của cư dân
+        [Fact]
+        public async Task Manager_CanDecommissionAnyApprovedVehicle()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (_, _, vA, _) = await SeedDataAsync(context);
+
+            vA.Status = "Đã duyệt";
+            await context.SaveChangesAsync();
+
+            var currentUserServiceMock = new Mock<ICurrentUserService>();
+            currentUserServiceMock.Setup(s => s.UserId).Returns("manager-id");
+            currentUserServiceMock.Setup(s => s.IsInRole("BuildingManager")).Returns(true);
+
+            var vehicleService = new VehicleService(context, currentUserServiceMock.Object);
+
+            var (success, error) = await vehicleService.DecommissionVehicleAsync(vA.VehicleId, "BQL chấm dứt gửi xe");
+            Assert.True(success, error);
+
+            var updated = await context.Vehicles.FindAsync(vA.VehicleId);
+            Assert.NotNull(updated);
+            Assert.Equal("Ngừng sử dụng", updated.Status);
+        }
+
+        // 17. Cư dân B không thể ngừng sử dụng phương tiện của cư dân A (Anti-IDOR)
+        [Fact]
+        public async Task ForeignResident_CannotDecommissionOtherResidentVehicle()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (_, _, vA, _) = await SeedDataAsync(context);
+
+            vA.Status = "Đã duyệt";
+            await context.SaveChangesAsync();
+
+            var currentUserServiceMock = new Mock<ICurrentUserService>();
+            currentUserServiceMock.Setup(s => s.UserId).Returns("user-b"); // Resident B
+
+            var vehicleService = new VehicleService(context, currentUserServiceMock.Object);
+
+            var (success, error) = await vehicleService.DecommissionVehicleAsync(vA.VehicleId);
+            Assert.False(success);
+            Assert.Contains("Bạn không có quyền thực hiện thao tác trên phương tiện này", error);
+
+            var vehicle = await context.Vehicles.FindAsync(vA.VehicleId);
+            Assert.Equal("Đã duyệt", vehicle!.Status);
+        }
+
+        // 18. Không thể ngừng sử dụng phương tiện nếu chưa ở trạng thái 'Đã duyệt'
+        [Fact]
+        public async Task CannotDecommissionVehicle_IfNotApproved()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (_, _, vA, _) = await SeedDataAsync(context);
+
+            // Xe A đang ở trạng thái 'Chờ duyệt'
+            Assert.Equal("Chờ duyệt", vA.Status);
+
+            var currentUserServiceMock = new Mock<ICurrentUserService>();
+            currentUserServiceMock.Setup(s => s.UserId).Returns("user-a");
+
+            var vehicleService = new VehicleService(context, currentUserServiceMock.Object);
+
+            var (success, error) = await vehicleService.DecommissionVehicleAsync(vA.VehicleId);
+            Assert.False(success);
+            Assert.Contains("Chỉ có thể ngừng sử dụng phương tiện đang hoạt động", error);
+        }
     }
 }

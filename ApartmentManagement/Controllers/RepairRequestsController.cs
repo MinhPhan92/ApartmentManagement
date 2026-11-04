@@ -134,9 +134,11 @@ public class RepairRequestsController : Controller
         var resident = await GetCurrentResidentAsync();
         if (resident == null) return NotFound();
 
-        byte[]? rowVersion = !string.IsNullOrEmpty(rowVersionBase64)
-            ? Convert.FromBase64String(rowVersionBase64)
-            : null;
+        if (!TryDecodeRowVersion(rowVersionBase64, out var rowVersion))
+        {
+            TempData["ErrorMessage"] = "Phiên bản dữ liệu không hợp lệ. Vui lòng tải lại trang.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
 
         var result = await _repairService.CancelRequestAsync(id, resident.ResidentId, reason, rowVersion);
         if (!result.Success)
@@ -160,9 +162,11 @@ public class RepairRequestsController : Controller
         var resident = await GetCurrentResidentAsync();
         if (resident == null) return NotFound();
 
-        byte[]? rowVersion = !string.IsNullOrEmpty(rowVersionBase64)
-            ? Convert.FromBase64String(rowVersionBase64)
-            : null;
+        if (!TryDecodeRowVersion(rowVersionBase64, out var rowVersion))
+        {
+            TempData["ErrorMessage"] = "Phiên bản dữ liệu không hợp lệ. Vui lòng tải lại trang.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
 
         var result = await _repairService.ConfirmCompletionAsync(id, resident.ResidentId, rating, feedback, rowVersion);
         if (!result.Success)
@@ -186,9 +190,11 @@ public class RepairRequestsController : Controller
         var resident = await GetCurrentResidentAsync();
         if (resident == null) return NotFound();
 
-        byte[]? rowVersion = !string.IsNullOrEmpty(rowVersionBase64)
-            ? Convert.FromBase64String(rowVersionBase64)
-            : null;
+        if (!TryDecodeRowVersion(rowVersionBase64, out var rowVersion))
+        {
+            TempData["ErrorMessage"] = "Phiên bản dữ liệu không hợp lệ. Vui lòng tải lại trang.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
 
         var result = await _repairService.RequestRedoAsync(id, resident.ResidentId, redoReason, rowVersion);
         if (!result.Success)
@@ -218,5 +224,25 @@ public class RepairRequestsController : Controller
             Value = a.ApartmentId.ToString(),
             Text = $"{a.ApartmentCode} - {(a.Building != null ? a.Building.BuildingName : string.Empty)}"
         });
+    }
+
+    private static bool TryDecodeRowVersion(string? token, out byte[]? rowVersion)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            rowVersion = null;
+            return true;
+        }
+
+        try
+        {
+            rowVersion = Convert.FromBase64String(token.Trim());
+            return true;
+        }
+        catch (FormatException)
+        {
+            rowVersion = null;
+            return false;
+        }
     }
 }

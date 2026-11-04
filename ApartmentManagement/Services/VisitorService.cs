@@ -7,10 +7,14 @@ namespace ApartmentManagement.Services;
 public class VisitorService : IVisitorService
 {
     private readonly ApplicationDbContext _context;
+    private readonly INotificationService? _notificationService;
 
-    public VisitorService(ApplicationDbContext context)
+    public VisitorService(
+        ApplicationDbContext context,
+        INotificationService? notificationService = null)
     {
         _context = context;
+        _notificationService = notificationService;
     }
 
     public Task<List<VisitorPass>> GetAllVisitorPassesAsync(DateTime? date = null, string? status = null)
@@ -83,7 +87,9 @@ public class VisitorService : IVisitorService
 
     public async Task<(bool Success, string? ErrorMessage)> CheckInVisitorAsync(int visitorPassId)
     {
-        var pass = await _context.VisitorPasses.FindAsync(visitorPassId);
+        var pass = await _context.VisitorPasses
+            .Include(x => x.Resident)
+            .FirstOrDefaultAsync(x => x.VisitorPassId == visitorPassId);
         if (pass == null) return (false, "Không tìm thấy thẻ khách.");
         if (pass.Status != "Đã đăng ký")
             return (false, $"Thẻ khách đang ở trạng thái '{pass.Status}', không thể Check-in.");
@@ -91,6 +97,17 @@ public class VisitorService : IVisitorService
         pass.Status = "Đã vào";
         pass.ActualCheckInUtc = DateTime.UtcNow;
         await _context.SaveChangesAsync();
+
+        if (_notificationService != null && pass.Resident?.UserId != null)
+        {
+            _ = _notificationService.CreateNotificationAsync(
+                pass.Resident.UserId,
+                "Khách đã đến tòa nhà",
+                $"Khách {pass.VisitorName} đã check-in vào tòa nhà lúc {DateTime.UtcNow:HH:mm}.",
+                "Khách",
+                "/Visitors");
+        }
+
         return (true, null);
     }
 
@@ -112,7 +129,7 @@ public class VisitorService : IVisitorService
         var pass = await _context.VisitorPasses.Include(x => x.Resident).FirstOrDefaultAsync(x => x.VisitorPassId == visitorPassId);
         if (pass == null) return (false, "Không tìm thấy thẻ khách.");
 
-        if (!isManager && pass.Resident.UserId != userId)
+        if (!isManager && (pass.Resident == null || pass.Resident.UserId != userId))
             return (false, "Bạn không có quyền hủy đăng ký của cư dân khác.");
 
         if (pass.Status != "Đã đăng ký")

@@ -1,10 +1,7 @@
-@model IEnumerable<ApartmentManagement.Models.Building>
+@model ApartmentManagement.ViewModels.ManagementDashboardViewModel
 
 @{
     ViewData["Title"] = "Bảng Điều Khiển Quản Lý";
-    var occupiedCount = (int)(ViewBag.OccupiedApartments ?? 0);
-    var totalApartments = (int)(ViewBag.TotalApartments ?? 0);
-    var occupancyRate = totalApartments > 0 ? (occupiedCount * 100.0 / totalApartments) : 0.0;
 }
 
 <div class="d-flex flex-column gap-4">
@@ -13,37 +10,37 @@
         <div>
             <div class="d-flex align-items-center gap-2 mb-1">
                 <h3 class="fw-bold text-dark mb-0">Bảng Điều Khiển Quản Trị</h3>
-                <span class="badge-brand">@ViewBag.UserRole</span>
+                <span class="badge-brand">@Model.UserRole</span>
             </div>
             <p class="text-muted mb-0 small">
-                Chào mừng trở lại, <span class="fw-semibold text-dark">@ViewBag.UserFullName</span> · Hệ thống giám sát vận hành thời gian thực
+                Chào mừng trở lại, <span class="fw-semibold text-dark">@Model.UserFullName</span> · Giám sát vận hành & tài chính thời gian thực
             </p>
         </div>
         <div class="d-flex flex-wrap align-items-center gap-2">
-            <a asp-controller="Buildings" asp-action="Create" class="btn btn-brand-primary">
-                <i class="bi bi-plus-lg"></i>
-                <span>Thêm Tòa Nhà</span>
+            <a asp-controller="Reports" asp-action="Index" class="btn btn-brand-primary">
+                <i class="bi bi-file-earmark-bar-graph"></i>
+                <span>Xem Báo Cáo & Thống Kê</span>
             </a>
-            <a asp-controller="Apartments" asp-action="Index" class="btn btn-brand-outline">
-                <i class="bi bi-door-open"></i>
-                <span>Quản Lý Căn Hộ</span>
+            <a asp-controller="Billing" asp-action="Index" class="btn btn-brand-outline">
+                <i class="bi bi-receipt"></i>
+                <span>Quản Lý Thu Phí</span>
             </a>
-            <a asp-controller="Occupancies" asp-action="Create" class="btn btn-brand-ghost">
-                <i class="bi bi-person-plus"></i>
-                <span>Gán Cư Dân</span>
+            <a asp-controller="RepairQueue" asp-action="Index" class="btn btn-brand-ghost">
+                <i class="bi bi-tools"></i>
+                <span>Hàng Đợi Sửa Chữa</span>
             </a>
         </div>
     </div>
 
-    <!-- 1. Primary Metrics Overview Grid (4 Columns) -->
+    <!-- 1. Primary Metrics Overview Grid: Buildings, Apartments, Residents, Occupancy -->
     <div class="row g-3">
         <!-- Metric 1: Total Buildings -->
         <div class="col-12 col-sm-6 col-xl-3">
-            <div class="metric-card">
+            <div class="metric-card h-100">
                 <div class="d-flex align-items-start justify-content-between mb-3">
                     <div>
                         <div class="metric-label">Tổng Tòa Nhà</div>
-                        <div class="metric-value">@ViewBag.TotalBuildings</div>
+                        <div class="metric-value">@Model.TotalBuildings</div>
                     </div>
                     <div class="metric-icon-box">
                         <i class="bi bi-buildings"></i>
@@ -51,37 +48,37 @@
                 </div>
                 <div class="metric-subtext d-flex align-items-center gap-1">
                     <i class="bi bi-check-circle-fill text-success"></i>
-                    <span>Đang quản lý trong hệ thống</span>
+                    <span>Đang vận hành trong hệ thống</span>
                 </div>
             </div>
         </div>
 
-        <!-- Metric 2: Total Apartments -->
+        <!-- Metric 2: Total Apartments & Occupancy -->
         <div class="col-12 col-sm-6 col-xl-3">
-            <div class="metric-card">
+            <div class="metric-card h-100">
                 <div class="d-flex align-items-start justify-content-between mb-3">
                     <div>
                         <div class="metric-label">Tổng Căn Hộ</div>
-                        <div class="metric-value">@ViewBag.TotalApartments</div>
+                        <div class="metric-value">@Model.TotalApartments</div>
                     </div>
                     <div class="metric-icon-box success">
                         <i class="bi bi-door-open"></i>
                     </div>
                 </div>
                 <div class="metric-subtext">
-                    <span class="text-success fw-semibold">@ViewBag.OccupiedApartments có người ở</span> ·
-                    <span class="text-muted">@ViewBag.VacantApartments còn trống</span>
+                    <span class="text-success fw-semibold">@Model.OccupiedApartments đang ở</span> ·
+                    <span class="text-muted">@Model.VacantApartments còn trống</span>
                 </div>
             </div>
         </div>
 
         <!-- Metric 3: Total Residents -->
         <div class="col-12 col-sm-6 col-xl-3">
-            <div class="metric-card">
+            <div class="metric-card h-100">
                 <div class="d-flex align-items-start justify-content-between mb-3">
                     <div>
-                        <div class="metric-label">Cư Dân Đăng Ký</div>
-                        <div class="metric-value">@ViewBag.TotalResidents</div>
+                        <div class="metric-label">Cư Dân Đang Cư Trú</div>
+                        <div class="metric-value">@Model.TotalResidents</div>
                     </div>
                     <div class="metric-icon-box info">
                         <i class="bi bi-people"></i>
@@ -95,45 +92,140 @@
 
         <!-- Metric 4: Occupancy Rate -->
         <div class="col-12 col-sm-6 col-xl-3">
-            <div class="metric-card">
+            <div class="metric-card h-100">
                 <div class="d-flex align-items-start justify-content-between mb-3">
                     <div>
                         <div class="metric-label">Tỷ Lệ Lấp Đầy</div>
-                        <div class="metric-value">@occupancyRate.ToString("0.0")%</div>
+                        <div class="metric-value">@Model.OccupancyRate.ToString("0.0")%</div>
                     </div>
                     <div class="metric-icon-box">
                         <i class="bi bi-pie-chart"></i>
                     </div>
                 </div>
                 <div class="d-flex align-items-center gap-2">
-                    <div class="progress flex-grow-1" style="height: 6px; background-color: var(--primary-tint);">
-                        <div class="progress-bar" role="progressbar" style="width: @occupancyRate.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)%; background-color: var(--primary);" aria-valuenow="@occupancyRate" aria-valuemin="0" aria-valuemax="100"></div>
+                    <div class="progress flex-grow-1" style="height: 6px; background-color: var(--primary-tint, #e2e8f0);">
+                        <div class="progress-bar bg-success" role="progressbar" style="width: @Model.OccupancyRate.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)%;" aria-valuenow="@Model.OccupancyRate" aria-valuemin="0" aria-valuemax="100"></div>
                     </div>
-                    <span class="small fw-semibold text-muted">Ổn định</span>
+                    <span class="small fw-semibold text-muted">@Model.OccupiedApartments/@Model.TotalApartments</span>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 2. Operational Priority / Action Alerts (4 Columns) -->
+    <!-- 2. Financial & Revenue Performance Card (4 Columns) -->
+    <div class="card-enterprise">
+        <div class="card-enterprise-header d-flex justify-content-between align-items-center">
+            <div>
+                <h5 class="fw-bold mb-1"><i class="bi bi-cash-stack text-success me-2"></i>Tổng Quan Tài Chính & Thu Phí</h5>
+                <p class="text-muted small mb-0">Thống kê hóa đơn đã phát hành và thanh toán đã xác nhận</p>
+            </div>
+            <a asp-controller="Reports" asp-action="Index" class="btn btn-sm btn-brand-ghost">
+                <span>Bảng kê chi tiết</span>
+                <i class="bi bi-arrow-right"></i>
+            </a>
+        </div>
+        <div class="card-enterprise-body p-4">
+            <div class="row g-3 mb-4">
+                <div class="col-12 col-sm-6 col-xl-3">
+                    <div class="p-3 border rounded-3 bg-light">
+                        <span class="text-muted small fw-semibold d-block mb-1">Tổng Tiền Phải Thu</span>
+                        <h4 class="fw-bold text-dark mb-1">@Model.TotalBilledAmount.ToString("N0") <span class="fs-6 text-muted fw-normal">VND</span></h4>
+                        <span class="small text-muted">@Model.TotalIssuedInvoices hóa đơn phát hành</span>
+                    </div>
+                </div>
+                <div class="col-12 col-sm-6 col-xl-3">
+                    <div class="p-3 border rounded-3 bg-light">
+                        <span class="text-muted small fw-semibold d-block mb-1">Doanh Thu Đã Thu</span>
+                        <h4 class="fw-bold text-success mb-1">@Model.TotalCollectedAmount.ToString("N0") <span class="fs-6 text-muted fw-normal">VND</span></h4>
+                        <span class="small text-success fw-medium">Tỷ lệ thu: @Model.CollectionRate.ToString("0.0")%</span>
+                    </div>
+                </div>
+                <div class="col-12 col-sm-6 col-xl-3">
+                    <div class="p-3 border rounded-3 bg-light">
+                        <span class="text-muted small fw-semibold d-block mb-1">Tổng Công Nợ Còn Lại</span>
+                        <h4 class="fw-bold text-danger mb-1">@Model.TotalOutstandingAmount.ToString("N0") <span class="fs-6 text-muted fw-normal">VND</span></h4>
+                        <span class="small text-danger fw-medium">@Model.UnpaidInvoices hóa đơn chưa thanh toán</span>
+                    </div>
+                </div>
+                <div class="col-12 col-sm-6 col-xl-3">
+                    <div class="p-3 border rounded-3 bg-light">
+                        <span class="text-muted small fw-semibold d-block mb-1">Trạng Thái Hóa Đơn</span>
+                        <div class="d-flex align-items-center gap-2 mt-2">
+                            <span class="badge bg-success" title="Đã trả đủ">@Model.FullyPaidInvoices Đã trả</span>
+                            <span class="badge bg-warning text-dark" title="Trả 1 phần">@Model.PartialPaidInvoices 1 phần</span>
+                            <span class="badge bg-danger" title="Chưa thanh toán">@Model.UnpaidInvoices Chưa trả</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Revenue Trend (Last 6 Months Table / Visualization) -->
+            @if (Model.RevenueTrends.Any())
+            {
+                <h6 class="fw-bold text-uppercase text-muted small mb-2">Xu Hướng Doanh Thu 6 Tháng Gần Nhất</h6>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm align-middle text-center small mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Kỳ thu phí</th>
+                                @foreach (var trend in Model.RevenueTrends)
+                                {
+                                    <th>@trend.PeriodText</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="text-start fw-semibold text-muted">Phải thu (VND)</td>
+                                @foreach (var trend in Model.RevenueTrends)
+                                {
+                                    <td class="fw-semibold">@trend.BilledAmount.ToString("N0")</td>
+                                }
+                            </tr>
+                            <tr>
+                                <td class="text-start fw-semibold text-success">Đã thu (VND)</td>
+                                @foreach (var trend in Model.RevenueTrends)
+                                {
+                                    <td class="text-success fw-bold">@trend.CollectedAmount.ToString("N0")</td>
+                                }
+                            </tr>
+                            <tr>
+                                <td class="text-start fw-semibold text-danger">Còn nợ (VND)</td>
+                                @foreach (var trend in Model.RevenueTrends)
+                                {
+                                    <td class="text-danger">@trend.OutstandingAmount.ToString("N0")</td>
+                                }
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- 3. Operational Monitoring & Service Status Grid -->
     <div>
         <div class="d-flex align-items-center justify-content-between mb-2">
-            <h6 class="fw-bold text-uppercase text-muted small mb-0">Hạng Mục Cần Theo Dõi & Phê Duyệt</h6>
+            <h6 class="fw-bold text-uppercase text-muted small mb-0">Hạng Mục Vận Hành Cần Theo Dõi & Xử Lý</h6>
             <span class="badge bg-white text-muted border small">Cập nhật tức thời</span>
         </div>
         <div class="row g-3">
-            <!-- Alert 1: Pending Incidents -->
+            <!-- Alert 1: Sửa chữa / Bảo trì -->
             <div class="col-12 col-sm-6 col-xl-3">
-                <div class="alert-action-card">
+                <div class="alert-action-card h-100">
                     <div class="d-flex align-items-center justify-content-between mb-2">
-                        <span class="fw-semibold small text-muted">Sự Cố Kỹ Thuật</span>
+                        <span class="fw-semibold small text-muted">Sửa Chữa & Bảo Trì</span>
                         <div class="metric-icon-box danger" style="width: 32px; height: 32px; font-size: 1rem;">
                             <i class="bi bi-tools"></i>
                         </div>
                     </div>
                     <div class="d-flex align-items-baseline gap-2 mb-2">
-                        <h4 class="fw-bold mb-0 text-danger">@ViewBag.PendingTickets</h4>
-                        <span class="small text-muted">yêu cầu đang mở</span>
+                        <h4 class="fw-bold mb-0 text-danger">@(Model.PendingRepairs + Model.InProgressRepairs)</h4>
+                        <span class="small text-muted">yêu cầu đang xử lý</span>
+                    </div>
+                    <div class="small text-muted mb-2">
+                        <span>Chờ tiếp nhận: <strong>@Model.PendingRepairs</strong></span> ·
+                        <span>Đang làm: <strong>@Model.InProgressRepairs</strong></span>
                     </div>
                     <a asp-controller="RepairQueue" asp-action="Index" class="action-link">
                         <span>Hàng đợi kỹ thuật</span>
@@ -142,9 +234,9 @@
                 </div>
             </div>
 
-            <!-- Alert 2: Pending Complaints -->
+            <!-- Alert 2: Phản ánh & Khiếu nại -->
             <div class="col-12 col-sm-6 col-xl-3">
-                <div class="alert-action-card">
+                <div class="alert-action-card h-100">
                     <div class="d-flex align-items-center justify-content-between mb-2">
                         <span class="fw-semibold small text-muted">Ý Kiến & Phản Ánh</span>
                         <div class="metric-icon-box warning" style="width: 32px; height: 32px; font-size: 1rem;">
@@ -152,8 +244,12 @@
                         </div>
                     </div>
                     <div class="d-flex align-items-baseline gap-2 mb-2">
-                        <h4 class="fw-bold mb-0 text-warning">@ViewBag.PendingComplaints</h4>
+                        <h4 class="fw-bold mb-0 text-warning">@(Model.PendingComplaints + Model.InProgressComplaints)</h4>
                         <span class="small text-muted">cần giải quyết</span>
+                    </div>
+                    <div class="small text-muted mb-2">
+                        <span>Chờ tiếp nhận: <strong>@Model.PendingComplaints</strong></span> ·
+                        <span>Đã xử lý: <strong>@Model.ResolvedComplaints</strong></span>
                     </div>
                     <a asp-controller="Complaint" asp-action="Index" class="action-link">
                         <span>Xử lý phản ánh</span>
@@ -162,18 +258,21 @@
                 </div>
             </div>
 
-            <!-- Alert 3: Pending Vehicles -->
+            <!-- Alert 3: Phương tiện -->
             <div class="col-12 col-sm-6 col-xl-3">
-                <div class="alert-action-card">
+                <div class="alert-action-card h-100">
                     <div class="d-flex align-items-center justify-content-between mb-2">
-                        <span class="fw-semibold small text-muted">Đăng Ký Xe Chờ Duyệt</span>
+                        <span class="fw-semibold small text-muted">Quản Lý Xe</span>
                         <div class="metric-icon-box info" style="width: 32px; height: 32px; font-size: 1rem;">
                             <i class="bi bi-car-front"></i>
                         </div>
                     </div>
                     <div class="d-flex align-items-baseline gap-2 mb-2">
-                        <h4 class="fw-bold mb-0 text-primary">@ViewBag.PendingVehicles</h4>
-                        <span class="small text-muted">hồ sơ gửi duyệt</span>
+                        <h4 class="fw-bold mb-0 text-primary">@Model.PendingVehicles</h4>
+                        <span class="small text-muted">hồ sơ chờ duyệt</span>
+                    </div>
+                    <div class="small text-muted mb-2">
+                        <span>Xe đang hoạt động: <strong>@Model.TotalActiveVehicles</strong></span>
                     </div>
                     <a asp-controller="Vehicle" asp-action="Index" asp-route-status="Chờ duyệt" class="action-link">
                         <span>Duyệt phương tiện</span>
@@ -182,21 +281,24 @@
                 </div>
             </div>
 
-            <!-- Alert 4: Unpaid Invoices -->
+            <!-- Alert 4: Khách thăm -->
             <div class="col-12 col-sm-6 col-xl-3">
-                <div class="alert-action-card">
+                <div class="alert-action-card h-100">
                     <div class="d-flex align-items-center justify-content-between mb-2">
-                        <span class="fw-semibold small text-muted">Hóa Đơn Kỳ Này</span>
+                        <span class="fw-semibold small text-muted">Khách Đến Thăm</span>
                         <div class="metric-icon-box success" style="width: 32px; height: 32px; font-size: 1rem;">
-                            <i class="bi bi-receipt"></i>
+                            <i class="bi bi-person-check"></i>
                         </div>
                     </div>
                     <div class="d-flex align-items-baseline gap-2 mb-2">
-                        <h4 class="fw-bold mb-0 text-success">@ViewBag.UnpaidInvoices</h4>
-                        <span class="small text-muted">chưa thanh toán</span>
+                        <h4 class="fw-bold mb-0 text-success">@Model.TodayVisitorsCount</h4>
+                        <span class="small text-muted">lượt khách hôm nay</span>
                     </div>
-                    <a asp-controller="Billing" asp-action="Index" class="action-link">
-                        <span>Quản lý thu phí</span>
+                    <div class="small text-muted mb-2">
+                        <span>Khách đang trong tòa nhà: <strong>@Model.ActiveVisitorsCount</strong></span>
+                    </div>
+                    <a asp-controller="Visitors" asp-action="Index" class="action-link">
+                        <span>Sổ theo dõi khách</span>
                         <i class="bi bi-arrow-right"></i>
                     </a>
                 </div>
@@ -204,7 +306,7 @@
         </div>
     </div>
 
-    <!-- 3. Main Data Content: Buildings Table (Left 8 cols) & Implementation Stepper (Right 4 cols) -->
+    <!-- 4. Main Tables: Recent Buildings & Critical Repairs -->
     <div class="row g-4">
         <!-- Left Table: Buildings -->
         <div class="col-12 col-lg-8">
@@ -214,16 +316,14 @@
                         <h5 class="fw-bold mb-1">Danh Sách Tòa Nhà Trực Thuộc</h5>
                         <p class="text-muted small mb-0">Quản lý phân khu, tầng cao và danh mục căn hộ</p>
                     </div>
-                    <div class="d-flex align-items-center gap-2">
-                        <a asp-controller="Buildings" asp-action="Index" class="btn btn-brand-ghost btn-sm">
-                            <span>Xem toàn bộ</span>
-                            <i class="bi bi-arrow-right"></i>
-                        </a>
-                    </div>
+                    <a asp-controller="Buildings" asp-action="Index" class="btn btn-brand-ghost btn-sm">
+                        <span>Xem toàn bộ</span>
+                        <i class="bi bi-arrow-right"></i>
+                    </a>
                 </div>
                 <div class="p-0">
                     <div class="table-responsive">
-                        <table class="table-enterprise">
+                        <table class="table-enterprise mb-0">
                             <thead>
                                 <tr>
                                     <th>Mã Tòa</th>
@@ -235,34 +335,20 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @if (Model != null && Model.Any())
+                                @if (Model.RecentBuildings != null && Model.RecentBuildings.Any())
                                 {
-                                    @foreach (var building in Model)
+                                    @foreach (var building in Model.RecentBuildings)
                                     {
                                         <tr>
-                                            <td>
-                                                <span class="badge-brand">@building.BuildingCode</span>
-                                            </td>
-                                            <td class="fw-semibold text-dark">
-                                                @building.BuildingName
-                                            </td>
-                                            <td>
-                                                <span class="text-muted">@building.NumberOfFloors tầng</span>
-                                            </td>
-                                            <td>
-                                                <span class="fw-medium text-dark">@building.Apartments.Count</span>
-                                                <span class="text-muted small">căn hộ</span>
-                                            </td>
-                                            <td class="text-muted small text-truncate" style="max-width: 200px;">
-                                                @(building.Address ?? "Chưa cập nhật")
-                                            </td>
+                                            <td><span class="badge-brand">@building.BuildingCode</span></td>
+                                            <td class="fw-semibold text-dark">@building.BuildingName</td>
+                                            <td><span class="text-muted">@building.NumberOfFloors tầng</span></td>
+                                            <td><span class="fw-medium text-dark">@building.Apartments.Count</span> <span class="text-muted small">căn hộ</span></td>
+                                            <td class="text-muted small text-truncate" style="max-width: 200px;">@(building.Address ?? "Chưa cập nhật")</td>
                                             <td class="text-end pe-4">
                                                 <div class="btn-group btn-group-sm">
                                                     <a asp-controller="Buildings" asp-action="Details" asp-route-id="@building.BuildingId" class="btn btn-brand-ghost text-primary" title="Xem chi tiết">
                                                         <i class="bi bi-eye"></i> Chi tiết
-                                                    </a>
-                                                    <a asp-controller="Buildings" asp-action="Edit" asp-route-id="@building.BuildingId" class="btn btn-brand-ghost text-muted" title="Chỉnh sửa">
-                                                        <i class="bi bi-pencil"></i>
                                                     </a>
                                                 </div>
                                             </td>
@@ -272,13 +358,7 @@
                                 else
                                 {
                                     <tr>
-                                        <td colspan="6" class="text-center py-5 text-muted">
-                                            <i class="bi bi-building-slash fs-1 d-block mb-2 text-muted"></i>
-                                            <p class="mb-2">Chưa có tòa nhà nào được khởi tạo trong hệ thống.</p>
-                                            <a asp-controller="Buildings" asp-action="Create" class="btn btn-brand-primary btn-sm">
-                                                <i class="bi bi-plus-lg"></i> Khởi tạo tòa nhà đầu tiên
-                                            </a>
-                                        </td>
+                                        <td colspan="6" class="text-center py-4 text-muted">Chưa có tòa nhà nào trong hệ thống.</td>
                                     </tr>
                                 }
                             </tbody>
@@ -288,98 +368,44 @@
             </div>
         </div>
 
-        <!-- Right Side: Implementation Stepper & Quick Shortcuts -->
-        <div class="col-12 col-lg-4 d-flex flex-column gap-4">
-            <!-- Stepper / Milestone Tracker -->
-            <div class="card-enterprise">
+        <!-- Right Side: Critical Repair Requests -->
+        <div class="col-12 col-lg-4">
+            <div class="card-enterprise h-100">
                 <div class="card-enterprise-header">
                     <div>
-                        <h6 class="fw-bold mb-0">Lộ Trình Triển Khai Hệ Thống</h6>
-                        <span class="text-muted small">Tiến độ chuẩn hóa nghiệp vụ</span>
+                        <h6 class="fw-bold mb-0">Yêu Cầu Sửa Chữa Khẩn Cấp</h6>
+                        <span class="text-muted small">Ưu tiên xử lý cao & khẩn cấp</span>
                     </div>
-                    <span class="badge-subtle-success">Hoạt động tốt</span>
+                    <span class="badge bg-danger">@Model.RecentCriticalRepairs.Count</span>
                 </div>
-                <div class="card-enterprise-body">
-                    <ul class="stepper-timeline">
-                        <!-- Step 1 -->
-                        <li class="step-item completed">
-                            <div class="step-marker">
-                                <i class="bi bi-check" style="font-size: 0.75rem;"></i>
-                            </div>
-                            <div class="step-title">1. Tòa Nhà & Cấu Trúc Khối</div>
-                            <div class="step-desc">Hoàn thiện CRUD tòa nhà, tầng và mã khối</div>
-                        </li>
-
-                        <!-- Step 2 -->
-                        <li class="step-item completed">
-                            <div class="step-marker">
-                                <i class="bi bi-check" style="font-size: 0.75rem;"></i>
-                            </div>
-                            <div class="step-title">2. Quản Lý Căn Hộ & Diện Tích</div>
-                            <div class="step-desc">Trạng thái trống, đang ở, bảo trì</div>
-                        </li>
-
-                        <!-- Step 3 -->
-                        <li class="step-item completed">
-                            <div class="step-marker">
-                                <i class="bi bi-check" style="font-size: 0.75rem;"></i>
-                            </div>
-                            <div class="step-title">3. Cư Dân & Ràng Buộc Chủ Hộ</div>
-                            <div class="step-desc">Đã nghiệm thu (UX_ActiveOwner, Hộ gia đình)</div>
-                        </li>
-
-                        <!-- Step 4 -->
-                        <li class="step-item active">
-                            <div class="step-marker"></div>
-                            <div class="step-title text-primary">4. Vận Hành & Kỹ Thuật</div>
-                            <div class="step-desc">Sự cố, Khiếu nại, Tiện ích, Bảng tin, Khách</div>
-                        </li>
-
-                        <!-- Step 5 -->
-                        <li class="step-item">
-                            <div class="step-marker"></div>
-                            <div class="step-title text-muted">5. Tài Chính & Hóa Đơn Tự Động</div>
-                            <div class="step-desc">Biểu phí, Chỉ số đồng hồ, VietQR & Giao dịch</div>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-
-            <!-- Quick Operational Shortcuts -->
-            <div class="card-enterprise">
-                <div class="card-enterprise-header">
-                    <h6 class="fw-bold mb-0">Thao Tác Nhanh</h6>
-                    <i class="bi bi-lightning-charge text-warning"></i>
-                </div>
-                <div class="card-enterprise-body d-flex flex-column gap-2 p-3">
-                    <a asp-controller="Occupancies" asp-action="Create" class="btn btn-brand-ghost justify-content-start text-start w-100 p-2">
-                        <i class="bi bi-person-plus text-primary fs-5 me-2"></i>
-                        <div>
-                            <div class="fw-semibold text-dark small">Gán Cư Dân Vào Căn Hộ</div>
-                            <span class="text-muted" style="font-size: 0.72rem;">Thủ tục chuyển vào (Move-In)</span>
+                <div class="card-enterprise-body p-3">
+                    @if (Model.RecentCriticalRepairs.Any())
+                    {
+                        <div class="d-flex flex-column gap-3">
+                            @foreach (var item in Model.RecentCriticalRepairs)
+                            {
+                                <div class="p-3 border rounded-3 bg-light">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span class="badge @(item.Priority == ApartmentManagement.Models.RepairPriority.Urgent ? "bg-danger" : "bg-warning text-dark")">@item.Priority</span>
+                                        <span class="small text-muted">@item.CreatedAt.ToString("dd/MM/yyyy HH:mm")</span>
+                                    </div>
+                                    <h6 class="fw-bold mb-1 text-dark">@item.Title</h6>
+                                    <p class="text-muted small mb-2">Căn hộ: <strong>@(item.Apartment?.ApartmentCode ?? "N/A")</strong> - @(item.Apartment?.Building?.BuildingName ?? "")</p>
+                                    <a asp-controller="RepairQueue" asp-action="Details" asp-route-id="@item.RepairRequestId" class="btn btn-sm btn-outline-primary w-100">
+                                        <span>Xem xử lý</span>
+                                        <i class="bi bi-arrow-right ms-1"></i>
+                                    </a>
+                                </div>
+                            }
                         </div>
-                    </a>
-                    <a asp-controller="Contracts" asp-action="Create" class="btn btn-brand-ghost justify-content-start text-start w-100 p-2">
-                        <i class="bi bi-file-earmark-plus text-primary fs-5 me-2"></i>
-                        <div>
-                            <div class="fw-semibold text-dark small">Lập Hợp Đồng Thuê Mới</div>
-                            <span class="text-muted" style="font-size: 0.72rem;">Khởi tạo hợp đồng lưu trú</span>
+                    }
+                    else
+                    {
+                        <div class="text-center py-4 text-muted">
+                            <i class="bi bi-check-circle fs-2 text-success d-block mb-2"></i>
+                            <p class="small mb-0">Không có sự cố khẩn cấp nào tồn đọng.</p>
                         </div>
-                    </a>
-                    <a asp-controller="Billing" asp-action="Index" class="btn btn-brand-ghost justify-content-start text-start w-100 p-2">
-                        <i class="bi bi-speedometer text-primary fs-5 me-2"></i>
-                        <div>
-                            <div class="fw-semibold text-dark small">Ghi Chỉ Số & Lập Hóa Đơn</div>
-                            <span class="text-muted" style="font-size: 0.72rem;">Điện, nước, dịch vụ định kỳ</span>
-                        </div>
-                    </a>
-                    <a asp-controller="Announcements" asp-action="Create" class="btn btn-brand-ghost justify-content-start text-start w-100 p-2">
-                        <i class="bi bi-megaphone text-primary fs-5 me-2"></i>
-                        <div>
-                            <div class="fw-semibold text-dark small">Đăng Thông Báo Toàn Khu</div>
-                            <span class="text-muted" style="font-size: 0.72rem;">Gửi bản tin đến cư dân</span>
-                        </div>
-                    </a>
+                    }
                 </div>
             </div>
         </div>

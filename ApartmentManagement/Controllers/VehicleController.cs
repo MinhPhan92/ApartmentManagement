@@ -228,5 +228,23 @@ namespace ApartmentManagement.Controllers
 
             return RedirectToAction(nameof(Details), new { id = targetId });
         }
+
+        // POST: /Vehicle/Decommission/5
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Decommission(int id, string? reason)
+        {
+            var result = await _vehicleService.DecommissionVehicleAsync(id, reason);
+            if (!result.Success)
+            {
+                TempData["ErrorMessage"] = result.ErrorMessage;
+            }
+            else
+            {
+                TempData["SuccessMessage"] = "Đã chuyển phương tiện sang trạng thái Ngừng sử dụng.";
+            }
+
+            return RedirectToAction(nameof(Details), new { id });
+        }
     }
 }

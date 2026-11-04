@@ -55,6 +55,8 @@ builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<ISearchService, SearchService>();
 builder.Services.AddScoped<IRepairRequestService, RepairRequestService>();
 builder.Services.AddScoped<ITechnicalIncidentService, TechnicalIncidentService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddSignalR();
 builder.Services.AddSingleton<IVietQrCodeGenerator, VietQrCodeGenerator>();
 builder.Services.Configure<VietQrOptions>(builder.Configuration.GetSection("Payments:VietQr"));
 
@@ -163,6 +165,7 @@ app.MapControllerRoute(
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
 app.MapRazorPages();
+app.MapHub<ApartmentManagement.Hubs.NotificationHub>("/hubs/notifications");
 
 await IdentityDataSeeder.InitializeAsync(app.Services, app.Configuration, app.Environment);
 

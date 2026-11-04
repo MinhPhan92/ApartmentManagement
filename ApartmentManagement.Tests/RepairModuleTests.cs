@@ -889,5 +889,224 @@ namespace ApartmentManagement.Tests
             Assert.Equal("Thợ kỹ thuật nhiệt tình, thay đồ cẩn thận, dọn dẹp sạch sẽ.", finalizedRequest.ResidentFeedback);
             Assert.NotNull(finalizedRequest.ConfirmedAt);
         }
+    
+        // 22. Kiểm tra stale RowVersion trên tất cả các luồng còn lại (StartWork, CompleteWork, Confirm, Redo, Cancel)
+        [Fact]
+        public async Task Test22_ConcurrencyCheck_StaleRowVersion_OnAllWorkflows_FailsGracefully()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (_, apt101, _, resA, _, tech1, _, mgr) = await SeedBaseDataAsync(context);
+            var userManagerMock = CreateMockUserManager(tech1, mgr, context.Users.First(u => u.Id == resA.UserId));
+            var service = new RepairRequestService(context, userManagerMock.Object, NullLogger<RepairRequestService>.Instance);
+
+            var createRes = await service.CreateRequestAsync(resA.ResidentId, apt101.ApartmentId, "Kiểm tra concurrency", "Chi tiết", RepairPriority.Normal);
+            var reqId = createRes.RequestId!.Value;
+
+            var entity = await context.RepairRequests.FirstAsync(r => r.RepairRequestId == reqId);
+            entity.RowVersion = new byte[] { 1, 1, 1, 1 };
+            await context.SaveChangesAsync();
+
+            var staleRowVersion = new byte[] { 9, 9, 9, 9 };
+
+            // Cancel with stale rowVersion
+            var cancelRes = await service.CancelRequestAsync(reqId, resA.ResidentId, "Hủy", staleRowVersion);
+            Assert.False(cancelRes.Success);
+            Assert.Contains("cập nhật bởi một người dùng khác", cancelRes.ErrorMessage);
+
+            // Assign legitimately with valid rowVersion
+            var assignRes = await service.AssignTechnicianAsync(reqId, tech1.Id, mgr.Id, null, new byte[] { 1, 1, 1, 1 });
+            Assert.True(assignRes.Success);
+
+            // Update RowVersion to simulate state change
+            entity = await context.RepairRequests.Include(r => r.Assignments).FirstAsync(r => r.RepairRequestId == reqId);
+            entity.RowVersion = new byte[] { 2, 2, 2, 2 };
+            await context.SaveChangesAsync();
+
+            var assignmentId = entity.Assignments.First().AssignmentId;
+
+            // StartWork with stale rowVersion
+            var startRes = await service.StartProgressAsync(assignmentId, tech1.Id, "Bắt đầu", staleRowVersion);
+            Assert.False(startRes.Success);
+            Assert.Contains("cập nhật bởi một người dùng khác", startRes.ErrorMessage);
+
+            // Start legitimately
+            await service.StartProgressAsync(assignmentId, tech1.Id, "Bắt đầu", new byte[] { 2, 2, 2, 2 });
+            entity = await context.RepairRequests.FirstAsync(r => r.RepairRequestId == reqId);
+            entity.RowVersion = new byte[] { 3, 3, 3, 3 };
+            await context.SaveChangesAsync();
+
+            // CompleteWork with stale rowVersion
+            var completeRes = await service.CompleteWorkAsync(assignmentId, tech1.Id, "Xong việc", null, staleRowVersion);
+            Assert.False(completeRes.Success);
+            Assert.Contains("cập nhật bởi một người dùng khác", completeRes.ErrorMessage);
+
+            // Complete legitimately
+            await service.CompleteWorkAsync(assignmentId, tech1.Id, "Xong việc", null, new byte[] { 3, 3, 3, 3 });
+            entity = await context.RepairRequests.FirstAsync(r => r.RepairRequestId == reqId);
+            entity.RowVersion = new byte[] { 4, 4, 4, 4 };
+            await context.SaveChangesAsync();
+
+            // Redo with stale rowVersion
+            var redoRes = await service.RequestRedoAsync(reqId, resA.ResidentId, "Làm lại", staleRowVersion);
+            Assert.False(redoRes.Success);
+            Assert.Contains("cập nhật bởi một người dùng khác", redoRes.ErrorMessage);
+
+            // Confirm with stale rowVersion
+            var confirmRes = await service.ConfirmCompletionAsync(reqId, resA.ResidentId, 5, "Tốt", staleRowVersion);
+            Assert.False(confirmRes.Success);
+            Assert.Contains("cập nhật bởi một người dùng khác", confirmRes.ErrorMessage);
+        }
+
+        // 23. Kiểm tra Controller xử lý an toàn token RowVersion Base64 không hợp lệ
+        [Fact]
+        public async Task Test23_Controllers_MalformedRowVersionBase64_SetsErrorMessageAndRedirects()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (_, apt101, _, resA, _, tech1, _, mgr) = await SeedBaseDataAsync(context);
+            var userManagerMock = CreateMockUserManager(tech1, mgr, context.Users.First(u => u.Id == resA.UserId));
+            var service = new RepairRequestService(context, userManagerMock.Object, NullLogger<RepairRequestService>.Instance);
+
+            var createRes = await service.CreateRequestAsync(resA.ResidentId, apt101.ApartmentId, "Test controller malformed RV", "Mô tả", RepairPriority.Normal);
+            var reqId = createRes.RequestId!.Value;
+
+            var residentServiceMock = new Mock<IResidentService>();
+            residentServiceMock.Setup(s => s.GetByUserIdAsync(resA.UserId)).ReturnsAsync(resA);
+
+            var currentUserServiceMock = new Mock<ICurrentUserService>();
+            currentUserServiceMock.Setup(c => c.UserId).Returns(resA.UserId);
+
+            var reqController = new RepairRequestsController(service, residentServiceMock.Object, currentUserServiceMock.Object)
+            {
+                TempData = new TempDataDictionary(new DefaultHttpContext(), Mock.Of<ITempDataProvider>())
+            };
+
+            const string malformedToken = "invalid-base64-token!@#$";
+
+            // Cancel with malformed token
+            var cancelResult = await reqController.Cancel(reqId, "Lý do", malformedToken);
+            var redirectCancel = Assert.IsType<RedirectToActionResult>(cancelResult);
+            Assert.Equal(nameof(RepairRequestsController.Details), redirectCancel.ActionName);
+            Assert.Equal("Phiên bản dữ liệu không hợp lệ. Vui lòng tải lại trang.", reqController.TempData["ErrorMessage"]);
+
+            reqController.TempData.Clear();
+
+            // Confirm with malformed token
+            var confirmResult = await reqController.Confirm(reqId, 5, "Tốt", malformedToken);
+            var redirectConfirm = Assert.IsType<RedirectToActionResult>(confirmResult);
+            Assert.Equal(nameof(RepairRequestsController.Details), redirectConfirm.ActionName);
+            Assert.Equal("Phiên bản dữ liệu không hợp lệ. Vui lòng tải lại trang.", reqController.TempData["ErrorMessage"]);
+
+            reqController.TempData.Clear();
+
+            // RequestRedo with malformed token
+            var redoResult = await reqController.RequestRedo(reqId, "Làm lại", malformedToken);
+            var redirectRedo = Assert.IsType<RedirectToActionResult>(redoResult);
+            Assert.Equal(nameof(RepairRequestsController.Details), redirectRedo.ActionName);
+            Assert.Equal("Phiên bản dữ liệu không hợp lệ. Vui lòng tải lại trang.", reqController.TempData["ErrorMessage"]);
+
+            // QueueController StartWork with malformed token
+            var queueCurrentUserServiceMock = new Mock<ICurrentUserService>();
+            queueCurrentUserServiceMock.Setup(c => c.UserId).Returns(tech1.Id);
+
+            var queueController = new RepairQueueController(service, queueCurrentUserServiceMock.Object)
+            {
+                TempData = new TempDataDictionary(new DefaultHttpContext(), Mock.Of<ITempDataProvider>())
+            };
+
+            var startWorkResult = await queueController.StartWork(1, "Ghi chú", malformedToken);
+            var redirectStart = Assert.IsType<RedirectToActionResult>(startWorkResult);
+            Assert.Equal(nameof(RepairQueueController.Index), redirectStart.ActionName);
+            Assert.Equal("Phiên bản dữ liệu không hợp lệ. Vui lòng tải lại trang.", queueController.TempData["ErrorMessage"]);
+        }
+
+        // 24. Đảm bảo tính nhất quán giữa trạng thái RepairRequest và RepairAssignment qua từng bước
+        [Fact]
+        public async Task Test24_RequestAndAssignment_StateSynchronization_RemainsConsistentAcrossLifecycle()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (_, apt101, _, resA, _, tech1, tech2, mgr) = await SeedBaseDataAsync(context);
+            var userManagerMock = CreateMockUserManager(tech1, tech2, mgr, context.Users.First(u => u.Id == resA.UserId));
+            var service = new RepairRequestService(context, userManagerMock.Object, NullLogger<RepairRequestService>.Instance);
+
+            // Step 1: Resident creates request -> Request Pending, Assignments Empty
+            var createRes = await service.CreateRequestAsync(resA.ResidentId, apt101.ApartmentId, "Đồng bộ trạng thái", "Mô tả", RepairPriority.Normal);
+            var reqId = createRes.RequestId!.Value;
+
+            var req = await context.RepairRequests.Include(r => r.Assignments).FirstAsync(r => r.RepairRequestId == reqId);
+            Assert.Equal(RepairRequestStatus.Pending, req.Status);
+            Assert.Empty(req.Assignments);
+
+            // Step 2: Manager assigns Tech 1 -> Request Assigned, Assignment 1 Assigned
+            await service.AssignTechnicianAsync(reqId, tech1.Id, mgr.Id, "Lần 1");
+            req = await context.RepairRequests.Include(r => r.Assignments).FirstAsync(r => r.RepairRequestId == reqId);
+            Assert.Equal(RepairRequestStatus.Assigned, req.Status);
+            Assert.Single(req.Assignments);
+            Assert.Equal(RepairAssignmentStatus.Assigned, req.Assignments.First().Status);
+
+            // Step 3: Tech 1 starts work -> Request InProgress, Assignment 1 InProgress
+            var assign1 = req.Assignments.First();
+            await service.StartProgressAsync(assign1.AssignmentId, tech1.Id, "Bắt đầu làm");
+            req = await context.RepairRequests.Include(r => r.Assignments).FirstAsync(r => r.RepairRequestId == reqId);
+            Assert.Equal(RepairRequestStatus.InProgress, req.Status);
+            assign1 = req.Assignments.First(a => a.AssignmentId == assign1.AssignmentId);
+            Assert.Equal(RepairAssignmentStatus.InProgress, assign1.Status);
+
+            // Step 4: Manager reassigns to Tech 2 while Tech 1 was InProgress -> Assignment 1 becomes Reassigned, Assignment 2 is Assigned
+            await service.AssignTechnicianAsync(reqId, tech2.Id, mgr.Id, "Điều phối Tech 2");
+            req = await context.RepairRequests.Include(r => r.Assignments).FirstAsync(r => r.RepairRequestId == reqId);
+            Assert.Equal(RepairRequestStatus.Assigned, req.Status);
+            Assert.Equal(2, req.Assignments.Count);
+
+            var oldAssign = req.Assignments.First(a => a.TechnicianUserId == tech1.Id);
+            var newAssign = req.Assignments.First(a => a.TechnicianUserId == tech2.Id);
+            Assert.Equal(RepairAssignmentStatus.Reassigned, oldAssign.Status);
+            Assert.NotNull(oldAssign.CompletedAt);
+            Assert.Equal(RepairAssignmentStatus.Assigned, newAssign.Status);
+            Assert.Null(newAssign.CompletedAt);
+
+            // Step 5: Tech 2 completes work -> Request PendingConfirmation, Assignment 2 Completed
+            await service.CompleteWorkAsync(newAssign.AssignmentId, tech2.Id, "Đã hoàn thành sửa chữa", null);
+            req = await context.RepairRequests.Include(r => r.Assignments).FirstAsync(r => r.RepairRequestId == reqId);
+            Assert.Equal(RepairRequestStatus.PendingConfirmation, req.Status);
+            newAssign = req.Assignments.First(a => a.AssignmentId == newAssign.AssignmentId);
+            Assert.Equal(RepairAssignmentStatus.Completed, newAssign.Status);
+            Assert.NotNull(newAssign.CompletedAt);
+
+            // Step 6: Resident requests Redo -> Request Reopened, Assignment 2 remains Completed
+            await service.RequestRedoAsync(reqId, resA.ResidentId, "Chưa đạt yêu cầu");
+            req = await context.RepairRequests.Include(r => r.Assignments).FirstAsync(r => r.RepairRequestId == reqId);
+            Assert.Equal(RepairRequestStatus.Reopened, req.Status);
+            newAssign = req.Assignments.First(a => a.AssignmentId == newAssign.AssignmentId);
+            Assert.Equal(RepairAssignmentStatus.Completed, newAssign.Status);
+        }
+
+        // 25. StatusHistory không được ghi nhận khi thao tác bị chặn bởi concurrency failure
+        [Fact]
+        public async Task Test25_StatusHistory_IsNotPersisted_WhenOperationFailsDueToConcurrency()
+        {
+            using var context = CreateInMemoryDbContext();
+            var (_, apt101, _, resA, _, tech1, _, mgr) = await SeedBaseDataAsync(context);
+            var userManagerMock = CreateMockUserManager(tech1, mgr, context.Users.First(u => u.Id == resA.UserId));
+            var service = new RepairRequestService(context, userManagerMock.Object, NullLogger<RepairRequestService>.Instance);
+
+            var createRes = await service.CreateRequestAsync(resA.ResidentId, apt101.ApartmentId, "Test rollback", "Mô tả", RepairPriority.Normal);
+            var reqId = createRes.RequestId!.Value;
+
+            var entity = await context.RepairRequests.Include(r => r.StatusHistory).FirstAsync(r => r.RepairRequestId == reqId);
+            entity.RowVersion = new byte[] { 5, 5, 5, 5 };
+            await context.SaveChangesAsync();
+
+            var initialHistoryCount = entity.StatusHistory.Count;
+
+            // Attempt assign with stale rowversion
+            var staleToken = new byte[] { 1, 2, 3, 4 };
+            var failRes = await service.AssignTechnicianAsync(reqId, tech1.Id, mgr.Id, "Note", staleToken);
+            Assert.False(failRes.Success);
+
+            // Verify no new status history record was persisted
+            var reloaded = await context.RepairRequests.Include(r => r.StatusHistory).FirstAsync(r => r.RepairRequestId == reqId);
+            Assert.Equal(initialHistoryCount, reloaded.StatusHistory.Count);
+            Assert.Equal(RepairRequestStatus.Pending, reloaded.Status);
+        }
     }
 }

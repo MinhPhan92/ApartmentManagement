@@ -1,246 +1,368 @@
-@model ApartmentManagement.Models.Resident
+@model ApartmentManagement.ViewModels.ResidentDashboardViewModel
 
 @{
-    ViewData["Title"] = "Không Gian Cư Dân";
+    ViewData["Title"] = "Cổng Cư Dân";
 }
 
-<div class="container py-4">
-    @if (TempData["SuccessMessage"] != null)
-    {
-        <div class="alert alert-success alert-dismissible fade show rounded-3 mb-4" role="alert">
-            <i class="bi bi-check-circle-fill me-2"></i>@TempData["SuccessMessage"]
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    }
-    @if (TempData["ErrorMessage"] != null)
-    {
-        <div class="alert alert-danger alert-dismissible fade show rounded-3 mb-4" role="alert">
-            <i class="bi bi-exclamation-triangle-fill me-2"></i>@TempData["ErrorMessage"]
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    }
-
-    <div class="row g-4">
-        <!-- Resident profile header -->
-        <div class="col-12">
-            <div class="card border-0 shadow-sm rounded-4 overflow-hidden" style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);">
-                <div class="card-body p-4 text-white">
-                    <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
-                        <div class="d-flex align-items-center gap-3">
-                            <div class="bg-white bg-opacity-25 rounded-circle p-3 fs-2">
-                                🏠
-                            </div>
-                            <div>
-                                <h3 class="fw-bold mb-1">Xin chào, @ViewBag.UserFullName!</h3>
-                                <p class="mb-0 text-white-50">Cổng thông tin cư dân căn hộ · Email: @ViewBag.UserEmail</p>
-                            </div>
-                        </div>
-                        <div>
-                            <span class="badge bg-success bg-opacity-75 px-3 py-2 fs-6">Đã Kích Hoạt Cư Dân</span>
-                        </div>
+<div class="container-fluid px-0 py-3 d-flex flex-column gap-4">
+    <!-- 1. Header Banner -->
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden" style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);">
+        <div class="card-body p-4 text-white">
+            <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="bg-white bg-opacity-25 rounded-circle p-3 fs-2">
+                        🏠
+                    </div>
+                    <div>
+                        <h3 class="fw-bold mb-1">Xin chào, @Model.UserFullName!</h3>
+                        <p class="mb-0 text-white-50">Cổng thông tin cư dân căn hộ · Email: @Model.UserEmail</p>
                     </div>
                 </div>
-            </div>
-        </div>
-
-        <!-- Personal Details -->
-        <div class="col-12 col-lg-5">
-            <div class="card border-0 shadow-sm rounded-4 h-100">
-                <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
-                    <h5 class="fw-bold mb-0">Thông Tin Cá Nhân</h5>
-                    <a asp-action="EditProfile" class="btn btn-sm btn-outline-primary fw-semibold">
-                        ✏️ Chỉnh sửa
-                    </a>
-                </div>
-                <div class="card-body">
-                    @if (Model != null)
+                <div class="d-flex align-items-center gap-2">
+                    @if (Model.ActiveApartment != null)
                     {
-                        <ul class="list-group list-group-flush">
-                            <li class="list-group-item px-0 d-flex justify-content-between">
-                                <span class="text-muted">Số CCCD / CMND:</span>
-                                <span class="fw-semibold">@Model.CitizenId</span>
-                            </li>
-                            <li class="list-group-item px-0 d-flex justify-content-between">
-                                <span class="text-muted">Ngày sinh:</span>
-                                <span class="fw-semibold">@(Model.DateOfBirth?.ToString("dd/MM/yyyy") ?? "Chưa rõ")</span>
-                            </li>
-                            <li class="list-group-item px-0 d-flex justify-content-between">
-                                <span class="text-muted">Giới tính:</span>
-                                <span class="fw-semibold">@(Model.Gender ?? "Chưa rõ")</span>
-                            </li>
-                            <li class="list-group-item px-0 d-flex justify-content-between">
-                                <span class="text-muted">Liên hệ khẩn cấp:</span>
-                                <span class="fw-semibold">@(Model.EmergencyContact ?? "Chưa rõ")</span>
-                            </li>
-                            <li class="list-group-item px-0 d-flex justify-content-between">
-                                <span class="text-muted">Địa chỉ thường trú:</span>
-                                <span class="fw-semibold">@(Model.Address ?? "Chưa rõ")</span>
-                            </li>
-                        </ul>
+                        <span class="badge bg-success bg-opacity-75 px-3 py-2 fs-6">
+                            Căn hộ @Model.ActiveApartment.ApartmentCode (@(Model.ActiveApartment.Building?.BuildingName ?? "Tòa nhà"))
+                        </span>
                     }
                     else
                     {
-                        <p class="text-muted mb-0">Hồ sơ cư dân chưa được thiết lập. Vui lòng liên hệ ban quản lý.</p>
+                        <span class="badge bg-warning bg-opacity-75 text-dark px-3 py-2 fs-6">Chưa gán căn hộ</span>
                     }
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- Active Apartment & Household Members -->
-        <div class="col-12 col-lg-7">
-            <div class="card border-0 shadow-sm rounded-4 h-100">
-                <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
-                    <h5 class="fw-bold mb-0">👥 Căn Hộ & Thành Viên Hộ Gia Đình</h5>
-                    @if (ViewBag.ActiveApartment != null)
-                    {
-                        <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-1">
-                            @ViewBag.ActiveApartment.ApartmentCode (@ViewBag.ActiveApartment.Building?.BuildingName)
-                        </span>
-                    }
+    <!-- 2. Financial & Invoices Priority Alert -->
+    <div class="row g-3">
+        <!-- Card 1: Hóa đơn gần nhất -->
+        <div class="col-12 col-lg-6">
+            <div class="card-enterprise h-100">
+                <div class="card-enterprise-header d-flex justify-content-between align-items-center">
+                    <h6 class="fw-bold mb-0"><i class="bi bi-receipt text-primary me-2"></i>Hóa Đơn Kỳ Gần Nhất</h6>
+                    <a asp-controller="MyInvoices" asp-action="Index" class="small text-decoration-none">Xem tất cả hóa đơn</a>
                 </div>
-                <div class="card-body">
-                    @if (ViewBag.ActiveApartment != null)
+                <div class="card-enterprise-body p-3">
+                    @if (Model.LatestInvoice != null)
                     {
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-semibold text-dark">Kỳ @Model.LatestInvoice.BillingMonth/@Model.LatestInvoice.BillingYear</span>
+                            <span class="badge @(Model.LatestInvoiceRemainingDebt == 0 ? "bg-success" : "bg-danger")">
+                                @(Model.LatestInvoiceRemainingDebt == 0 ? "Đã thanh toán đủ" : "Chưa thanh toán")
+                            </span>
+                        </div>
                         <div class="p-3 bg-light rounded-3 mb-3">
-                            <div class="row g-2 small text-muted">
-                                <div class="col-6 col-sm-3">Mã phòng: <strong class="text-dark">@ViewBag.ActiveApartment.ApartmentCode</strong></div>
-                                <div class="col-6 col-sm-3">Tầng: <strong class="text-dark">@ViewBag.ActiveApartment.Floor</strong></div>
-                                <div class="col-6 col-sm-3">Diện tích: <strong class="text-dark">@ViewBag.ActiveApartment.Area m²</strong></div>
-                                <div class="col-6 col-sm-3">Trạng thái: <strong class="text-success">@ViewBag.ActiveApartment.Status</strong></div>
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="text-muted small">Mã hóa đơn:</span>
+                                <span class="fw-semibold font-monospace small">@Model.LatestInvoice.InvoiceCode</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="text-muted small">Tổng tiền:</span>
+                                <span class="fw-bold text-dark">@Model.LatestInvoice.TotalAmount.ToString("N0") đ</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="text-muted small">Đã trả:</span>
+                                <span class="text-success fw-semibold">@Model.LatestInvoiceConfirmedPaid.ToString("N0") đ</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="text-muted small">Còn nợ:</span>
+                                <span class="text-danger fw-bold fs-5">@Model.LatestInvoiceRemainingDebt.ToString("N0") đ</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="text-muted small">Hạn thanh toán:</span>
+                                <span class="text-muted small">@Model.LatestInvoice.DueDate.ToString("dd/MM/yyyy")</span>
                             </div>
                         </div>
 
-                        var members = (List<ApartmentManagement.Models.ApartmentResident>?)ViewBag.HouseholdMembers;
-                        if (members != null && members.Any())
+                        @if (Model.LatestInvoiceRemainingDebt > 0)
                         {
-                            <h6 class="fw-bold text-muted small mb-2">DANH SÁCH THÀNH VIÊN ĐÃ ĐƯỢC XÁC NHẬN</h6>
-                            <div class="table-responsive">
-                                <table class="table table-hover align-middle mb-0 small">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>Thành viên</th>
-                                            <th>Quan hệ</th>
-                                            <th>Ngày vào ở</th>
-                                            <th class="text-end">Vai trò</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var m in members)
-                                        {
-                                            <tr>
-                                                <td class="fw-semibold">
-                                                    @(m.Resident?.User?.FullName ?? "N/A")
-                                                    @if (m.Resident?.UserId == Model?.UserId)
-                                                    {
-                                                        <span class="badge bg-info-subtle text-info ms-1">Bạn</span>
-                                                    }
-                                                </td>
-                                                <td>@m.Relationship</td>
-                                                <td>@m.MoveInDate.ToString("dd/MM/yyyy")</td>
-                                                <td class="text-end">
-                                                    @if (m.IsOwner)
-                                                    {
-                                                        <span class="badge bg-primary">Chủ Hộ</span>
-                                                    }
-                                                    else
-                                                    {
-                                                        <span class="badge bg-light text-dark border">Thành viên</span>
-                                                    }
-                                                </td>
-                                            </tr>
-                                        }
-                                    </tbody>
-                                </table>
-                            </div>
+                            <a asp-controller="MyInvoices" asp-action="Details" asp-route-id="@Model.LatestInvoice.ApartmentInvoiceId" class="btn btn-brand-primary w-100">
+                                <i class="bi bi-qr-code me-1"></i> Thanh Toán Ngay Qua VietQR
+                            </a>
+                        }
+                        else
+                        {
+                            <a asp-controller="MyInvoices" asp-action="Details" asp-route-id="@Model.LatestInvoice.ApartmentInvoiceId" class="btn btn-brand-ghost w-100 text-center">
+                                <i class="bi bi-eye me-1"></i> Xem Chi Tiết Hóa Đơn
+                            </a>
                         }
                     }
                     else
                     {
                         <div class="text-center py-4 text-muted">
-                            <span class="fs-1 d-block mb-2">🔑</span>
-                            <p class="mb-0">Bạn hiện chưa được liên kết với căn hộ nào đang hoạt động. Vui lòng liên hệ Ban Quản Lý.</p>
+                            <i class="bi bi-receipt-cutoff fs-2 d-block mb-2"></i>
+                            <p class="small mb-0">Chưa có hóa đơn nào được phát hành cho căn hộ của bạn.</p>
                         </div>
                     }
                 </div>
             </div>
         </div>
 
-        <!-- Occupancy History -->
-        <div class="col-12">
-            <div class="card border-0 shadow-sm rounded-4">
-                <div class="card-header bg-white py-3 border-0">
-                    <h5 class="fw-bold mb-0">📜 Lịch Sử Cư Trú</h5>
+        <!-- Card 2: Tổng công nợ & Thông báo chưa đọc -->
+        <div class="col-12 col-lg-6">
+            <div class="card-enterprise h-100 d-flex flex-column justify-content-between">
+                <div class="card-enterprise-header d-flex justify-content-between align-items-center">
+                    <h6 class="fw-bold mb-0"><i class="bi bi-bell text-warning me-2"></i>Thông Báo & Nhắc Nhở</h6>
+                    <a asp-controller="Notifications" asp-action="Index" class="small text-decoration-none">
+                        Hộp thư (@Model.UnreadNotificationsCount chưa đọc)
+                    </a>
                 </div>
-                <div class="card-body">
-                    @if (Model?.ApartmentResidents != null && Model.ApartmentResidents.Any())
+                <div class="card-enterprise-body p-3">
+                    @if (Model.TotalOutstandingDebt > 0)
                     {
-                        <div class="row row-cols-1 row-cols-md-2 g-3">
-                            @foreach (var ar in Model.ApartmentResidents)
+                        <div class="alert alert-danger d-flex align-items-center gap-3 rounded-3 mb-3" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill fs-3 text-danger"></i>
+                            <div>
+                                <strong class="d-block">Tổng công nợ còn nợ: @Model.TotalOutstandingDebt.ToString("N0") đ</strong>
+                                <span class="small">Vui lòng hoàn tất thanh toán đúng hạn để tránh gián đoạn các dịch vụ tiện ích.</span>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-success d-flex align-items-center gap-3 rounded-3 mb-3" role="alert">
+                            <i class="bi bi-check-circle-fill fs-3 text-success"></i>
+                            <div>
+                                <strong class="d-block">Không có nợ đọng phí dịch vụ</strong>
+                                <span class="small">Tất cả các khoản phí phát hành đã được hoàn tất đầy đủ. Cảm ơn bạn!</span>
+                            </div>
+                        </div>
+                    }
+
+                    <h6 class="fw-bold text-muted small mb-2">THÔNG BÁO MỚI NHẬN</h6>
+                    @if (Model.RecentNotifications.Any())
+                    {
+                        <div class="list-group list-group-flush border rounded-3">
+                            @foreach (var n in Model.RecentNotifications)
                             {
-                                <div class="col">
-                                    <div class="border rounded-3 p-3 h-100">
-                                        <div class="d-flex justify-content-between align-items-center mb-2">
-                                            <h6 class="fw-bold mb-0 text-primary">Căn hộ @ar.Apartment?.ApartmentCode - Tòa @ar.Apartment?.Building?.BuildingName</h6>
-                                            <span class="badge @(ar.MoveOutDate == null ? "bg-success" : "bg-secondary")">
-                                                @(ar.MoveOutDate == null ? "Đang cư trú" : "Đã chuyển đi")
-                                            </span>
-                                        </div>
-                                        <div class="row g-2 text-muted small">
-                                            <div class="col-6">Tầng: <strong class="text-dark">@ar.Apartment?.Floor</strong></div>
-                                            <div class="col-6">Diện tích: <strong class="text-dark">@ar.Apartment?.Area m²</strong></div>
-                                            <div class="col-6">Ngày vào ở: <strong class="text-dark">@ar.MoveInDate.ToString("dd/MM/yyyy")</strong></div>
-                                            <div class="col-6">Quan hệ: <strong class="text-dark">@ar.Relationship</strong></div>
-                                            <div class="col-6">Ngày chuyển đi: <strong class="text-dark">@(ar.MoveOutDate?.ToString("dd/MM/yyyy") ?? "Hiện tại")</strong></div>
-                                            <div class="col-6">Vai trò: <strong class="text-dark">@(ar.IsOwner ? "Chủ hộ" : "Thành viên")</strong></div>
-                                        </div>
+                                <a href="@(n.TargetUrl ?? Url.Action("Details", "Notifications", new { id = n.NotificationId }))" class="list-group-item list-group-item-action p-2 @(!n.IsRead ? "bg-light fw-medium" : "")">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span class="badge bg-secondary" style="font-size: 0.65rem;">@n.Type</span>
+                                        <span class="small text-muted" style="font-size: 0.7rem;">@n.CreatedAtUtc.ToString("dd/MM/yyyy HH:mm")</span>
                                     </div>
+                                    <div class="small text-dark text-truncate">@n.Title</div>
+                                </a>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-muted small mb-0">Không có thông báo mới.</p>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. Active Apartment & Household Members -->
+    <div class="row g-4">
+        <div class="col-12 col-lg-5">
+            <div class="card-enterprise h-100">
+                <div class="card-enterprise-header d-flex justify-content-between align-items-center">
+                    <h6 class="fw-bold mb-0"><i class="bi bi-person-circle text-primary me-2"></i>Hồ Sơ Cư Dân</h6>
+                    <a asp-action="EditProfile" class="btn btn-sm btn-brand-ghost">✏️ Sửa</a>
+                </div>
+                <div class="card-enterprise-body p-3">
+                    @if (Model.Resident != null)
+                    {
+                        <ul class="list-group list-group-flush small">
+                            <li class="list-group-item px-0 d-flex justify-content-between">
+                                <span class="text-muted">Họ và tên:</span>
+                                <span class="fw-semibold">@Model.UserFullName</span>
+                            </li>
+                            <li class="list-group-item px-0 d-flex justify-content-between">
+                                <span class="text-muted">Số CCCD / CMND:</span>
+                                <span class="fw-semibold">@Model.Resident.CitizenId</span>
+                            </li>
+                            <li class="list-group-item px-0 d-flex justify-content-between">
+                                <span class="text-muted">Ngày sinh:</span>
+                                <span>@(Model.Resident.DateOfBirth?.ToString("dd/MM/yyyy") ?? "Chưa rõ")</span>
+                            </li>
+                            <li class="list-group-item px-0 d-flex justify-content-between">
+                                <span class="text-muted">Giới tính:</span>
+                                <span>@(Model.Resident.Gender ?? "Chưa rõ")</span>
+                            </li>
+                            <li class="list-group-item px-0 d-flex justify-content-between">
+                                <span class="text-muted">Liên hệ khẩn cấp:</span>
+                                <span>@(Model.Resident.EmergencyContact ?? "Chưa rõ")</span>
+                            </li>
+                            <li class="list-group-item px-0 d-flex justify-content-between">
+                                <span class="text-muted">Địa chỉ thường trú:</span>
+                                <span>@(Model.Resident.Address ?? "Chưa rõ")</span>
+                            </li>
+                        </ul>
+                    }
+                    else
+                    {
+                        <p class="text-muted small mb-0">Hồ sơ cư dân chưa được thiết lập.</p>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-7">
+            <div class="card-enterprise h-100">
+                <div class="card-enterprise-header d-flex justify-content-between align-items-center">
+                    <h6 class="fw-bold mb-0"><i class="bi bi-people text-info me-2"></i>Thành Viên Cùng Hộ Gia Đình</h6>
+                    @if (Model.ActiveApartment != null)
+                    {
+                        <span class="badge bg-light text-dark border">
+                            @Model.ActiveApartment.ApartmentCode · Tầng @Model.ActiveApartment.Floor · @Model.ActiveApartment.Area m²
+                        </span>
+                    }
+                </div>
+                <div class="card-enterprise-body p-0">
+                    @if (Model.HouseholdMembers.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0 small">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Thành viên</th>
+                                        <th>Quan hệ</th>
+                                        <th>Ngày vào ở</th>
+                                        <th class="text-end pe-3">Vai trò</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var m in Model.HouseholdMembers)
+                                    {
+                                        <tr>
+                                            <td class="fw-semibold">
+                                                @(m.Resident?.User?.FullName ?? "N/A")
+                                                @if (m.Resident?.UserId == Model.Resident?.UserId)
+                                                {
+                                                    <span class="badge bg-info-subtle text-info ms-1">Bạn</span>
+                                                }
+                                            </td>
+                                            <td>@m.Relationship</td>
+                                            <td>@m.MoveInDate.ToString("dd/MM/yyyy")</td>
+                                            <td class="text-end pe-3">
+                                                @if (m.IsOwner)
+                                                {
+                                                    <span class="badge bg-primary">Chủ Hộ</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-light text-dark border">Thành viên</span>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center py-4 text-muted">
+                            <p class="small mb-0">Bạn hiện chưa được liên kết với căn hộ nào đang hoạt động.</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. Resident Services Quick Lists: Repairs, Vehicles, Visitors -->
+    <div class="row g-4">
+        <!-- Service 1: Yêu cầu sửa chữa gần đây -->
+        <div class="col-12 col-lg-4">
+            <div class="card-enterprise h-100">
+                <div class="card-enterprise-header d-flex justify-content-between align-items-center">
+                    <h6 class="fw-bold mb-0"><i class="bi bi-tools text-danger me-2"></i>Yêu Cầu Sửa Chữa</h6>
+                    <a asp-controller="RepairRequests" asp-action="Create" class="btn btn-sm btn-brand-primary">+ Gửi yêu cầu</a>
+                </div>
+                <div class="card-enterprise-body p-3">
+                    @if (Model.RecentRepairRequests.Any())
+                    {
+                        <div class="d-flex flex-column gap-2">
+                            @foreach (var r in Model.RecentRepairRequests)
+                            {
+                                <div class="p-2 border rounded-3 bg-light">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span class="badge @(r.Status == ApartmentManagement.Models.RepairRequestStatus.Completed ? "bg-success" : "bg-warning text-dark")" style="font-size: 0.65rem;">@r.Status</span>
+                                        <span class="small text-muted" style="font-size: 0.7rem;">@r.CreatedAt.ToString("dd/MM/yyyy")</span>
+                                    </div>
+                                    <a asp-controller="RepairRequests" asp-action="Details" asp-route-id="@r.RepairRequestId" class="fw-semibold text-dark text-decoration-none small d-block text-truncate">
+                                        @r.Title
+                                    </a>
                                 </div>
                             }
                         </div>
                     }
                     else
                     {
-                        <div class="text-center py-3 text-muted">
-                            <p class="mb-0">Chưa có lịch sử cư trú.</p>
-                        </div>
+                        <p class="text-muted small text-center my-3">Chưa có yêu cầu sửa chữa nào.</p>
                     }
                 </div>
             </div>
         </div>
 
-        <!-- Quick Resident Services -->
-        <div class="col-12 mt-4">
-            <h5 class="fw-bold mb-3"><i class="bi bi-grid-3x3-gap-fill text-primary me-2"></i>Dịch Vụ Cư Dân Nhanh</h5>
-            <div class="row row-cols-2 row-cols-md-3 row-cols-lg-6 g-3">
-                <div class="col">
-                    <a asp-controller="Vehicle" asp-action="Index" class="card card-body text-center shadow-sm border-0 text-decoration-none h-100 hover-card p-3">
-                        <span class="fs-2 mb-1">🚗</span>
-                        <span class="fw-semibold text-dark small">Phương tiện</span>
-                    </a>
+        <!-- Service 2: Phương tiện đăng ký -->
+        <div class="col-12 col-lg-4">
+            <div class="card-enterprise h-100">
+                <div class="card-enterprise-header d-flex justify-content-between align-items-center">
+                    <h6 class="fw-bold mb-0"><i class="bi bi-car-front text-primary me-2"></i>Phương Tiện Đăng Ký</h6>
+                    <a asp-controller="Vehicle" asp-action="Register" class="btn btn-sm btn-brand-primary">+ Đăng ký xe</a>
                 </div>
-                <div class="col">
-                    <a asp-controller="Complaint" asp-action="Index" class="card card-body text-center shadow-sm border-0 text-decoration-none h-100 hover-card p-3">
-                        <span class="fs-2 mb-1">📢</span>
-                        <span class="fw-semibold text-dark small">Phản ánh</span>
-                    </a>
+                <div class="card-enterprise-body p-3">
+                    @if (Model.RegisteredVehicles.Any())
+                    {
+                        <div class="d-flex flex-column gap-2">
+                            @foreach (var v in Model.RegisteredVehicles)
+                            {
+                                <div class="p-2 border rounded-3 bg-light">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span class="badge bg-secondary" style="font-size: 0.65rem;">@v.VehicleType</span>
+                                        <span class="badge @(v.Status == "Đã duyệt" ? "bg-success" : (v.Status == "Chờ duyệt" ? "bg-warning text-dark" : "bg-danger"))" style="font-size: 0.65rem;">@v.Status</span>
+                                    </div>
+                                    <div class="fw-bold text-dark font-monospace small">@v.LicensePlate</div>
+                                    @if (v.ParkingCard != null)
+                                    {
+                                        <span class="text-muted small" style="font-size: 0.7rem;">Thẻ từ: @v.ParkingCard.CardCode</span>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-muted small text-center my-3">Bạn chưa đăng ký phương tiện nào.</p>
+                    }
                 </div>
-                <div class="col">
-                    <a asp-controller="MyAmenities" asp-action="Index" class="card card-body text-center shadow-sm border-0 text-decoration-none h-100 hover-card p-3">
-                        <span class="fs-2 mb-1">🏊</span>
-                        <span class="fw-semibold text-dark small">Đặt tiện ích</span>
-                    </a>
+            </div>
+        </div>
+
+        <!-- Service 3: Khách đến thăm gần đây -->
+        <div class="col-12 col-lg-4">
+            <div class="card-enterprise h-100">
+                <div class="card-enterprise-header d-flex justify-content-between align-items-center">
+                    <h6 class="fw-bold mb-0"><i class="bi bi-person-check text-success me-2"></i>Đăng Ký Khách</h6>
+                    <a asp-controller="Visitors" asp-action="Register" class="btn btn-sm btn-brand-primary">+ Khách mới</a>
                 </div>
-                <div class="col">
-                    <a asp-controller="Visitors" asp-action="Index" class="card card-body text-center shadow-sm border-0 text-decoration-none h-100 hover-card p-3">
-                        <span class="fs-2 mb-1">🚶</span>
-                        <span class="fw-semibold text-dark small">Đăng ký khách</span>
-                    </a>
-                </div>
-                <div class="col">
-                    <a asp-controller="MyInvoices" asp-action="Index" class="card card-body text-center shadow-sm border-0 text-decoration-none h-100 hover-card p-3">
-                        <span class="fs-2 mb-1">🧾</span>
-                        <span class="fw-semibold text-dark small">Hóa đơn</span>
-                    </a>
+                <div class="card-enterprise-body p-3">
+                    @if (Model.RecentVisitorPasses.Any())
+                    {
+                        <div class="d-flex flex-column gap-2">
+                            @foreach (var vp in Model.RecentVisitorPasses)
+                            {
+                                <div class="p-2 border rounded-3 bg-light">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span class="badge @(vp.Status == "Đã vào" ? "bg-success" : (vp.Status == "Đã đăng ký" ? "bg-primary" : "bg-secondary"))" style="font-size: 0.65rem;">@vp.Status</span>
+                                        <span class="small text-muted" style="font-size: 0.7rem;">@vp.ExpectedArrivalDate.ToString("dd/MM/yyyy")</span>
+                                    </div>
+                                    <div class="fw-semibold text-dark small text-truncate">@vp.VisitorName</div>
+                                    <span class="text-muted small" style="font-size: 0.7rem;">SĐT: @(vp.PhoneNumber ?? "Không có")</span>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-muted small text-center my-3">Chưa có lượt đăng ký khách nào.</p>
+                    }
                 </div>
             </div>
         </div>
