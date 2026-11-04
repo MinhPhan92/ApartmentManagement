@@ -141,6 +141,11 @@ builder.Services.AddAuthorization(options =>
             AppRoles.Technician));
 });
 
+builder.Services.AddAntiforgery(options =>
+{
+    options.HeaderName = "RequestVerificationToken";
+});
+
 builder.Services.AddControllersWithViews();
 
 var app = builder.Build();
@@ -152,6 +157,16 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+var spaDistPath = Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, "..", "frontend", "dist"));
+var spaIndexFile = Path.Combine(spaDistPath, "index.html");
+if (Directory.Exists(spaDistPath))
+{
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(spaDistPath)
+    });
+}
 
 app.UseRouting();
 
@@ -166,6 +181,19 @@ app.MapControllerRoute(
 
 app.MapRazorPages();
 app.MapHub<ApartmentManagement.Hubs.NotificationHub>("/hubs/notifications");
+
+if (File.Exists(spaIndexFile))
+{
+    IResult ServeSpaIndex() => Results.File(spaIndexFile, "text/html; charset=utf-8");
+
+    app.MapGet("/login", ServeSpaIndex).AllowAnonymous();
+    app.MapGet("/access-denied", ServeSpaIndex).AllowAnonymous();
+    app.MapGet("/lockout", ServeSpaIndex).AllowAnonymous();
+    app.MapGet("/resident", ServeSpaIndex).AllowAnonymous();
+    app.MapGet("/resident/{**slug}", ServeSpaIndex).AllowAnonymous();
+    app.MapGet("/management", ServeSpaIndex).AllowAnonymous();
+    app.MapGet("/management/{**slug}", ServeSpaIndex).AllowAnonymous();
+}
 
 await IdentityDataSeeder.InitializeAsync(app.Services, app.Configuration, app.Environment);
 
