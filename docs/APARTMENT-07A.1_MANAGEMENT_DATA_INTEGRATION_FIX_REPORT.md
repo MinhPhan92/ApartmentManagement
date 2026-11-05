@@ -111,3 +111,4 @@
 
 - **Mức độ sẵn sàng:** **READY FOR ALL-ROLE DEMO** (Đủ điều kiện sẵn sàng demo toàn diện cho tất cả các vai trò).
 - Hệ thống đã kiểm chứng đầy đủ tính tương thích, bảo mật phân quyền 5 vai trò, tích hợp dữ liệu cơ sở dữ liệu thật và an toàn tuyệt đối.
+
