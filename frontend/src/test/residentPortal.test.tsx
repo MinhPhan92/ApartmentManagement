@@ -10,7 +10,7 @@ const mockResident: CurrentUser = {
   userId: 'user-res-1',
   userName: 'resident01',
   displayName: 'Nguyễn Văn Cư Dân',
-  email: 'resident01@vinhomes.local',
+  email: 'resident01@apartment.local',
   phoneNumber: '0901234567',
   roles: ['Resident'],
   portal: 'resident',
@@ -27,7 +27,7 @@ const mockResident: CurrentUser = {
     residentId: 10,
     activeApartmentId: 101,
     activeApartmentCode: 'S1.02-1208',
-    buildingName: 'Tòa S1.02 Vinhomes',
+    buildingName: 'Tòa S1.02 Grand Park',
   },
 };
 
@@ -169,7 +169,7 @@ describe('Resident Portal Modules (Amenities, Invoices & VietQR, Vehicles, Visit
               invoiceCode: 'INV-202611-000101',
               apartmentId: 101,
               apartmentCode: 'S1.02-1208',
-              buildingName: 'Tòa S1.02 Vinhomes',
+              buildingName: 'Tòa S1.02 Grand Park',
               billingYear: 2026,
               billingMonth: 11,
               periodLabel: 'Tháng 11/2026',
@@ -237,7 +237,7 @@ describe('Resident Portal Modules (Amenities, Invoices & VietQR, Vehicles, Visit
               canCreatePaymentAttempt: true,
               bankBin: '970436',
               accountNumber: '1023456789',
-              accountName: 'BAN QUAN LY VINHOMES',
+              accountName: 'BAN QUAN LY CHUNG CU',
             },
           }),
           { status: 200, headers: { 'Content-Type': 'application/json' } }
@@ -257,7 +257,7 @@ describe('Resident Portal Modules (Amenities, Invoices & VietQR, Vehicles, Visit
                 invoiceCode: 'INV-202611-000101',
                 apartmentId: 101,
                 apartmentCode: 'S1.02-1208',
-                buildingName: 'Tòa S1.02 Vinhomes',
+                buildingName: 'Tòa S1.02 Grand Park',
                 billingYear: 2026,
                 billingMonth: 11,
                 periodLabel: 'Tháng 11/2026',
@@ -287,7 +287,7 @@ describe('Resident Portal Modules (Amenities, Invoices & VietQR, Vehicles, Visit
 
     expect(await screen.findByText('Phí quản lý & gửi xe')).toBeInTheDocument();
     expect(screen.getByText('Tiền điện sinh hoạt')).toBeInTheDocument();
-    expect(screen.getByText('BAN QUAN LY VINHOMES')).toBeInTheDocument();
+    expect(screen.getByText('BAN QUAN LY CHUNG CU')).toBeInTheDocument();
     expect(screen.getAllByText('VH-INV101-8899').length).toBeGreaterThan(0);
   });
 
@@ -347,8 +347,8 @@ describe('Resident Portal Modules (Amenities, Invoices & VietQR, Vehicles, Visit
               {
                 apartmentId: 101,
                 apartmentCode: 'S1.02-1208',
-                buildingName: 'Tòa S1.02 Vinhomes',
-                label: 'S1.02-1208 — Tòa S1.02 Vinhomes',
+                buildingName: 'Tòa S1.02 Grand Park',
+                label: 'S1.02-1208 — Tòa S1.02 Grand Park',
               },
             ],
           }),

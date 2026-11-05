@@ -64,7 +64,7 @@ export function ResidentApartmentPage() {
                   <Badge variant="success">{apt.status}</Badge>
                 </div>
                 <p className="text-xs text-[#475569] mt-0.5">
-                  {apt.buildingAddress || 'Khu đô thị Vinhomes'}
+                  {apt.buildingAddress || 'Khu phức hợp căn hộ'}
                 </p>
               </div>
             </div>
